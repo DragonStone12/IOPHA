@@ -10,6 +10,10 @@ on:
 jobs:
   bandit:
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -24,17 +28,11 @@ jobs:
         run: |
           mkdir -p reports
           bandit -r . -c pyproject.toml --severity-level medium -f sarif -o reports/bandit-report.sarif
-          bandit -r . -c pyproject.toml --severity-level medium -f html -o reports/bandit-report.html
-      - name: Upload SARIF artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          name: bandit-sarif-report
-          path: reports/bandit-report.sarif
-      - name: Upload HTML artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-html-report
-          path: reports/bandit-report.html
+          sarif_file: reports/bandit-report.sarif
+          category: bandit-analysis
 
   pip-audit:
     runs-on: ubuntu-latest
