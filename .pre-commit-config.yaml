@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "--severity-level", "medium"]
+        additional_dependencies: ["bandit[toml]"]
+
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.10.1
+    hooks:
+      - id: pip-audit
+        args: ["-r", "requirements.txt", "--fix", "--desc"]
+    ci:
+      skip: [pip-audit]

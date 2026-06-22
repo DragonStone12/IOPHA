@@ -1,0 +1,15 @@
+[tool.bandit]
+exclude_dirs = ["venv", ".git", "__pycache__"]
+skips = ["B101"]
+
+[[tool.bandit.severity]]
+level = "LOW"
+action = "skip"
+
+[[tool.bandit.severity]]
+level = "MEDIUM"
+action = "warn"
+
+[[tool.bandit.severity]]
+level = "HIGH"
+action = "block"
