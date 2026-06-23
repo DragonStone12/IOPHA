@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend Build
+IOPHA-frontend/dist
+IOPHA-frontend/.vite
+IOPHA-frontend/.eslintcache
+IOPHA-frontend/build
+
+# JetBrains IDE
+.idea/

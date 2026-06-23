@@ -1,6 +1,15 @@
 # IOPHA: Predictive Obesity Risk Health Assistant
 
-An interactive health assistant that bridges the gap between obesity risk detection and actionable prevention, powered by Retrieval-Augmented Generation (RAG).
+A monorepo containing the Interactive Obesity Prevention Health Assistant, powered by Retrieval-Augmented Generation (RAG).
+
+## Repository Structure
+
+```
+├── IOPHA-frontend/     # React/TypeScript application
+├── IOPHA-backend/      # FastAPI application
+├── infra/              # Infrastructure as Code (Terraform/CDK)
+└── docs/               # Architecture diagrams and compliance notes
+```
 
 ## The Problem
 
@@ -34,3 +43,24 @@ A user completes a health survey on Baylor's website and triggers a high-risk al
 - **Improved Outcomes**: Reduces the likelihood of costly chronic disease management through early intervention.
 - **Increased Engagement**: Accommodates all user comfort levels with both professional care connections and immediate self-directed advice.
 - **Monetization**: Creates a direct pathway to revenue through in-network clinical visits and premium preventative wellness programs.
+
+## Development
+
+### Frontend (IOPHA-frontend)
+
+Husky git hooks are configured for code quality:
+
+```bash
+npm install  # installs dependencies and husky automatically via prepare script
+```
+
+Pre-commit hook runs lint-staged to lint and format staged files.
+
+### Backend (IOPHA-backend)
+
+Pre-commit hooks configured via `.pre-commit-config.yaml`:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
