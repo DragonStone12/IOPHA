@@ -51,7 +51,7 @@ The system is split into two independently deployable services communicating ove
 
 ## 03 Data Model
 
-The system uses a relational database with vector-search capabilities for embeddings, plus object storage for raw documents. Core entities cover users, organizations, risk profiles, clinical guidelines, physicians, facilities, chat sessions, messages, and ingestion jobs. Tenant isolation is enforced via organization scoping. The ingestion pipeline runs as scheduled or event-driven tasks, with status tracked in a dedicated jobs table.
+The system uses a relational database with vector-search capabilities for embeddings, plus object storage for raw documents. Core entities cover users, organizations, risk profiles, clinical guidelines, physicians, facilities, chat sessions, messages, and ingestion jobs. The ingestion pipeline runs as scheduled or event-driven tasks, with status tracked in a dedicated jobs table.
 
 ## 04 Testing Plan
 
@@ -68,10 +68,10 @@ The system uses a relational database with vector-search capabilities for embedd
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.
-- Auth: invalid tokens return 401; cross-organization queries return 403.
+- Auth: invalid tokens return 401; unauthorized queries return 403.
 - RAG: high-risk user receives guideline-based response; no generic content when pgvector is available.
 - pgvector: similarity search returns relevant guidelines within latency target; fallback to full-text search works.
-- Scheduling: physician list filtered by organization; unavailable physicians excluded.
+- Scheduling: physician list filtered appropriately; unavailable physicians excluded.
 - Ingestion: PDF upload → Textract → embedding → pgvector completes within SLA; failures handled gracefully with retry.
 - Error handling: LLM timeout returns graceful fallback; pgvector failure falls back to keyword search; Textract failure marks job as failed.
 
@@ -115,31 +115,24 @@ The system uses a relational database with vector-search capabilities for embedd
 - Health check endpoints return 200.
 - pgvector index queries validated with spot-check similarity searches.
 - Ingestion pipeline: submit test PDF, verify completion and embedding quality.
-- Sentry alert thresholds reviewed.
 - Error rate and latency dashboards checked for 15 minutes post-deploy.
 
 ## 06 Security & Performance
 
 ### Security
-- **Authentication & Authorization**: JWT + httpOnly cookies; per-route FastAPI dependencies; organization-scoped query filters.
-- **Input validation**: Pydantic schemas enforce strict types on all API inputs; Textract output sanitized before embedding.
-- **Secrets management**: Environment variables or host-level secrets manager; no secrets in repo.
-- **Dependency scanning**: Bandit (Python) + pip-audit (Python) in CI; npm audit (frontend) in CI.
-- **Document handling**: Uploaded PDFs scanned for malware; limited to approved MIME types; stored in encrypted S3.
-- **OWASP considerations**:
-  - A01: Broken access control → Organization scoping on all queries; ingestion jobs require internal auth.
-  - A02: Cryptographic failures → TLS 1.3, encrypted secrets at rest, S3 server-side encryption.
-  - A03: Injection → Parameterized queries via SQLAlchemy; prompt injection mitigation via system prompts and context filtering.
-  - A07: Auth failures → Rate limiting, MFA (TO BE DETERMINED).
-  - A08: Data integrity failures → CI dependency auditing; Textract job verification before upsert.
+- **IAM & Access Control**: All services and jobs run under least-privilege IAM roles. AWS resources (Textract, S3) are accessed via scoped IAM policies. Application-level permissions enforce role-based access.
+- **Input validation**: Strict validation on all API inputs; external data (e.g., Textract output) sanitized before processing.
+- **Secrets management**: Secrets stored in environment variables or a secrets manager; no credentials in code or repo.
+- **Dependency scanning**: Automated vulnerability scanning in CI for all dependencies.
+- **Principle of least privilege**: Each component receives only the permissions required for its function. Network access is restricted to necessary endpoints.
 
 ### Performance
 - **Targets**: Chat response <2s p95; pgvector guideline retrieval <500ms; page load <3s.
 - **Optimization**: pgvector IVFFlat index for fast similarity search; CDN for frontend assets; database connection pooling; response streaming via WebSocket; guideline text cached in application memory for hot chunks.
-- **Monitoring**: Sentry for errors; custom metrics for latency and throughput; ingestion job duration tracked.
+- **Monitoring**: Prometheus and Grafana with AWS CloudWatch Logs integration for centralized metrics, dashboards, and alerting.
 - **Scaling**: Horizontal scaling for backend API via container orchestration; read replicas for PostgreSQL if needed; ingest pipeline can be parallelized across documents.
 
 ### Observability
 - **Logging**: Structured JSON logs with request ID, user ID (anonymized), latency; ingestion job status transitions logged.
 - **Metrics**: Request rate, error rate, duration (RED); cache hit rates; ingestion queue depth, job success/failure rate, Textract latency.
-- **Alerting**: PagerDuty / Slack alerts on error rate spikes, ingestion pipeline failures, or downstream service degradation (Textract, LLM, pgvector).
+- **Alerting**: Alerts on error rate spikes, ingestion pipeline failures, or downstream service degradation.

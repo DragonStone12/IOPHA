@@ -34,7 +34,7 @@ Document Ingestion Pipeline (Scheduled / Event-driven)
 
 ## 03 Data Model
 
-Core entities live in the primary relational store (users, organizations, risk profiles, physicians, facilities, sessions, messages) and a guidelines table augmented with vector search for semantic retrieval. A jobs table tracks document processing status. All tenant-scoped tables carry an organization identifier for multi-tenancy. Relevant indexes support lookups by user, organization, session, and vector similarity.
+Core entities live in the primary relational store (users, organizations, risk profiles, physicians, facilities, sessions, messages) and a guidelines table augmented with vector search for semantic retrieval. A jobs table tracks document processing status. Relevant indexes support lookups by user, organization, session, and vector similarity.
 
 ## 04 API Design
 
@@ -51,15 +51,9 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 ### Authorization
 - **Roles**:
   - `patient`: Access own data, chat, schedule appointments
-  - `admin`: Manage organization physicians, facilities, guidelines; view ingestion job status
-- **Enforcement**: Per-route dependency injection via FastAPI dependencies; organization-scoped queries enforce data isolation at the service layer.
+  - `admin`: Manage physicians, facilities, guidelines; view ingestion job status
+- **Enforcement**: Per-route dependency injection via FastAPI dependencies.
 - **Public routes**: Auth registration, login, and token refresh endpoints are publicly accessible.
-
-### Multi-tenancy
-- Organization-scoped data isolation via organization identifiers on all primary entities.
-- Frontend derives organization from user profile at login; all subsequent requests are filtered by the user's linked organization.
-- Clinical guideline embeddings are filtered by organization at query time, defaulting to global guidelines when no org-specific match is available.
-- Cross-organization data access is prohibited at the database query level.
 
 ## 06 Third-Party Services
 
@@ -76,7 +70,7 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Failure handling**: If vector similarity search fails, fall back to full-text search on guideline content using native database text search.
 
 ### Hospital Directory Service
-- **Service**: Internal PostgreSQL database with organization-specific physician and facility records.
+- **Service**: Internal PostgreSQL database with physician and facility records.
 - **SDK/Library**: SQLAlchemy / raw SQL via asyncpg.
 - **Config**: `DATABASE_URL`
 - **Failure handling**: If directory lookup fails, return empty physician list and prompt user to contact hospital directly.
@@ -105,12 +99,6 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Config**: `EMAIL_API_KEY`, `EMAIL_FROM`
 - **Failure handling**: Queue notifications for retry; log failure but do not block core experience.
 
-### Monitoring & Error Tracking
-- **Service**: Sentry — Backend error tracking.
-- **SDK/Library**: `sentry-sdk[fastapi]`
-- **Config**: `SENTRY_DSN`
-- **Failure handling**: If Sentry is down, errors are logged locally; no user impact.
-
 ## 07 Frontend Architecture
 
 ### Tech Choices
@@ -118,21 +106,6 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Component library**: TO BE DETERMINED — evaluating shadcn/ui or Radix primitives.
 - **Styling**: TO BE DETERMINED — evaluating Tailwind CSS or CSS Modules.
 - **State management**: TO BE DETERMINED — evaluating React Query (TanStack Query) for server state and Zustand for client state.
-
-### Page Structure
-- `/` — Landing page (organization-branded)
-- `/app` — Main chat interface
-- `/app/sessions/:id` — Chat session view
-- `/app/schedule` — Physician scheduling flow
-- `/settings` — User profile and consent management
-- `/login` — Authentication
-- `/register` — New user registration
-
-### Data Fetching Strategy
-- Server components: Not applicable (SPA architecture).
-- Client components: React Query for all server state; optimistic updates for chat messages.
-- Caching: Stale-while-revalidate for guidelines and physician directories.
-- Global error handling: React Query error boundaries + Sentry integration.
 
 ## 08 Infrastructure & Deployment
 
@@ -159,7 +132,7 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 ### Environments
 - **Development**: Local Docker Compose or `uvicorn` + Vite dev server; seed data in local PostgreSQL with pgvector; local Textract emulator or sample documents in S3-compatible storage (e.g., MinIO).
 - **Staging**: Mirrors production infra; uses synthetic health data; ingestion pipeline runs against test S3 bucket.
-- **Production**: Full infra with HIPAA-compliant config; audit logging enabled; secrets in vault or host secrets manager.
+- **Production**: Full infra with HIPAA-aligned configuration; audit logging enabled; secrets in vault or host secrets manager.
 
 ### Environment Variables
 
@@ -176,6 +149,5 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 | LLM | `LLM_API_KEY` | Yes | OpenAI / Anthropic key |
 | LLM | `LLM_MODEL` | No | Model identifier |
 | Email | `EMAIL_API_KEY` | Yes | Resend / SendGrid key |
-| Monitoring | `SENTRY_DSN` | Yes | Sentry project DSN |
 | App | `APP_ENV` | No | development / staging / production |
 | App | `CORS_ORIGINS` | No | Allowed frontend origins |
