@@ -149,8 +149,7 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - Cypress configuration (`cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on run failures and stored in `cypress/screenshots`.
-  - Component testing configured with Vite 5+ bundler and React framework. `viteConfig` uses an async function to merge the base Vite config with Cypress-specific overrides (e.g., `process.env.NODE_ENV` set to `test`). Spec pattern for component tests is `cypress/component/**/*.cy.{js,ts,tsx}`.
-  - Supports both E2E (`cypress/e2e/**/*.cy.{js,ts}`) and component specs; component suite is foundational for future stories.
+  - E2E suite configured for multi-browser matrix runs. Component testing configuration is deferred to a separate story.
 - Cypress workflow job:
   - Matrix strategy runs three jobs in parallel across browsers.
   - `fail-fast: false` ensures all browsers run even if one fails.

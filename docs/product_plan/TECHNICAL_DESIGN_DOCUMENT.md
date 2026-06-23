@@ -68,14 +68,8 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
-- **Frameworks**: pytest (Python), Cypress Component Testing (frontend).
+- **Frameworks**: pytest (Python), Cypress (frontend).
 - **CI integration**: Tests run in GitHub Actions on every PR to `main`.
-
-### Component Testing Configuration
-- **Framework**: React 18 with TypeScript and Vite 5+ bundler.
-- **Spec location**: `src/**/*.cy.{ts,tsx}` alongside source components.
-- **Support file**: `cypress/support/component.ts` with custom `cy.mount()` command.
-- **Environment**: `process.env.NODE_ENV` set to `'test'` in component test context.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.
@@ -108,8 +102,7 @@ The system uses a relational database with vector-search capabilities for embedd
 - Cypress configuration (`IOPHA-frontend/cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on failures to `cypress/screenshots`.
-  - Component testing block configured with Vite 5+ bundler and React framework using an async `viteConfig` function that merges the base Vite config with Cypress-specific overrides (e.g., `process.env.NODE_ENV` set to `test`). Spec pattern for component tests is `cypress/component/**/*.cy.{js,ts,tsx}`.
-  - Supports both E2E (`cypress/e2e/**/*.cy.{js,ts}`) and component specs.
+  - E2E suite configured for multi-browser matrix runs. Component testing configuration is deferred to a separate story.
 - Build artifacts pushed to registry on merge to `main`.
 - Production deploy triggered automatically or manually via `workflow_dispatch`.
 
