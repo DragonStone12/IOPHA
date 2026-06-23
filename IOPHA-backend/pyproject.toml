@@ -1,0 +1,27 @@
+[tool.bandit]
+exclude_dirs = ["venv", ".git", "__pycache__", "tests"]
+skips = ["B101"]
+
+[[tool.bandit.severity]]
+level = "LOW"
+action = "skip"
+
+[[tool.bandit.severity]]
+level = "MEDIUM"
+action = "warn"
+
+[[tool.bandit.severity]]
+level = "HIGH"
+action = "block"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]

@@ -1,0 +1,25 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.tf_vars
+.terraform/
+crash.log
+terraform.tfvars
+.terraform.tfvars.json
+
+# CDK
+.cdk/
+cdk.out/
+*.cdkout
+node_modules/
+
+# Python (if CDK uses Python)
+__pycache__/
+*.py[cod]
+.venv
+venv/
+
+# Common
+.DS_Store
+*.swp
+*.bak

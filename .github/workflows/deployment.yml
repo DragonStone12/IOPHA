@@ -8,6 +8,23 @@ on:
     branches: [ main ]
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IOPHA-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint
+
   bandit:
     runs-on: ubuntu-latest
     permissions:
@@ -27,7 +44,7 @@ jobs:
       - name: Run Bandit Analysis
         run: |
           mkdir -p reports
-          bandit -r . -c pyproject.toml --severity-level medium -f sarif -o reports/bandit-report.sarif
+          bandit -r IOPHA-backend -c IOPHA-backend/pyproject.toml --severity-level medium -f sarif -o reports/bandit-report.sarif
       - name: Upload SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4
         with:
@@ -49,7 +66,7 @@ jobs:
       - name: Run pip-audit
         run: |
           mkdir -p reports
-          pip-audit -r requirements.txt --fix --desc --format markdown -o reports/pip-audit-report.md
+          pip-audit -r IOPHA-backend/requirements.txt --fix --desc --format markdown -o reports/pip-audit-report.md
       - name: Upload pip-audit markdown artifact
         uses: actions/upload-artifact@v4
         with:
