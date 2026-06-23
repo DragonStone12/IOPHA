@@ -8,7 +8,9 @@
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write .",
     "prepare": "husky install",
-    "test": "echo \"No tests configured yet\" && exit 0"
+    "test": "echo \"No tests configured yet\" && exit 0",
+    "cy:open": "cypress open --e2e",
+    "cy:run": "cypress run --e2e"
   },
   "dependencies": {
     "debug": "^4.4.3",
@@ -22,6 +24,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^6.0.3",
+    "cypress": "^15.18.0",
     "eslint": "^8.50.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",

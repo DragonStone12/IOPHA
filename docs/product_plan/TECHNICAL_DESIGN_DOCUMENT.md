@@ -68,14 +68,8 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
-- **Frameworks**: pytest (Python), Cypress Component Testing (frontend).
+- **Frameworks**: pytest (Python), Cypress (frontend).
 - **CI integration**: Tests run in GitHub Actions on every PR to `main`.
-
-### Component Testing Configuration
-- **Framework**: React 18 with TypeScript and Vite 5+ bundler.
-- **Spec location**: `src/**/*.cy.{ts,tsx}` alongside source components.
-- **Support file**: `cypress/support/component.ts` with custom `cy.mount()` command.
-- **Environment**: `process.env.NODE_ENV` set to `'test'` in component test context.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.
@@ -104,7 +98,11 @@ The system uses a relational database with vector-search capabilities for embedd
 
 ### CI/CD Pipeline
 - Lint + type check + unit tests on every PR.
-- E2E tests on PRs touching `IOPHA-frontend/**` or `IOPHA-backend/**`.
+- Cypress E2E multi-browser matrix embedded in `.github/workflows/ci-frontend.yml` runs on PRs affecting `IOPHA-frontend/**` and on pushes to `main`. Uses `cypress-io/github-action@v7` with a strategy matrix across chrome, firefox, and edge. `fail-fast: false` ensures all browsers complete. Screenshots are uploaded as GitHub Actions artifacts on test failure, dynamically named per browser.
+- Cypress configuration (`IOPHA-frontend/cypress.config.ts`):
+  - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
+  - Screenshots captured on failures to `cypress/screenshots`.
+  - E2E suite configured for multi-browser matrix runs. Component testing configuration is deferred to a separate story.
 - Build artifacts pushed to registry on merge to `main`.
 - Production deploy triggered automatically or manually via `workflow_dispatch`.
 
