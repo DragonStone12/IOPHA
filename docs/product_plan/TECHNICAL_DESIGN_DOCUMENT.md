@@ -64,13 +64,18 @@ The system uses a relational database with vector-search capabilities for embedd
 ### Testing Strategy
 - **Unit tests**: Service-layer functions (RAG retrieval, directory matching, auth, ingestion pipeline). Coverage target: 80%.
 - **Integration tests**: FastAPI TestClient covering all API routes; database transactions rolled back per test; ingestion pipeline mocked against local S3 emulator (MinIO).
-- **E2E tests**: Playwright or Cypress covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
+- **E2E tests**: Cypress covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
-- **Frameworks**: pytest (Python), Vitest / React Testing Library (frontend), Playwright (E2E).
+- **Frameworks**: pytest (Python), Cypress Component Testing (frontend).
 - **CI integration**: Tests run in GitHub Actions on every PR to `main`.
-- **Code coverage**: Coverage.py with enforcement thresholds in CI.
+
+### Component Testing Configuration
+- **Framework**: React 18 with TypeScript and Vite 5+ bundler.
+- **Spec location**: `src/**/*.cy.{ts,tsx}` alongside source components.
+- **Support file**: `cypress/support/component.ts` with custom `cy.mount()` command.
+- **Environment**: `process.env.NODE_ENV` set to `'test'` in component test context.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.
@@ -82,9 +87,7 @@ The system uses a relational database with vector-search capabilities for embedd
 - Error handling: LLM timeout returns graceful fallback; pgvector failure falls back to keyword search; Textract failure marks job as failed.
 
 ### Reporting
-- pytest coverage reports uploaded as CI artifacts.
 - Test results summarized in PR checks.
-- E2E video artifacts on failure.
 - Ingestion pipeline metrics in admin dashboard.
 
 ## 05 Deployment Plan
@@ -133,12 +136,14 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Principle of least privilege**: Each component receives only the permissions required for its function. Network access is restricted to necessary endpoints.
 
 ### Performance
-- **Targets**: Chat response <2s p95; pgvector guideline retrieval <500ms; page load <3s.
-- **Optimization**: pgvector IVFFlat index for fast similarity search; CDN for frontend assets; database connection pooling; response streaming via WebSocket; guideline text cached in application memory for hot chunks.
-- **Monitoring**: Prometheus and Grafana with AWS CloudWatch Logs integration for centralized metrics, dashboards, and alerting.
+- **Targets**: Chat response <2s p95; pgvector guideline retrieval <500ms; page load <3s; component render <16ms (60fps).
+- **Frontend profiling**: React `<Profiler>` captures `actualDuration`, `baseDuration`, `phase`, and `commitTime` at root and route boundaries. A `usePerformanceTracking` hook measures per-component render time via refs to avoid re-render side effects. Components exceeding 16ms emit a warning through the centralized logger.
+- **Page metrics**: The Navigation Timing API Level 2 (`window.performance.getEntriesByType('navigation')[0]`) and Paint Timing API collect DNS lookup, TCP connection, TTFB, DOM interactive/load, First Paint, and First Contentful Paint. Metrics are logged once on application initialization.
+- **Telemetry volume**: Production builds apply client-side sampling (default 1% of render updates and page loads) to prevent observability pipeline flooding and alert fatigue.
+- **Backend optimization**: pgvector IVFFlat index for fast similarity search; CDN for frontend assets; database connection pooling; response streaming via WebSocket; guideline text cached in application memory for hot chunks.
 - **Scaling**: Horizontal scaling for backend API via container orchestration; read replicas for PostgreSQL if needed; ingest pipeline can be parallelized across documents.
 
 ### Observability
-- **Logging**: Structured JSON logs from frontend (winston) and backend; ingestion job status transitions logged.
-- **Metrics**: Request rate, error rate, duration (RED); cache hit rates; ingestion queue depth, job success/failure rate, Textract latency.
-- **Alerting**: Alerts on error rate spikes, ingestion pipeline failures, or downstream service degradation.
+- **Logging**: Structured JSON logs from frontend (winston) and backend; ingestion job status transitions logged; performance telemetry includes profiler durations and page metrics.
+- **Metrics**: Request rate, error rate, duration (RED); cache hit rates; ingestion queue depth, job success/failure rate, Textract latency; frontend render durations and navigation timings.
+- **Alerting**: Alerts on error rate spikes, ingestion pipeline failures, downstream service degradation, and frontend render threshold breaches.
