@@ -114,6 +114,19 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Transport safety**: Only browser-safe Console transport is configured. Node-specific transports (File, HTTP) are excluded from the client bundle.
 - **Monitoring integration**: Log outputs are formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
 
+### Performance Monitoring & Profiling
+- **Component profiling**: React `<Profiler>` is integrated at the root and route boundaries. The `onRender` callback logs `id`, `phase` (mount/update), `actualDuration`, `baseDuration`, `startTime`, and `commitTime` via the centralized logger.
+- **Render-loop tracking**: A `usePerformanceTracking` hook captures render durations using `useRef` and `useLayoutEffect`/`useEffect` to avoid extra re-renders. Components exceeding the 16ms (60fps) threshold trigger a `logger.warn`.
+- **Page-level metrics**: `logPagePerformanceMetrics` uses the Navigation Timing API Level 2 (`window.performance.getEntriesByType('navigation')[0]`) and Paint Timing API to collect DNS lookup, TCP connection, TTFB, DOM interactive/load, First Paint, and First Contentful Paint.
+- **Telemetry volume control**: Production builds apply client-side sampling (default 1% of render updates and page loads) to prevent observability pipeline flooding and alert fatigue. Development/staging environments log all telemetry.
+
+### Collected Metrics Overview
+- **React Profiler**: `actualDuration`, `baseDuration`, `phase`, `commitTime`
+- **usePerformanceTracking**: `renderTime` delta per component instance
+- **Navigation Timing**: `dns`, `tcp`, `ttfb`, `domInteractive`, `domContentLoaded`, `loadComplete`
+- **Paint Timing**: `firstPaint`, `firstContentfulPaint`
+- **Threshold**: 16ms render duration default
+
 ## 08 Infrastructure & Deployment
 
 ### Hosting
