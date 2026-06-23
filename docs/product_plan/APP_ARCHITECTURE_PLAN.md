@@ -145,7 +145,7 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - GitHub Actions workflows:
   - `.github/workflows/ci-frontend.yml` — lint + npm audit.
   - `.github/workflows/ci-backend.yml` — Bandit SAST + pip-audit.
-  - `.github/workflows/cypress-matrix.yml` — Cypress E2E multi-browser matrix (chrome, firefox, edge) with screenshot artifact uploads on failure.
+  - Cypress E2E multi-browser matrix embedded in `.github/workflows/ci-frontend.yml` (chrome, firefox, edge) with screenshot artifact uploads on failure.
 - Cypress configuration (`cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on run failures and stored in `cypress/screenshots`.

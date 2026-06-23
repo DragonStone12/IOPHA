@@ -98,7 +98,7 @@ The system uses a relational database with vector-search capabilities for embedd
 
 ### CI/CD Pipeline
 - Lint + type check + unit tests on every PR.
-- Cypress E2E multi-browser matrix (`cypress-matrix.yml`) runs on PRs affecting `IOPHA-frontend/**` and on pushes to `main`. Uses `cypress-io/github-action@v7` with a strategy matrix across chrome, firefox, and edge. `fail-fast: false` ensures all browsers complete. Screenshots are uploaded as GitHub Actions artifacts on test failure, dynamically named per browser.
+- Cypress E2E multi-browser matrix embedded in `.github/workflows/ci-frontend.yml` runs on PRs affecting `IOPHA-frontend/**` and on pushes to `main`. Uses `cypress-io/github-action@v7` with a strategy matrix across chrome, firefox, and edge. `fail-fast: false` ensures all browsers complete. Screenshots are uploaded as GitHub Actions artifacts on test failure, dynamically named per browser.
 - Cypress configuration (`IOPHA-frontend/cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on failures to `cypress/screenshots`.

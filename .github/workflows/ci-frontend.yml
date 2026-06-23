@@ -25,3 +25,33 @@ jobs:
         run: npm run lint
       - name: Run npm audit
         run: npm audit --audit-level=high
+
+  cypress-e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        browser: [chrome, firefox, edge]
+      fail-fast: false
+    defaults:
+      run:
+        working-directory: IOPHA-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Cypress Run
+        uses: cypress-io/github-action@v7
+        with:
+          browser: ${{ matrix.browser }}
+          working-directory: IOPHA-frontend
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots-${{ matrix.browser }}
+          path: cypress/screenshots
+          if-no-files-found: ignore
