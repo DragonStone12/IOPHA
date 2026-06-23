@@ -229,9 +229,5 @@ IOPHA-frontend/.vite
 IOPHA-frontend/.eslintcache
 IOPHA-frontend/build
 
-# Lock files
-package-lock.json
-yarn.lock
-
 # JetBrains IDE
 .idea/
