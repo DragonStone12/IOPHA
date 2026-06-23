@@ -34,7 +34,7 @@ jobs:
       - name: Upload SARIF to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: reports/bandit-report.sarif
+          sarif_file: IOPHA-backend/reports/bandit-report.sarif
           category: bandit-analysis
 
   pip-audit:
@@ -60,4 +60,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pip-audit-report
-          path: reports/pip-audit-report.md
+          path: IOPHA-backend/reports/pip-audit-report.md
