@@ -14,6 +14,9 @@ jobs:
       matrix:
         browser: [chrome, firefox, edge]
       fail-fast: false
+    defaults:
+      run:
+        working-directory: IOPHA-frontend
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -21,12 +24,12 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm ci --prefix IOPHA-frontend
+        run: npm ci
       - name: Cypress Run
         uses: cypress-io/github-action@v7
         with:
-          working-directory: IOPHA-frontend
           browser: ${{ matrix.browser }}
+          install: false
           command: npx cypress run --browser ${{ matrix.browser }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -35,5 +38,5 @@ jobs:
         if: failure()
         with:
           name: cypress-screenshots-${{ matrix.browser }}
-          path: IOPHA-frontend/cypress/screenshots
+          path: cypress/screenshots
           if-no-files-found: ignore
