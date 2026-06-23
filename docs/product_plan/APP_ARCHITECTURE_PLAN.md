@@ -106,6 +106,13 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Component library**: TO BE DETERMINED — evaluating shadcn/ui or Radix primitives.
 - **Styling**: TO BE DETERMINED — evaluating Tailwind CSS or CSS Modules.
 - **State management**: TO BE DETERMINED — evaluating React Query (TanStack Query) for server state and Zustand for client state.
+- **Logging**: winston for structured JSON logging with environment-aware levels; debug for namespace-scoped development logging.
+
+### Logging Strategy
+- **Structured logging**: winston configured with JSON formatting in production and colorized console output in development. Centralized logger utility (`src/utils/logger.js`) exposes `debug`, `info`, `warn`, and `error` methods.
+- **Namespace debugging**: debug package provides granular namespaces (`app:render`, `app:api`, `app:router`) toggled via `DEBUG` environment variable or `localStorage.debug` during development. Debug calls are stripped in production builds to prevent bundle bloat and information leakage.
+- **Transport safety**: Only browser-safe Console transport is configured. Node-specific transports (File, HTTP) are excluded from the client bundle.
+- **Monitoring integration**: Log outputs are formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
 
 ## 08 Infrastructure & Deployment
 

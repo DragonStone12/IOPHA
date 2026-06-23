@@ -3,12 +3,8 @@ name: CI - Frontend
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'IOPHA-frontend/**'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'IOPHA-frontend/**'
   workflow_dispatch:
 
 jobs:
