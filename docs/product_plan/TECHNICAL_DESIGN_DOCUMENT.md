@@ -104,7 +104,12 @@ The system uses a relational database with vector-search capabilities for embedd
 
 ### CI/CD Pipeline
 - Lint + type check + unit tests on every PR.
-- E2E tests on PRs touching `IOPHA-frontend/**` or `IOPHA-backend/**`.
+- Cypress E2E multi-browser matrix (`cypress-matrix.yml`) runs on PRs affecting `IOPHA-frontend/**` and on pushes to `main`. Uses `cypress-io/github-action@v7` with a strategy matrix across chrome, firefox, and edge. `fail-fast: false` ensures all browsers complete. Screenshots are uploaded as GitHub Actions artifacts on test failure, dynamically named per browser.
+- Cypress configuration (`IOPHA-frontend/cypress.config.ts`):
+  - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
+  - Screenshots captured on failures to `cypress/screenshots`.
+  - Component testing block configured with Vite 5+ bundler and React framework using an async `viteConfig` function that merges the base Vite config with Cypress-specific overrides (e.g., `process.env.NODE_ENV` set to `test`). Spec pattern for component tests is `cypress/component/**/*.cy.{js,ts,tsx}`.
+  - Supports both E2E (`cypress/e2e/**/*.cy.{js,ts}`) and component specs.
 - Build artifacts pushed to registry on merge to `main`.
 - Production deploy triggered automatically or manually via `workflow_dispatch`.
 

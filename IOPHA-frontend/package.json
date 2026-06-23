@@ -8,7 +8,13 @@
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write .",
     "prepare": "husky install",
-    "test": "echo \"No tests configured yet\" && exit 0"
+    "test": "echo \"No tests configured yet\" && exit 0",
+    "cy:open": "cypress open --e2e",
+    "cy:run": "cypress run --e2e",
+    "cy:open:component": "cypress open --component",
+    "cy:run:component": "cypress run --component",
+    "cy:open": "cypress open --e2e",
+    "cy:run": "cypress run --e2e"
   },
   "dependencies": {
     "debug": "^4.4.3",
