@@ -143,13 +143,14 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 
 ### CI/CD Pipeline
 - GitHub Actions workflows:
-  - `.github/workflows/ci-frontend.yml` — lint + npm audit + Cypress E2E matrix.
+  - `.github/workflows/ci-frontend.yml` — lint + npm audit.
   - `.github/workflows/ci-backend.yml` — Bandit SAST + pip-audit.
   - `.github/workflows/cypress-matrix.yml` — Cypress E2E multi-browser matrix (chrome, firefox, edge) with screenshot artifact uploads on failure.
 - Cypress configuration (`cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on run failures and stored in `cypress/screenshots`.
-  - Supports both E2E and component specs (component suite to be implemented in a future story).
+  - Component testing configured with Vite 5+ bundler and React framework. `viteConfig` uses an async function to merge the base Vite config with Cypress-specific overrides (e.g., `process.env.NODE_ENV` set to `test`). Spec pattern for component tests is `cypress/component/**/*.cy.{js,ts,tsx}`.
+  - Supports both E2E (`cypress/e2e/**/*.cy.{js,ts}`) and component specs; component suite is foundational for future stories.
 - Cypress workflow job:
   - Matrix strategy runs three jobs in parallel across browsers.
   - `fail-fast: false` ensures all browsers run even if one fails.

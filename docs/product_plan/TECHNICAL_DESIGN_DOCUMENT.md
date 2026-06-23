@@ -108,7 +108,8 @@ The system uses a relational database with vector-search capabilities for embedd
 - Cypress configuration (`IOPHA-frontend/cypress.config.ts`):
   - Video recording disabled in CI (`video: false`) to prevent artifact bloat.
   - Screenshots captured on failures to `cypress/screenshots`.
-  - Supports both E2E and component specs; component suite will be enabled in a future story.
+  - Component testing block configured with Vite 5+ bundler and React framework using an async `viteConfig` function that merges the base Vite config with Cypress-specific overrides (e.g., `process.env.NODE_ENV` set to `test`). Spec pattern for component tests is `cypress/component/**/*.cy.{js,ts,tsx}`.
+  - Supports both E2E (`cypress/e2e/**/*.cy.{js,ts}`) and component specs.
 - Build artifacts pushed to registry on merge to `main`.
 - Production deploy triggered automatically or manually via `workflow_dispatch`.
 
