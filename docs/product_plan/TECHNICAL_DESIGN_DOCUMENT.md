@@ -29,20 +29,20 @@ The system is split into two independently deployable services communicating ove
 - **Document Ingestion Pipeline**: Scheduled or event-driven process that extracts text from clinical PDFs via AWS Textract, generates vector embeddings, and upserts into pgvector.
 
 ### System Interfaces
-- **API endpoints**: FastAPI REST routes + WebSocket `/api/v1/chat/sessions/:id/stream`.
+- **API endpoints**: FastAPI REST routes + WebSocket streaming for real-time chat.
 - **Third-party integrations**: LLM API (HTTP), PostgreSQL + pgvector (psycopg/asyncpg), AWS Textract (boto3), S3 (boto3), Hospital directory DB (SQL).
 - **Internal modules**: `app/api` (routes), `app/services` (RAG orchestration, directory matching, ingestion pipeline), `app/core` (auth, config, database), `app/workers` (cron / ingestion jobs).
 
 ### Document Ingestion Flow
 1. Admin uploads clinical guideline PDF to S3 bucket.
 2. S3 event notification or cron triggers ingestion job.
-3. Backend creates `GuidelineIngestionJob` record with `status: pending`.
+3. Backend creates an ingestion job record with status `pending`.
 4. AWS Textract processes the document; raw text extracted.
 5. Text is chunked (e.g., 512-token windows with overlap).
 6. Each chunk is embedded via OpenAI `text-embedding-3-small`.
-7. Embeddings are upserted into `ClinicalGuideline` table in pgvector with `organizationId` and metadata.
+7. Embeddings are upserted into the guidelines table via the vector extension, with organization and metadata attached.
 8. Job marked `completed`; guideline becomes available for RAG retrieval.
-9. On failure, error logged in `GuidelineIngestionJob.errorMessage`; retry scheduled.
+9. On failure, error logged in the ingestion job; retry scheduled.
 
 ### User Interface
 - Dual-action chat interface: immediate tips and nearby physician suggestions side-by-side.
@@ -51,127 +51,7 @@ The system is split into two independently deployable services communicating ove
 
 ## 03 Data Model
 
-### Entities
-```
-User
-  id: uuid (PK)
-  email: text (unique, indexed)
-  name: text
-  organizationId: uuid (FK)
-  role: enum(patient, admin)
-  consentGiven: boolean
-  consentTimestamp: timestamptz
-  createdAt: timestamptz
-
-Organization
-  id: uuid (PK)
-  name: text
-  domain: text (unique)
-  settings: jsonb
-  createdAt: timestamptz
-
-RiskProfile
-  id: uuid (PK)
-  userId: uuid (FK, indexed)
-  bmi: numeric
-  lifestyleData: jsonb
-  riskScore: numeric
-  riskLevel: enum(low, medium, high, critical)
-  detectedAt: timestamptz
-
-ClinicalGuideline
-  id: uuid (PK)
-  title: text
-  content: text
-  embedding: vector(1536) — pgvector in PostgreSQL
-  category: text
-  organizationId: uuid (FK, nullable, indexed)
-  version: text
-  isActive: boolean
-  sourceDocumentUri: text — S3 path or URL to original PDF
-  createdAt: timestamptz
-
-Physician
-  id: uuid (PK)
-  organizationId: uuid (FK, indexed)
-  name: text
-  specialty: text
-  facilityId: uuid (FK)
-  availability: jsonb
-  isActive: boolean
-  createdAt: timestamptz
-
-Facility
-  id: uuid (PK)
-  organizationId: uuid (FK, indexed)
-  name: text
-  address: text
-  city: text
-  state: text
-  zip: text
-  latitude: numeric
-  longitude: numeric
-  phone: text
-  createdAt: timestamptz
-
-ConversationSession
-  id: uuid (PK)
-  userId: uuid (FK, indexed)
-  organizationId: uuid (FK, indexed)
-  startedAt: timestamptz
-  endedAt: timestamptz
-  outcome: enum(tips-only, scheduled, declined, pending)
-
-Message
-  id: uuid (PK)
-  sessionId: uuid (FK, indexed)
-  role: enum(user, assistant, system)
-  content: text
-  metadata: jsonb
-  createdAt: timestamptz
-
-GuidelineIngestionJob
-  id: uuid (PK)
-  sourceDocumentUri: text
-  status: enum(pending, processing, completed, failed)
-  textractJobId: text (nullable)
-  errorMessage: text (nullable)
-  processedAt: timestamptz (nullable)
-  createdAt: timestamptz
-```
-
-### Relationships
-- User → Organization: Many-to-one
-- User → RiskProfile: One-to-many
-- User → ConversationSession: One-to-many
-- Organization → Facility: One-to-many
-- Organization → Physician: One-to-many
-- Facility → Physician: One-to-many
-- ConversationSession → Message: One-to-many
-- User ↔ ClinicalGuideline: Relationship via vector similarity (semantic join)
-- ClinicalGuideline → GuidelineIngestionJob: One-to-one via ingestion process
-
-### Storage
-- **Database**: PostgreSQL with pgvector extension (Neon, Supabase, AWS RDS with pgvector, or self-hosted). Relational data and vector embeddings co-located.
-- **Vector Store**: pgvector for clinical guideline embeddings and user-profile vectors. IVFFlat index for cosine similarity search.
-- **Caching**: Redis (TO BE DETERMINED) for frequent guideline lookups and session state.
-- **Blob storage**: AWS S3 or compatible for raw clinical guideline PDFs.
-
-### Data Flow — RAG Chat
-1. User sends message via WebSocket.
-2. Backend encodes message + user risk profile into vector.
-3. pgvector retrieves top-k clinical guidelines filtered by `organizationId` (or global guidelines if no org-specific match).
-4. Backend queries hospital directory for nearby in-network physicians.
-5. LLM synthesizes response using retrieved context and physician options.
-6. Response streamed back to frontend; message and metadata persisted to PostgreSQL.
-
-### Data Flow — Document Ingestion
-1. PDF uploaded to S3 by admin or automated process.
-2. Trigger: S3 event (preferred) or cron job (fallback).
-3. Backend calls AWS Textract to extract structured text.
-4. Text is split into chunks (512 tokens, 128-token overlap) with metadata (organizationId, category, version).
-5. Each chunk is sent to embedding model; vectors stored in `ClinicalGuideline.embedding` via pgvector upsert.
-6. Job status updated; failures retried up to 3 times with exponential backoff.
+The system uses a relational database with vector-search capabilities for embeddings, plus object storage for raw documents. Core entities cover users, organizations, risk profiles, clinical guidelines, physicians, facilities, chat sessions, messages, and ingestion jobs. Tenant isolation is enforced via organization scoping. The ingestion pipeline runs as scheduled or event-driven tasks, with status tracked in a dedicated jobs table.
 
 ## 04 Testing Plan
 
@@ -211,7 +91,7 @@ GuidelineIngestionJob
 ### Ingestion Pipeline Deployment
 - **Local dev**: FastAPI background task or Celery worker; MinIO for S3.
 - **Staging/Production**: AWS Lambda (event-driven on S3 upload) or scheduled ECS task (cron); Textract invoked via boto3; results stored in production PostgreSQL.
-- **Monitoring**: `GuidelineIngestionJob` table queried by admin dashboard; alerts on repeated failures.
+- **Monitoring**: Ingestion job status table queried by admin dashboard; alerts on repeated failures.
 
 ### CI/CD Pipeline
 - Lint + type check + unit tests on every PR.
