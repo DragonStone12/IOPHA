@@ -49,6 +49,12 @@ The system is split into two independently deployable services communicating ove
 - Accessible, high-contrast design for older and visually-impaired users.
 - Responsive layout for desktop and mobile.
 
+### Frontend Logging & Observability
+- **Structured logging**: winston is used for browser-safe structured logging. A centralized logger utility (`src/utils/logger.js`) exports `debug`, `info`, `warn`, and `error` methods. JSON formatting is applied in production; colorized console output is used in development.
+- **Namespace debugging**: The `debug` package enables granular, namespace-scoped logging (`app:render`, `app:api`, `app:router`). Namespaces are toggled at runtime via the `DEBUG` environment variable or `localStorage.debug`. Debug statements are stripped from production builds to prevent bundle bloat and information leakage.
+- **Transport constraints**: Only the Console transport is configured for the browser. Node-specific transports (File, HTTP) are explicitly excluded to avoid bundling Node core modules.
+- **APM integration**: Log output is formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
+
 ## 03 Data Model
 
 The system uses a relational database with vector-search capabilities for embeddings, plus object storage for raw documents. Core entities cover users, organizations, risk profiles, clinical guidelines, physicians, facilities, chat sessions, messages, and ingestion jobs. The ingestion pipeline runs as scheduled or event-driven tasks, with status tracked in a dedicated jobs table.
@@ -133,6 +139,6 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Scaling**: Horizontal scaling for backend API via container orchestration; read replicas for PostgreSQL if needed; ingest pipeline can be parallelized across documents.
 
 ### Observability
-- **Logging**: Structured JSON logs with request ID, user ID (anonymized), latency; ingestion job status transitions logged.
+- **Logging**: Structured JSON logs from frontend (winston) and backend; ingestion job status transitions logged.
 - **Metrics**: Request rate, error rate, duration (RED); cache hit rates; ingestion queue depth, job success/failure rate, Textract latency.
 - **Alerting**: Alerts on error rate spikes, ingestion pipeline failures, or downstream service degradation.
