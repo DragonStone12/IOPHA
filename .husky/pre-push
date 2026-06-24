@@ -1,0 +1,1 @@
+cd IOPHA-frontend && npm run test:e2e && npm audit --audit-level=high

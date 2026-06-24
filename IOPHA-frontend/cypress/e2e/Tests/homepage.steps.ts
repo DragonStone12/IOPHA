@@ -1,4 +1,4 @@
-import { Given, When, Then, And } from 'cypress-cucumber-preprocessor/steps';
+import { Given, When, Then, And } from "@badeball/cypress-cucumber-preprocessor/steps";
 import app from '../Pages/AppPage.cy';
 
 Given('I am on the IOPHA homepage', () => {

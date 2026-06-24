@@ -50,10 +50,9 @@ The system is split into two independently deployable services communicating ove
 - Responsive layout for desktop and mobile.
 
 ### Frontend Logging & Observability
-- **Structured logging**: winston is used for browser-safe structured logging. A centralized logger utility (`src/utils/logger.js`) exports `debug`, `info`, `warn`, and `error` methods. JSON formatting is applied in production; colorized console output is used in development.
+- **Structured logging**: A lightweight browser-compatible logger utility (`IOPHA-frontend/src/utils/logger.ts`) exports `debug`, `info`, `warn`, and `error` methods. Console output with timestamps is used in development; production builds strip debug calls to prevent bundle bloat.
 - **Namespace debugging**: The `debug` package enables granular, namespace-scoped logging (`app:render`, `app:api`, `app:router`). Namespaces are toggled at runtime via the `DEBUG` environment variable or `localStorage.debug`. Debug statements are stripped from production builds to prevent bundle bloat and information leakage.
-- **Transport constraints**: Only the Console transport is configured for the browser. Node-specific transports (File, HTTP) are explicitly excluded to avoid bundling Node core modules.
-- **APM integration**: Log output is formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
+- **Pre-commit/Pre-push Hooks**: Husky enforces code quality at the repository root. Pre-commit runs ESLint and Prettier; pre-push runs lint, E2E tests via `start-server-and-test`, and npm audit for high-severity vulnerabilities. This catches issues early—preventing failed CI builds, reducing debugging time, and ensuring code consistency before code reaches the repository.
 
 ## 03 Data Model
 
