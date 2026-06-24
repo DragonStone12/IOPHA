@@ -64,12 +64,17 @@ The system uses a relational database with vector-search capabilities for embedd
 ### Testing Strategy
 - **Unit tests**: Service-layer functions (RAG retrieval, directory matching, auth, ingestion pipeline). Coverage target: 80%.
 - **Integration tests**: FastAPI TestClient covering all API routes; database transactions rolled back per test; ingestion pipeline mocked against local S3 emulator (MinIO).
-- **E2E tests**: Cypress covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
+- **E2E tests**: Cypress with Cucumber Preprocessor for BDD testing covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
-- **Frameworks**: pytest (Python), Cypress (frontend).
+- **Frameworks**: pytest (Python), Cypress with Cucumber Preprocessor (frontend BDD).
+- **BDD Components**: Gherkin feature files, Page Object Models, step definitions.
 - **CI integration**: Tests run in GitHub Actions on every PR to `main`.
+
+### BDD Directory Structure
+- **Pages/**: Page Object Model (POM) classes encapsulating DOM interactions and Cypress commands.
+- **Tests/**: `.feature` files with Gherkin syntax and corresponding `.steps.ts` step definitions.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.

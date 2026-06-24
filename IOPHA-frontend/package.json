@@ -25,6 +25,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vitejs/plugin-react": "^6.0.3",
     "cypress": "^15.18.0",
+    "cypress-cucumber-preprocessor": "^4.3.1",
     "eslint": "^8.50.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
@@ -35,5 +36,9 @@
   "lint-staged": {
     "*.{ts,tsx}": "eslint --fix",
     "*.{json,md,yml,yaml}": "prettier --write"
+  },
+  "cypress-cucumber-preprocessor": {
+    "nonGlobalStepDefinitions": false,
+    "step_definitions": "cypress/e2e/Tests"
   }
 }
