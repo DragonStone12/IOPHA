@@ -1,20 +1,20 @@
 class AppPage {
   visit() {
-    cy.visit('/');
+    cy.visit("/");
     return this;
   }
 
   getTitle() {
-    return cy.get('h1');
+    return cy.get("h1");
   }
 
   verifyTitle(expectedTitle: string) {
-    this.getTitle().should('contain', expectedTitle);
+    this.getTitle().should("contain", expectedTitle);
     return this;
   }
 
   verifyPageLoaded() {
-    this.getTitle().should('be.visible');
+    this.getTitle().should("be.visible");
     return this;
   }
 }

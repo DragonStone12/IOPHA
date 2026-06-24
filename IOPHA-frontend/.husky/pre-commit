@@ -1,1 +1,0 @@
-cd IOPHA-frontend && npm run lint && npm run format
