@@ -5,6 +5,8 @@ import {
   logPagePerformanceMetrics,
 } from "./utils/performance";
 import { appRenderDebug } from "./utils/logger";
+import { QueryProvider } from "./providers/QueryProvider";
+import { UserDisplay } from "./components/UserDisplay";
 
 appRenderDebug("Mounting IOPHA application root");
 
@@ -13,6 +15,7 @@ const rootElement = document.getElementById("root")!;
 const App = (
   <React.StrictMode>
     <h1>IOPHA - Interactive Obesity Prevention Health Assistant</h1>
+    <UserDisplay />
   </React.StrictMode>
 );
 
@@ -22,6 +25,6 @@ logPagePerformanceMetrics();
 
 root.render(
   <Profiler id="IOPHA-App" onRender={onRenderCallback}>
-    {App}
+    <QueryProvider>{App}</QueryProvider>
   </Profiler>,
 );
