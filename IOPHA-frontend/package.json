@@ -10,7 +10,8 @@
     "test": "echo \"No tests configured yet\" && exit 0",
     "cy:open": "cypress open --e2e",
     "cy:run": "cypress run --e2e",
-    "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run"
+    "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run",
+    "cy:clean-diffs": "find cypress-visual-screenshots/diff -type f -name '*.png' -delete"
   },
   "dependencies": {
     "debug": "^4.4.3",
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@badeball/cypress-cucumber-preprocessor": "^24.0.0",
     "@bahmutov/cypress-esbuild-preprocessor": "^2.0.0",
+    "@swimlane/cy-mockapi": "^3.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",

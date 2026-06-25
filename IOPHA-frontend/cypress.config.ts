@@ -21,6 +21,10 @@ export default defineConfig({
       );
       const getCompareSnapshotsPlugin = require("cypress-image-diff-js/plugin");
       getCompareSnapshotsPlugin(on, config);
+      const {
+        installPlugin: installMockApiPlugin,
+      } = require("@swimlane/cy-mockapi/build/main/index");
+      installMockApiPlugin(on, config);
       return config;
     },
   },
