@@ -1,1 +1,2 @@
-// Custom Cypress commands will be defined here in future stories
+const compareSnapshotCommand = require("cypress-image-diff-js/command");
+compareSnapshotCommand();

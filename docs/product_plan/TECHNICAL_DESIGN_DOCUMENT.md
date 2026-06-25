@@ -64,6 +64,7 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Unit tests**: Service-layer functions (RAG retrieval, directory matching, auth, ingestion pipeline). Coverage target: 80%.
 - **Integration tests**: FastAPI TestClient covering all API routes; database transactions rolled back per test; ingestion pipeline mocked against local S3 emulator (MinIO).
 - **E2E tests**: Cypress with Cucumber Preprocessor for BDD testing covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
+- **Visual regression tests**: Cypress with `cypress-image-diff-js` for pixel-level UI comparison. Automatically captures baseline screenshots on first run and compares subsequent executions against stored baselines. Generated artifacts (baselines, comparisons, diffs, and HTML reports) are excluded from the repository via `.gitignore` to prevent binary bloat and keep the repo lightweight.
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
@@ -74,6 +75,7 @@ The system uses a relational database with vector-search capabilities for embedd
 ### BDD Directory Structure
 - **Pages/**: Page Object Model (POM) classes encapsulating DOM interactions and Cypress commands.
 - **Tests/**: `.feature` files with Gherkin syntax and corresponding `.steps.ts` step definitions.
+- **Visual Regression**: `cypress/e2e/visual-regression.cy.ts` specs using `cy.compareSnapshot()`. Artifacts auto-generated into `cypress-visual-screenshots/` (baseline, comparison, diff) and `cypress-visual-report/` (HTML reports), all git-ignored.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.
