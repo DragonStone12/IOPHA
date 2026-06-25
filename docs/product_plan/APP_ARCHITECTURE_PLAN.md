@@ -105,7 +105,7 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Framework**: React 18 + TypeScript + Vite 5
 - **Component library**: TO BE DETERMINED — evaluating shadcn/ui or Radix primitives.
 - **Styling**: TO BE DETERMINED — evaluating Tailwind CSS or CSS Modules.
-- **State management**: TO BE DETERMINED — evaluating React Query (TanStack Query) for server state and Zustand for client state.
+- **State management**: React Query (TanStack Query) v5 for server state.
 - **Logging**: winston for structured JSON logging with environment-aware levels; debug for namespace-scoped development logging.
 
 ### Logging Strategy
