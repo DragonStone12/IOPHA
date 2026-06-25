@@ -50,11 +50,11 @@ The system is split into two independently deployable services communicating ove
 - Responsive layout for desktop and mobile.
 
 ### Frontend Logging & Observability
+<<<<<<< HEAD
 - **Custom Logger class**: A lightweight, browser-native logger (`IOPHA-frontend/src/utils/logger.ts`) implemented as a TypeScript class with static methods `debug`, `info`, `warn`, and `error`. Output is prefixed with level tags (e.g., `[DEBUG]`, `[ERROR]`). Development builds log all levels; production builds suppress `debug`, `info`, and `warn`, emitting only `error` to prevent bundle bloat and information leakage. Environment detection uses Vite's `import.meta.env.PROD`; no Node.js-specific `process.env` references.
 - **Namespace helpers**: Selective console output for application domains (`app:render`, `app:api`, `app:router`) is provided via exported helper functions. These helpers are no-ops in production.
 - **Render-tracking hook**: `useLogRenders(componentName, trackedProps?)` in `src/hooks/useLogRenders.ts` monitors functional component render frequency using `useRef` and `useEffect`. It logs a render count and optional shallow prop snapshot on every render without relying on `this` context.
 - **Performance tracking**: `usePerformanceTracking` and `onRenderCallback` measure component render durations and emit warnings via the centralized logger when renders exceed the 16 ms frame budget. Page-level metrics (Navigation Timing, Paint Timing) are sampled and logged once on initialization.
-- **No third-party logging dependencies**: The frontend does not import Node.js-specific logging libraries such as pino. The `debug` npm package is listed in dependencies for potential namespace toggling, but the current source implementation relies on native `console.*` methods wrapped by the custom `Logger` class.
 
 ## 03 Data Model
 
@@ -98,13 +98,6 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Development**: Local `docker-compose up` or `uvicorn` + Vite dev server; PostgreSQL with pgvector extension enabled; MinIO for S3-compatible local object storage; seed database with synthetic guidelines and physician records.
 - **Staging**: Mirror production infrastructure; use synthetic, non-PII health data; ingestion pipeline runs against test S3 bucket with sample PDFs.
 - **Production**: HIPAA-aligned configuration; secrets injected via environment variables or vault; audit logging enabled; pgvector on production PostgreSQL.
-
-### Ingestion Pipeline Deployment
-- **Local dev**: FastAPI background task or Celery worker; MinIO for S3.
-- **Staging/Production**: AWS Lambda (event-driven on S3 upload) or scheduled ECS task (cron); Textract invoked via boto3; results stored in production PostgreSQL.
-- **Monitoring**: Ingestion job status table queried by admin dashboard; alerts on repeated failures.
-
-### CI/CD Pipeline
 - Lint + type check + unit tests on every PR.
 - Cypress E2E multi-browser matrix embedded in `.github/workflows/ci-frontend.yml` runs on PRs affecting `IOPHA-frontend/**` and on pushes to `main`. Uses `cypress-io/github-action@v7` with a strategy matrix across chrome, firefox, and edge. `fail-fast: false` ensures all browsers complete. Screenshots are uploaded as GitHub Actions artifacts on test failure, dynamically named per browser.
 - Cypress configuration (`IOPHA-frontend/cypress.config.ts`):

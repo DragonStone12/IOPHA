@@ -105,8 +105,6 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Framework**: React 18 + TypeScript + Vite 5
 - **Component library**: TO BE DETERMINED — evaluating shadcn/ui or Radix primitives.
 - **Styling**: TO BE DETERMINED — evaluating Tailwind CSS or CSS Modules.
-- **State management**: TO BE DETERMINED — evaluating React Query (TanStack Query) for server state and Zustand for client state.
-- **Logging**: Custom browser-native `Logger` class with environment-aware levels; namespace helpers for development-only domain filtering.
 
 ### Logging Strategy
 - **Custom Logger class**: A lightweight TypeScript `Logger` class in `src/utils/logger.ts` exposes static `debug`, `info`, `warn`, and `error` methods. Development builds log all levels; production builds suppress `debug`, `info`, and `warn`, emitting only `error` via native `console` methods to prevent bundle bloat and information leakage. Environment detection uses Vite's `import.meta.env.PROD`.
