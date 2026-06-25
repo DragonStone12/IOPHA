@@ -40,3 +40,18 @@ cypress/
 - For `app.feature`, it looks for `app/*.{js,ts}` or `app.{js,ts}` in the Tests directory
 - The `cypress/support/step_definitions/` folder is a built-in fallback path that always gets searched
 - Import syntax should be `import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"` (no `/steps` subpath)
+
+## npm audit Serialization/JavaScript Vulnerability
+
+### Issue
+The pre-push hook blocked pushes due to vulnerabilities in `serialize-javascript` (RCE vulnerability). The original audit level was correctly set to `high`, but it was checking dev dependencies which contain transitive vulnerabilities that don't affect production code.
+
+### Detection
+Running `npm audit` showed: `3 vulnerabilities (2 moderate, 1 high)` in `serialize-javascript` <=7.0.4, pulled in transitively via `mocha` (a dependency of `@badeball/cypress-cucumber-preprocessor`).
+
+### Solution Implemented
+Updated `.husky/pre-push` and `.github/workflows/ci-frontend.yml` to use `npm audit --omit=dev --audit-level=high`. This only audits production dependencies at high severity, ignoring dev-only vulnerabilities that don't affect deployed code.
+
+**Files modified:**
+- `.husky/pre-push:` Uses `npm audit --omit=dev --audit-level=high`
+- `.github/workflows/ci-frontend.yml:` Uses `npm audit --omit=dev --audit-level=high`

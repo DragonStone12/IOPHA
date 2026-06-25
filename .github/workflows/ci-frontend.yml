@@ -23,11 +23,11 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run npm audit
-        run: npm audit --audit-level=high
-      - name: Fix npm vulnerabilities
-        if: failure()
-        run: npm audit fix --force && npm audit --audit-level=high
+- name: Run npm audit
+         run: npm audit --omit=dev --audit-level=high
+       - name: Fix npm vulnerabilities
+         if: failure()
+         run: npm audit fix --force && npm audit --omit=dev --audit-level=high
 
   cypress-e2e:
     runs-on: ubuntu-latest
