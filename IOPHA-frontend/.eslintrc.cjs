@@ -1,7 +1,7 @@
 module.exports = {
   root: true,
   parser: "@typescript-eslint/parser",
-  plugins: ["@typescript-eslint"],
+  plugins: ["@typescript-eslint", "@tanstack/query"],
   extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   env: {
     browser: true,
@@ -9,5 +9,6 @@ module.exports = {
   },
   rules: {
     "@typescript-eslint/no-unused-vars": "warn",
+    "@tanstack/query/exhaustive-deps": "error",
   },
 };

@@ -106,13 +106,14 @@ The backend exposes REST endpoints for auth, user management, risk assessments, 
 - **Component library**: TO BE DETERMINED — evaluating shadcn/ui or Radix primitives.
 - **Styling**: TO BE DETERMINED — evaluating Tailwind CSS or CSS Modules.
 - **State management**: TO BE DETERMINED — evaluating React Query (TanStack Query) for server state and Zustand for client state.
-- **Logging**: winston for structured JSON logging with environment-aware levels; debug for namespace-scoped development logging.
+- **Logging**: Custom browser-native `Logger` class with environment-aware levels; namespace helpers for development-only domain filtering.
 
 ### Logging Strategy
-- **Structured logging**: winston configured with JSON formatting in production and colorized console output in development. Centralized logger utility (`src/utils/logger.js`) exposes `debug`, `info`, `warn`, and `error` methods.
-- **Namespace debugging**: debug package provides granular namespaces (`app:render`, `app:api`, `app:router`) toggled via `DEBUG` environment variable or `localStorage.debug` during development. Debug calls are stripped in production builds to prevent bundle bloat and information leakage.
-- **Transport safety**: Only browser-safe Console transport is configured. Node-specific transports (File, HTTP) are excluded from the client bundle.
-- **Monitoring integration**: Log outputs are formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
+- **Custom Logger class**: A lightweight TypeScript `Logger` class in `src/utils/logger.ts` exposes static `debug`, `info`, `warn`, and `error` methods. Development builds log all levels; production builds suppress `debug`, `info`, and `warn`, emitting only `error` via native `console` methods to prevent bundle bloat and information leakage. Environment detection uses Vite's `import.meta.env.PROD`.
+- **Namespace helpers**: Selective console output for application domains (`app:render`, `app:api`, `app:router`) is provided via exported helper functions. These helpers are no-ops in production.
+- **Render-tracking hook**: `useLogRenders(componentName, trackedProps?)` in `src/hooks/useLogRenders.ts` monitors functional component render frequency using `useRef` and `useEffect`. It logs a render count and optional shallow prop snapshot on every render without relying on `this` context.
+- **Error Boundaries**: `react-error-boundary` provides functional error boundaries (`src/components/AppErrorBoundary.tsx`) that catch rendering-phase errors, log structured error data (message, stack, component stack) via the centralized Logger, and display a localized fallback UI with a "Try again" reset button. Boundaries are deployed in a "Russian Doll" pattern: Root level prevents total app failure; Layout level isolates independent regions (e.g., Sidebar) so one crash does not wipe the main content; Feature level wraps complex widgets (data grids, charts, third-party embeds). The fallback UI is strictly presentational with no external API calls or complex logic to prevent secondary crashes. **Limitations**: Error boundaries only catch rendering, lifecycle, and constructor errors. Event handlers, async code, and SSR errors must be handled with standard try/catch blocks.
+- **No third-party logging dependencies**: The frontend uses a native browser-compatible logger; Node.js-specific logging libraries are excluded from the client bundle.
 
 ### Performance Monitoring & Profiling
 - **Component profiling**: React `<Profiler>` is integrated at the root and route boundaries. The `onRender` callback logs `id`, `phase` (mount/update), `actualDuration`, `baseDuration`, `startTime`, and `commitTime` via the centralized logger.

@@ -50,9 +50,11 @@ The system is split into two independently deployable services communicating ove
 - Responsive layout for desktop and mobile.
 
 ### Frontend Logging & Observability
-- **Structured logging**: A lightweight browser-compatible logger utility (`IOPHA-frontend/src/utils/logger.ts`) exports `debug`, `info`, `warn`, and `error` methods. Console output with timestamps is used in development; production builds strip debug calls to prevent bundle bloat.
-- **Namespace debugging**: The `debug` package enables granular, namespace-scoped logging (`app:render`, `app:api`, `app:router`). Namespaces are toggled at runtime via the `DEBUG` environment variable or `localStorage.debug`. Debug statements are stripped from production builds to prevent bundle bloat and information leakage.
-- **Pre-commit/Pre-push Hooks**: Husky enforces code quality at the repository root. Pre-commit runs ESLint and Prettier; pre-push runs lint, E2E tests via `start-server-and-test`, and npm audit for high-severity vulnerabilities. This catches issues early—preventing failed CI builds, reducing debugging time, and ensuring code consistency before code reaches the repository.
+- **Custom Logger class**: A lightweight, browser-native logger (`IOPHA-frontend/src/utils/logger.ts`) implemented as a TypeScript class with static methods `debug`, `info`, `warn`, and `error`. Output is prefixed with level tags (e.g., `[DEBUG]`, `[ERROR]`). Development builds log all levels; production builds suppress `debug`, `info`, and `warn`, emitting only `error` to prevent bundle bloat and information leakage. Environment detection uses Vite's `import.meta.env.PROD`; no Node.js-specific `process.env` references.
+- **Namespace helpers**: Selective console output for application domains (`app:render`, `app:api`, `app:router`) is provided via exported helper functions. These helpers are no-ops in production.
+- **Render-tracking hook**: `useLogRenders(componentName, trackedProps?)` in `src/hooks/useLogRenders.ts` monitors functional component render frequency using `useRef` and `useEffect`. It logs a render count and optional shallow prop snapshot on every render without relying on `this` context.
+- **Performance tracking**: `usePerformanceTracking` and `onRenderCallback` measure component render durations and emit warnings via the centralized logger when renders exceed the 16 ms frame budget. Page-level metrics (Navigation Timing, Paint Timing) are sampled and logged once on initialization.
+- **No third-party logging dependencies**: The frontend does not import Node.js-specific logging libraries such as pino. The `debug` npm package is listed in dependencies for potential namespace toggling, but the current source implementation relies on native `console.*` methods wrapped by the custom `Logger` class.
 
 ## 03 Data Model
 
@@ -148,6 +150,6 @@ The system uses a relational database with vector-search capabilities for embedd
 - **Scaling**: Horizontal scaling for backend API via container orchestration; read replicas for PostgreSQL if needed; ingest pipeline can be parallelized across documents.
 
 ### Observability
-- **Logging**: Structured JSON logs from frontend (winston) and backend; ingestion job status transitions logged; performance telemetry includes profiler durations and page metrics.
+- **Logging**: Structured JSON logs from frontend and backend; ingestion job status transitions logged; performance telemetry includes profiler durations and page metrics.
 - **Metrics**: Request rate, error rate, duration (RED); cache hit rates; ingestion queue depth, job success/failure rate, Textract latency; frontend render durations and navigation timings.
 - **Alerting**: Alerts on error rate spikes, ingestion pipeline failures, downstream service degradation, and frontend render threshold breaches.
