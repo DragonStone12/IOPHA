@@ -1,11 +1,14 @@
-import React, { Profiler } from 'react'
-import ReactDOM from 'react-dom/client'
-import { onRenderCallback, logPagePerformanceMetrics } from './utils/performance'
-import { appRenderDebug } from './utils/logger'
+import React, { Profiler } from "react";
+import ReactDOM from "react-dom/client";
+import {
+  onRenderCallback,
+  logPagePerformanceMetrics,
+} from "./utils/performance";
+import { appRenderDebug } from "./utils/logger";
 
-appRenderDebug('Mounting IOPHA application root')
+appRenderDebug("Mounting IOPHA application root");
 
-const rootElement = document.getElementById('root')!;
+const rootElement = document.getElementById("root")!;
 
 const App = (
   <React.StrictMode>
@@ -20,5 +23,5 @@ logPagePerformanceMetrics();
 root.render(
   <Profiler id="IOPHA-App" onRender={onRenderCallback}>
     {App}
-  </Profiler>
+  </Profiler>,
 );

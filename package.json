@@ -1,0 +1,12 @@
+{
+  "name": "iopha-monorepo",
+  "private": true,
+  "scripts": {
+    "prepare": "husky install",
+    "lint:frontend": "cd IOPHA-frontend && npm run lint",
+    "test:frontend": "cd IOPHA-frontend && npm run cy:run"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
+  }
+}

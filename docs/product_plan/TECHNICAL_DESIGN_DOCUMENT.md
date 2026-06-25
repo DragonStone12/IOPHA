@@ -50,10 +50,9 @@ The system is split into two independently deployable services communicating ove
 - Responsive layout for desktop and mobile.
 
 ### Frontend Logging & Observability
-- **Structured logging**: winston is used for browser-safe structured logging. A centralized logger utility (`src/utils/logger.js`) exports `debug`, `info`, `warn`, and `error` methods. JSON formatting is applied in production; colorized console output is used in development.
+- **Structured logging**: A lightweight browser-compatible logger utility (`IOPHA-frontend/src/utils/logger.ts`) exports `debug`, `info`, `warn`, and `error` methods. Console output with timestamps is used in development; production builds strip debug calls to prevent bundle bloat.
 - **Namespace debugging**: The `debug` package enables granular, namespace-scoped logging (`app:render`, `app:api`, `app:router`). Namespaces are toggled at runtime via the `DEBUG` environment variable or `localStorage.debug`. Debug statements are stripped from production builds to prevent bundle bloat and information leakage.
-- **Transport constraints**: Only the Console transport is configured for the browser. Node-specific transports (File, HTTP) are explicitly excluded to avoid bundling Node core modules.
-- **APM integration**: Log output is formatted for ingestion by the centralized monitoring stack (Prometheus + Grafana with AWS CloudWatch Logs).
+- **Pre-commit/Pre-push Hooks**: Husky enforces code quality at the repository root. Pre-commit runs ESLint and Prettier; pre-push runs lint, E2E tests via `start-server-and-test`, and npm audit for high-severity vulnerabilities. This catches issues early—preventing failed CI builds, reducing debugging time, and ensuring code consistency before code reaches the repository.
 
 ## 03 Data Model
 
@@ -64,12 +63,17 @@ The system uses a relational database with vector-search capabilities for embedd
 ### Testing Strategy
 - **Unit tests**: Service-layer functions (RAG retrieval, directory matching, auth, ingestion pipeline). Coverage target: 80%.
 - **Integration tests**: FastAPI TestClient covering all API routes; database transactions rolled back per test; ingestion pipeline mocked against local S3 emulator (MinIO).
-- **E2E tests**: Cypress covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
+- **E2E tests**: Cypress with Cucumber Preprocessor for BDD testing covering user registration, consent flow, chat → tips flow, chat → scheduling flow.
 - **Performance tests**: Locust or k6 for chat endpoint load testing (target: 100 concurrent users, <2s p95 latency); pgvector similarity query latency benchmark (<500ms p95).
 
 ### Testing Tools
-- **Frameworks**: pytest (Python), Cypress (frontend).
+- **Frameworks**: pytest (Python), Cypress with Cucumber Preprocessor (frontend BDD).
+- **BDD Components**: Gherkin feature files, Page Object Models, step definitions.
 - **CI integration**: Tests run in GitHub Actions on every PR to `main`.
+
+### BDD Directory Structure
+- **Pages/**: Page Object Model (POM) classes encapsulating DOM interactions and Cypress commands.
+- **Tests/**: `.feature` files with Gherkin syntax and corresponding `.steps.ts` step definitions.
 
 ### Key Test Cases
 - Happy path: user registers, consents, sends message, receives tips + physician options.

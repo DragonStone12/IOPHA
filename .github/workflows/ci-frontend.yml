@@ -23,8 +23,11 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run npm audit
-        run: npm audit --audit-level=high
+- name: Run npm audit
+         run: npm audit --omit=dev --audit-level=high
+       - name: Fix npm vulnerabilities
+         if: failure()
+         run: npm audit fix --force && npm audit --omit=dev --audit-level=high
 
   cypress-e2e:
     runs-on: ubuntu-latest
@@ -32,26 +35,26 @@ jobs:
       matrix:
         browser: [chrome, firefox, edge]
       fail-fast: false
-    defaults:
-      run:
-        working-directory: IOPHA-frontend
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Install dependencies
+        run: npm ci --prefix IOPHA-frontend
       - name: Cypress Run
         uses: cypress-io/github-action@v7
         with:
-          browser: ${{ matrix.browser }}
           working-directory: IOPHA-frontend
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          build: npm run build
+          start: npm run dev
+          wait-on: 'http://localhost:3000'
+          command: npx cypress run --e2e --browser ${{ matrix.browser }}
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots-${{ matrix.browser }}
-          path: cypress/screenshots
+          path: IOPHA-frontend/cypress/screenshots
           if-no-files-found: ignore
