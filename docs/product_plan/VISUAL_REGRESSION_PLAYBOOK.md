@@ -142,6 +142,61 @@ cypress/screenshots/**/*.png binary
 
 ## 7. Review Diffs Carefully - Avoid Blind Updates
 
+### Updating Baselines Locally (Recommended)
+
+You should always update baselines locally first so you can visually verify the changes before committing them.
+
+To update all visual baselines:
+```bash
+cd IOPHA-frontend
+npx cypress run --env updateSnapshots=true
+```
+
+To update baselines for a specific test only (Safer): If you only changed the Booking UI, you don't want to accidentally update the baselines for the Login UI. Target the specific spec file:
+```bash
+npx cypress run --spec "cypress/e2e/Tests/booking.feature" --env updateSnapshots=true
+```
+
+### npm Scripts for Snapshot Updates
+The project includes npm scripts to simplify snapshot updates:
+```json
+{
+  "scripts": {
+    "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run",
+    "cy:update-snapshots": "start-server-and-test dev http://localhost:3000 cy:update-snapshots:core",
+    "cy:update-snapshots:core": "cypress run --env updateSnapshots=true",
+    "cy:update-snapshots:spec": "start-server-and-test dev http://localhost:3000 'cypress run --env updateSnapshots=true --spec'"
+  }
+}
+```
+**What each script does:**
+- `test:e2e` - Starts the Vite dev server and runs all Cypress E2E tests (standard test run)
+- `cy:update-snapshots` - Starts the Vite dev server, runs all tests, and updates visual baselines
+- `cy:update-snapshots:core` - Runs Cypress with `updateSnapshots=true` (expects server already running)
+- `cy:update-snapshots:spec` - Starts the server and updates baselines for a specific spec file
+
+Usage:
+```bash
+# Update all visual baselines
+npm run cy:update-snapshots
+# Update baseline for a specific spec file only
+npm run cy:update-snapshots:spec "cypress/e2e/visual-regression.cy.ts"
+# Or use -- to pass env vars to test:e2e (alternative approach)
+npm run test:e2e -- --env updateSnapshots=true
+
+### Commit Updated Baselines
+
+Once the command finishes, commit the updated baselines:
+```bash
+git add cypress-visual-screenshots/baseline/
+git commit -m "chore: update visual baselines for booking UI redesign [snap-update]"
+```
+
+### Why You Should NOT Update Baselines in CI
+
+While you can pass `--env updateSnapshots=true` in your ci-frontend.yml file, you should never do this.
+If you update baselines in CI, you are blindly accepting whatever the UI looks like at that exact moment, which completely defeats the purpose of visual regression testing. If a developer accidentally pushes a broken UI, the CI will silently update the baseline to the broken state, and the "regression" becomes the new "truth."
+
 **NEVER commit `updateSnapshots: true`**. Treat snapshot failures as signals to investigate, not inconveniences to dismiss.
 
 **Add ESLint rule to block accidental updates:**

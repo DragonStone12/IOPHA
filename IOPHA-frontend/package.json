@@ -11,13 +11,17 @@
     "cy:open": "cypress open --e2e",
     "cy:run": "cypress run --e2e",
     "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run",
+    "cy:update-snapshots": "start-server-and-test dev http://localhost:3000 cy:update-snapshots:core",
+    "cy:update-snapshots:core": "cypress run --env updateSnapshots=true",
+    "cy:update-snapshots:spec": "start-server-and-test dev http://localhost:3000 'cypress run --env updateSnapshots=true --spec'",
     "cy:clean-diffs": "find cypress-visual-screenshots/diff -type f -name '*.png' -delete"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.1",
     "debug": "^4.4.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-error-boundary": "^6.1.2"
   },
   "devDependencies": {
     "@badeball/cypress-cucumber-preprocessor": "^24.0.0",
