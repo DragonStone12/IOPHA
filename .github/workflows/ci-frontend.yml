@@ -58,3 +58,10 @@ jobs:
           name: cypress-screenshots-${{ matrix.browser }}
           path: IOPHA-frontend/cypress/screenshots
           if-no-files-found: ignore
+      - name: Upload visual diffs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diffs-${{ matrix.browser }}
+          path: IOPHA-frontend/cypress-visual-screenshots/diff
+          if-no-files-found: ignore

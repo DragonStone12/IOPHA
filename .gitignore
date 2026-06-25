@@ -223,6 +223,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Visual Regression Test Artifacts
+IOPHA-frontend/cypress-visual-screenshots/
+IOPHA-frontend/cypress-visual-report/
+
 # Frontend Build
 IOPHA-frontend/dist
 IOPHA-frontend/.vite
