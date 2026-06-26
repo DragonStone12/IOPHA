@@ -51,34 +51,34 @@ A user completes a health survey on Baylor's website and triggers a high-risk al
 
 ## Quick Start
 
-### Local Development
+### Frontend Development
 
 ```bash
-# Start all services (frontend, backend, database)
-docker-compose up
-
-# Frontend development
 cd IOPHA-frontend
 npm install
+
+# Start development server
 npm run dev
 
-# Backend development
+# Run E2E tests
+npm run test:e2e
+
+# Update visual snapshots
+npm run cy:update-snapshots
+```
+
+### Backend Development
+
+```bash
 cd IOPHA-backend
 pip install -r requirements.txt
+
+# Run backend with uvicorn (requires main.py in app/)
 uvicorn app.main:app --reload
 
 # Run tests
-npm run test:e2e  # Frontend E2E (Cypress)
-pytest             # Backend unit tests
+pytest
 ```
-
-### Environment Variables
-
-Copy `.env.example` and configure:
-- `DATABASE_URL` - PostgreSQL connection string
-- `LLM_API_KEY` - OpenAI/Bedrock API key
-- `JWT_SECRET` - JWT signing key
-- `AWS_*` - AWS credentials for Textract/S3
 
 ## Development
 
