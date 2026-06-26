@@ -44,6 +44,42 @@ A user completes a health survey on Baylor's website and triggers a high-risk al
 - **Increased Engagement**: Accommodates all user comfort levels with both professional care connections and immediate self-directed advice.
 - **Monetization**: Creates a direct pathway to revenue through in-network clinical visits and premium preventative wellness programs.
 
+## Documentation
+
+- **[System Architecture (HLD)](docs/ARCHITECTURE.md)** - High-level design, system overview, architecture diagram, compliance & HIPAA posture
+- **[Technical Design (LLD)](docs/TECHNICAL_DESIGN.md)** - Low-level implementation details, API specs, database schema, testing strategy
+
+## Quick Start
+
+### Frontend Development
+
+```bash
+cd IOPHA-frontend
+npm install
+
+# Start development server
+npm run dev
+
+# Run E2E tests
+npm run test:e2e
+
+# Update visual snapshots
+npm run cy:update-snapshots
+```
+
+### Backend Development
+
+```bash
+cd IOPHA-backend
+pip install -r requirements.txt
+
+# Run backend with uvicorn (requires main.py in app/)
+uvicorn app.main:app --reload
+
+# Run tests
+pytest
+```
+
 ## Development
 
 ### Frontend (IOPHA-frontend)
