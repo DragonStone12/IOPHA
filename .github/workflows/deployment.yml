@@ -1,0 +1,40 @@
+name: Generate Release Notes for IOPHA Deployment
+
+on:
+  push:
+    branches:
+      - 'release/**'
+  workflow_dispatch:
+
+jobs:
+  generate-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install git-log-parser through2
+
+      - name: Generate Release Notes
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+          SINCE_DAYS: 7
+        run: node generate-release-notes.js
+
+      - name: Upload Release Notes Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-notes
+          path: release-notes.md
+
+      - name: Display Release Notes
+        run: cat release-notes.md

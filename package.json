@@ -4,7 +4,12 @@
   "scripts": {
     "prepare": "husky install",
     "lint:frontend": "cd IOPHA-frontend && npm run lint",
-    "test:frontend": "cd IOPHA-frontend && npm run cy:run"
+    "test:frontend": "cd IOPHA-frontend && npm run cy:run",
+    "generate-release-notes": "node generate-release-notes.js"
+  },
+  "dependencies": {
+    "git-log-parser": "^2.2.0",
+    "through2": "^4.0.2"
   },
   "devDependencies": {
     "husky": "^9.0.0"
