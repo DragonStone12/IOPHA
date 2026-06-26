@@ -46,7 +46,6 @@
 │   ├── /tests                 # pytest tests
 │   └── pyproject.toml
 ├── /infra                     # Terraform/CDK configurations
-└── docker-compose.yml
 ```
 
 ## 3. Frontend Implementation Details
@@ -231,17 +230,11 @@ Strategy:
 ### 6.3 Local Development
 
 ```bash
-# Start all services
-docker-compose up
-
 # Frontend development
 cd IOPHA-frontend && npm install && npm run dev
 
-# Backend development
+# Backend development (requires main.py in app/)
 cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
-
-# Seed data
-cd IOPHA-backend && python scripts/seed_data.py
 ```
 
 ## 7. Decision Points (Pending)
