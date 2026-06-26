@@ -1,4 +1,4 @@
-name: Generate IOPHA Release Notes
+name: Generate Release Notes for IOPHA Deployment
 
 on:
   push:
