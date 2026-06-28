@@ -6,9 +6,9 @@
 |-------|------------|---------|
 | Frontend Framework | React | 18 |
 | Language | TypeScript | 5 |
-| Build Tool | Vite | 5 |
-| Styling | Tailwind CSS | Latest |
-| Component Library | shadcn/ui or Radix | Decision Pending |
+| Build Tool | Vite | 8 |
+| Styling | Tailwind CSS | v4 |
+| Component Library | shadcn/ui + Radix UI | Confirmed |
 | Backend Framework | FastAPI | Latest |
 | Language | Python | 3.11+ |
 | ORM | SQLAlchemy | Latest |
@@ -25,10 +25,15 @@
 /IOPHA
 ├── /IOPHA-frontend
 │   ├── /src
-│   │   ├── /components        # React components
+│   │   ├── /components        # React components (each in own directory)
+│   │   │   ├── /LandingPage/
+│   │   │   ├── /RiskProfileSidebar/
+│   │   │   ├── /ChatArea/
+│   │   │   └── /ui/           # shadcn/ui primitives (copied from IOPHA Resources)
 │   │   ├── /hooks           # Custom hooks (useLogRenders, usePerformanceTracking)
 │   │   ├── /utils
-│   │   │   └── logger.ts      # Custom Logger class
+│   │   │   ├── logger.ts      # Custom Logger class
+│   │   │   └── performance.js # Performance monitoring utilities
 │   │   ├── /services          # API client wrappers
 │   │   ├── /types             # TypeScript interfaces
 │   │   └── App.tsx
@@ -50,7 +55,17 @@
 
 ## 3. Frontend Implementation Details
 
-### 3.1 Logging & Observability
+### 3.1 Styling with Tailwind CSS
+
+The frontend uses Tailwind CSS v4 with the IOPHA brand theme (copied from IOPHA Resources):
+- Primary color: `#0A6B7C` (teal)
+- Accent color: `#D95B3B` (orange)
+- Background: `#F3F1EC` (warm off-white)
+- All component styling uses Tailwind utility classes via the `cn()` helper (clsx + tailwind-merge)
+
+UI components are sourced from IOPHA Resources (shadcn/ui primitives) and copied into `src/components/ui/`. Components use Radix UI primitives under the hood (`@radix-ui/react-*` packages).
+
+### 3.2 Logging & Observability
 
 **Custom Logger Class** (`src/utils/logger.ts`):
 ```typescript
@@ -81,7 +96,7 @@ Environment behavior:
 - Structured error logging: message, stack, component stack
 - Fallback UI: Localized with "Try again" reset button, no external API calls
 
-### 3.2 State Management & Data Fetching
+### 3.3 State Management & Data Fetching
 
 Strategy:
 - Server state: React Query (TanStack Query) or SWR for caching, background updates
@@ -245,5 +260,3 @@ cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --re
 | Frontend Host | Vercel, Netlify, Cloudflare Pages | Cold start, edge caching |
 | Backend Host | Railway, Fly.io, AWS Fargate | Cost, scaling, HIPAA eligibility |
 | Database | Neon, Supabase, AWS RDS | HIPAA eligibility, pgvector support |
-| Component Library | shadcn/ui, Radix primitives | Bundle size, accessibility |
-| Styling | Tailwind CSS, CSS Modules | Build time, developer experience |

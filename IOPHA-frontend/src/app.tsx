@@ -1,17 +1,12 @@
-import React, { Profiler } from "react";
-import ReactDOM from "react-dom/client";
-import {
-  onRenderCallback,
-  logPagePerformanceMetrics,
-} from "./utils/performance";
-import { appRenderDebug } from "./utils/logger";
+import "./index.css";
 import { QueryProvider } from "./providers/QueryProvider";
-import { UserDisplay } from "./components/UserDisplay";
+import { LandingPage } from "./components/LandingPage/LandingPage";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
-
-appRenderDebug("Mounting IOPHA application root");
-
-const rootElement = document.getElementById("root")!;
+import { UserDisplay } from "./components/UserDisplay";
+import { onRenderCallback, logPagePerformanceMetrics } from "./utils/performance";
+import { appRenderDebug } from "./utils/logger";
+import ReactDOM from "react-dom/client";
+import React, { Profiler } from "react";
 
 const App = (
   <React.StrictMode>
@@ -21,12 +16,18 @@ const App = (
       <AppErrorBoundary boundaryName="UserDisplay">
         <UserDisplay />
       </AppErrorBoundary>
+
+      <AppErrorBoundary boundaryName="LandingPage">
+        <LandingPage />
+      </AppErrorBoundary>
     </AppErrorBoundary>
   </React.StrictMode>
 );
 
+const rootElement = document.getElementById("root")!;
 const root = ReactDOM.createRoot(rootElement);
 
+appRenderDebug("Mounting IOPHA application root");
 logPagePerformanceMetrics();
 
 root.render(
@@ -34,3 +35,5 @@ root.render(
     <QueryProvider>{App}</QueryProvider>
   </Profiler>,
 );
+
+export default App;

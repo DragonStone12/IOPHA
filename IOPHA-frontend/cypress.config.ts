@@ -28,6 +28,14 @@ export default defineConfig({
       return config;
     },
   },
+  component: {
+    specPattern: "src/components/**/*.spec.tsx",
+    supportFile: "cypress/support/component.ts",
+    devServer: {
+      framework: "react",
+      bundler: "vite",
+    },
+  },
   env: {
     VIDEO: false,
   },

@@ -1,13 +1,13 @@
 import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor";
 
-Given("I am on the IOPHA homepage", () => {
+Given("I am on the landing page", () => {
   cy.visit("/");
 });
 
 When("I view the page", () => {
-  cy.get("h1").should("be.visible");
+  cy.contains("Health Assistant").should("be.visible");
 });
 
 Then("I should see the title {string}", (expectedTitle: string) => {
-  cy.get("h1").should("contain", expectedTitle);
+  cy.contains(expectedTitle).should("be.visible");
 });

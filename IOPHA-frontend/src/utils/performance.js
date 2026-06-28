@@ -4,7 +4,7 @@ import logger from "./logger";
 const RENDER_THRESHOLD_MS = 16;
 const PRODUCTION_SAMPLE_RATE = 0.01;
 
-const isProd = import.meta.env.PROD;
+const isProd = !import.meta.env.DEV;
 
 export const shouldSample = () => {
   if (!isProd) return true;

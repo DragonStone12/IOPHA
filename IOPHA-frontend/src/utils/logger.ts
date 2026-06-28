@@ -1,5 +1,5 @@
 class Logger {
-  private static isProd = import.meta.env.PROD;
+  private static isProd = !import.meta.env.DEV;
 
   static debug(message: string, ...args: unknown[]): void {
     if (!Logger.isProd) {
@@ -24,15 +24,15 @@ class Logger {
   }
 }
 
-const appRenderDebug = import.meta.env.PROD
+const appRenderDebug = !import.meta.env.DEV
   ? () => {}
   : (...args: unknown[]) => console.debug("[APP:RENDER]", ...args);
 
-const appApiDebug = import.meta.env.PROD
+const appApiDebug = !import.meta.env.DEV
   ? () => {}
   : (...args: unknown[]) => console.debug("[APP:API]", ...args);
 
-const appRouterDebug = import.meta.env.PROD
+const appRouterDebug = !import.meta.env.DEV
   ? () => {}
   : (...args: unknown[]) => console.debug("[APP:ROUTER]", ...args);
 
