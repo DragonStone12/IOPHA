@@ -1,171 +1,378 @@
-# Troubleshooting: Cypress Cucumber Preprocessor Step Definitions Not Found
+# TROUBLESHOOTING
 
-## Table of Contents
+## Vite Configuration
 
-- [Troubleshooting: Cypress Cucumber Preprocessor Step Definitions Not Found](#troubleshooting-cypress-cucumber-preprocessor-step-definitions-not-found)
-  - [Problem Summary](#problem-summary)
-  - [Root Cause](#root-cause)
-  - [Troubleshooting Steps](#troubleshooting-steps)
-  - [Resolution](#resolution)
-  - [Final Working Structure](#final-working-structure)
-  - [Key Learnings](#key-learnings)
-- [npm audit Serialization/JavaScript Vulnerability](#npm-audit-serializationjavascript-vulnerability)
-  - [Issue](#issue)
-  - [Detection](#detection)
-  - [Solution Implemented](#solution-implemented)
-- [@swimlane/cy-mockapi: Module Resolution and Browser-Context Verification](#swimlanecy-mockapi-module-resolution-and-browser-context-verification)
-  - [Problem Summary](#problem-summary-1)
-  - [Root Cause](#root-cause-1)
-  - [Resolution](#resolution-1)
-  - [Verification](#verification)
-  - [Key Learnings](#key-learnings-1)
-- [Visual Regression Testing: Artifacts Cleanup and Documentation](#visual-regression-testing-artifacts-cleanup-and-documentation)
-  - [Problem Summary](#problem-summary-2)
-  - [Resolution](#resolution-2)
-  - [Verification](#verification-1)
+### Environment Variable Pitfall
 
-## Problem Summary
-Cypress E2E tests failed with "Step implementation missing" error despite step definitions existing. The `@badeball/cypress-cucumber-preprocessor` plugin could not locate the step definition files.
-
-## Root Cause
-1. Step definitions were placed in `cypress/e2e/Tests/homepage.steps.ts` but the plugin expected them in `cypress/support/step_definitions/` by default
-2. The import path `@badeball/cypress-cucumber-preprocessor/steps` was incorrect - the correct import is `@badeball/cypress-cucumber-preprocessor`
-
-## Troubleshooting Steps
-1. Verified plugin installation and package structure in `node_modules/@badeball/cypress-cucumber-preprocessor/`
-2. Examined the `exports` field in `package.json` to confirm correct import paths
-3. Checked step definition file locations against default search patterns shown in error:
-   - `cypress/e2e/Tests/[filepath]/**/*.{js,mjs,ts,tsx}`
-   - `cypress/e2e/Tests/[filepath].{js,mjs,ts,tsx}`
-   - `cypress/support/step_definitions/**/*.{js,mjs,ts,tsx}`
-4. Identified that `[filepath]` resolves to the feature file path without extension (e.g., `app` for `app.feature`)
-5. Moved step definitions to `cypress/support/step_definitions/` folder which is the global fallback
-
-## Resolution
-1. Renamed `homepage.feature` to `app.feature` and `homepage.steps.ts` to `app.steps.ts`
-2. Moved `app.steps.ts` to `cypress/support/step_definitions/`
-3. Changed import from `@badeball/cypress-cucumber-preprocessor/steps` to `@badeball/cypress-cucumber-preprocessor`
-4. Simplified `cypress.config.ts` to use default configuration without explicit `stepDefinitions` path
-
-## Final Working Structure
+**Error:**
 ```
-cypress/
-├── e2e/
-│   └── Tests/
-│       └── app.feature
-└── support/
-    ├── e2e.ts
-    └── step_definitions/
-        └── app.steps.ts
+TypeError: Cannot read properties of undefined (reading 'PROD')
+```
+Or silently: the app renders an empty page with no React content.
+
+**Cause:** Using `import.meta.env.PROD` is not a stable Vite runtime variable. In dev mode, `import.meta.env.PROD` is `undefined`, causing silent crashes when used in conditionals. Only `DEV`, `MODE`, `BASE_URL`, and `SSR` are guaranteed by Vite.
+
+**Affected files:**
+- `IOPHA-frontend/src/utils/logger.ts` (line 2, 27, 31, 35)
+- `IOPHA-frontend/src/utils/performance.js` (line 7)
+
+**Solution:** Replace all instances of `import.meta.env.PROD` with `!import.meta.env.DEV`.
+
+| Variable | Dev Mode | Build (production) | Notes |
+|----------|----------|-------------------|-------|
+| `import.meta.env.PROD` | `undefined` ⚠️ | `true` ✅ | Not a real runtime property; only replaced at build time |
+| `import.meta.env.DEV` | `true` ✅ | `false` ✅ | Guaranteed by Vite in all modes |
+| `!import.meta.env.DEV` | `false` ✅ | `true` ✅ | Reliable production check |
+
+**Fix in `logger.ts`:**
+```typescript
+// ❌ BEFORE
+private static isProd = import.meta.env.PROD;
+
+// ✅ AFTER
+private static isProd = !import.meta.env.DEV;
 ```
 
-## Key Learnings
-- The `@badeball/cypress-cucumber-preprocessor` uses a `[filepath]` template variable to pair feature files with step definitions
-- For `app.feature`, it looks for `app/*.{js,ts}` or `app.{js,ts}` in the Tests directory
-- The `cypress/support/step_definitions/` folder is a built-in fallback path that always gets searched
-- Import syntax should be `import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor"` (no `/steps` subpath)
+**Fix in `performance.js`:**
+```javascript
+// ❌ BEFORE
+const isProd = import.meta.env.PROD;
 
-## npm audit Serialization/JavaScript Vulnerability
+// ✅ AFTER
+const isProd = !import.meta.env.DEV;
+```
 
-### Issue
-The pre-push hook blocked pushes due to vulnerabilities in `serialize-javascript` (RCE vulnerability). The original audit level was correctly set to `high`, but it was checking dev dependencies which contain transitive vulnerabilities that don't affect production code.
+## IOPHA Resources Integration
 
-### Detection
-Running `npm audit` showed: `3 vulnerabilities (2 moderate, 1 high)` in `serialize-javascript` <=7.0.4, pulled in transitively via `mocha` (a dependency of `@badeball/cypress-cucumber-preprocessor`).
+### Component Copying
 
-### Solution Implemented
-Updated `.husky/pre-push` and `.github/workflows/ci-frontend.yml` to use `npm audit --omit=dev --audit-level=high`. This only audits production dependencies at high severity, ignoring dev-only vulnerabilities that don't affect deployed code.
+UI components from IOPHA Resources (`/Users/dragonstone/Development/IOPHA/IOPHA Resources/`) are copied into `IOPHA-frontend/src/components/ui/` rather than imported as a package. This approach was chosen because:
 
-**Files modified:**
-- `.husky/pre-push:` Uses `npm audit --omit=dev --audit-level=high`
-- `.github/workflows/ci-frontend.yml:` Uses `npm audit --omit=dev --audit-level=high`
+- IOPHA Resources is a separate project with its own `node_modules`, `vite.config.ts`, and build pipeline.
+- The story requires using components "exclusively from the IOPHA Resources directory" — copying ensures exact same implementations.
+- Direct package imports are not feasible without publishing to a registry or using monorepo tooling.
 
----
+### `"use client"` Directives
 
-## @swimlane/cy-mockapi: Module Resolution and Browser-Context Verification
+Components copied from IOPHA Resources include `"use client"` directives (Next.js convention). These have been **removed** from all copied components as they are not needed in Vite/React 18. If you encounter build errors related to this, verify the directive has been removed.
 
-### Problem Summary
-Integrating `@swimlane/cy-mockapi@3.0.0` into the Cypress test suite failed with two errors:
-1. `Cannot find module '@swimlane/cy-mockapi/plugin'` and `Cannot find module '@swimlane/cy-mockapi/commands'`
-2. Verification test using `cy.request()` failed because mocked responses were never returned
+### Tailwind CSS v4 Configuration
 
-### Root Cause
-Path resolution is relative to the fixtures folder, not the project root. The package does not expose `/plugin` or `/commands` subpaths in its `package.json` `exports` field; it only exports them under `build/main/` and `build/module/`.
+The project uses Tailwind CSS v4 with the `@tailwindcss/vite` plugin. The theme is defined in `src/index.css` and copied from IOPHA Resources' `theme.css`.
 
-### Resolution
-1. **Plugin registration in `cypress.config.ts`:**
+**Required setup:**
+- Install `@tailwindcss/vite` plugin
+- Add `tailwindcss()` to Vite plugins array in `vite.config.ts`
+- Do NOT use `@import "tailwindcss"` in CSS files — the Vite plugin handles this
+
+**Common issues:**
+
+#### CSS Parsing Failure During Build
+
+**Error:**
+```
+[plugin vite:css-post]
+SyntaxError: [lightningcss minify] Unexpected token Function("source")
+1  |  @media source(none){
+   |        ^
+```
+
+**Cause:** Vite defaults to `lightningcss` for CSS minification. LightningCSS does not support Tailwind v4's `@source` or `@theme` at-rule syntax, causing the build to crash.
+
+**Solution:** Use the official `@tailwindcss/vite` plugin which processes Tailwind CSS *before* LightningCSS sees the output.
+
+1. Install the plugin: `npm install -D @tailwindcss/vite`
+2. Update `vite.config.ts`:
    ```typescript
-   const { installPlugin: installMockApiPlugin } = require("@swimlane/cy-mockapi/build/main/index");
-   installMockApiPlugin(on, config);
+   import tailwindcss from "@tailwindcss/vite";
+   export default defineConfig({
+     plugins: [react(), tailwindcss()],
+   });
    ```
+3. Remove `@import "tailwindcss"` from `src/index.css` — the plugin handles it automatically.
 
-2. **Command registration in `cypress/support/commands.ts`:**
-   ```typescript
-   require("@swimlane/cy-mockapi/build/main/commands");
-   ```
+#### CSS Variables Not Applying
 
-3. **`cy.mockApi()` configuration in `cypress/support/e2e.ts`:**
+- Ensure `@theme inline` block is present in `index.css` and processed by the Tailwind Vite plugin.
+- Verify `index.css` is imported in `app.tsx` before any component imports.
+
+#### Components Not Styled
+
+- Verify `index.css` is imported in `app.tsx` before any component imports.
+- Ensure the Tailwind Vite plugin is active in `vite.config.ts`.
+
+### Input Component Ref Forwarding
+
+**Error:**
+```
+Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+```
+
+**Cause:** The `Input` component from `src/components/ui/input.tsx` is a regular function component that doesn't support refs. When `ChatArea` tries to pass `ref={inputRef}` for auto-focus functionality, React throws this warning and `inputRef.current` remains `null`.
+
+**Affected files:**
+- `IOPHA-frontend/src/components/ui/input.tsx`
+- `IOPHA-frontend/src/components/ChatArea/ChatArea.tsx` (line 38, 40)
+
+**Solution:** Update the `Input` component to use `React.forwardRef()`:
+
+```tsx
+// ❌ BEFORE
+function Input({ className, type, ...props }: InputProps) {
+  return (
+    <input
+      type={type}
+      className={cn("...", className)}
+      {...props}
+    />
+  );
+}
+
+// ✅ AFTER
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn("...", className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = "Input";
+```
+
+**Key changes:**
+1. Wrap component with `React.forwardRef()` to accept `ref` as second parameter
+2. Pass `ref` to the underlying `<input>` DOM element
+3. Add `displayName` for React DevTools debugging
+
+**Verification:**
+- Console warning disappears
+- `inputRef.current?.focus()` in `ChatArea.tsx` works correctly
+- Input auto-focuses on page load as intended
+
+**Note:** This is the standard pattern for all form components (Input, Select, Textarea) when programmatic DOM access is needed. Apply the same pattern to other form components if they need ref support.
+
+### Cypress E2E Test: Element Clipped by Overflow Parent
+
+**Error:**
+```
+AssertionError: Timed out retrying after 4000ms: expected '<button...>' to be 'visible'
+
+This element is not visible because its content is being clipped by one of its
+parent elements, which has a CSS property of overflow: `hidden`, `clip`, `scroll` or `auto`
+```
+
+**Cause:** A parent container has `overflow-hidden` or `overflow-y-auto` that clips child elements when the content exceeds the container bounds. In Cypress headless mode, the default viewport (1000x660) is smaller than typical desktop viewports, causing sidebar or page content to overflow and get clipped. `cy.contains().should("be.visible")` fails because the element exists in the DOM but is not visually visible.
+
+**Affected files:**
+- `IOPHA-frontend/src/components/LandingPage/LandingPage.tsx` (parent flex container)
+- `IOPHA-frontend/src/components/RiskProfileSidebar/RiskProfileSidebar.tsx` (sidebar)
+- `IOPHA-frontend/cypress/e2e/landing-page.cy.ts`
+- `IOPHA-frontend/cypress/e2e/react-query-integration.cy.ts`
+
+**Solution (choose one):**
+
+**Option A: Remove overflow constraint from parent (preferred for fixed-height layouts)**
+
+If the design expects all content to be visible without scrolling, remove `overflow-hidden` from the parent container:
+
+```tsx
+// ❌ BEFORE
+<div className="flex flex-1 w-full overflow-hidden">
+
+// ✅ AFTER
+<div className="flex flex-1 w-full">
+```
+
+Also remove `overflow-y-auto` from the sidebar if content should always be visible:
+
+```tsx
+// ❌ BEFORE
+<aside className="w-80 shrink-0 bg-card border-r border-border flex flex-col overflow-y-auto">
+
+// ✅ AFTER
+<aside className="w-80 shrink-0 bg-card border-r border-border flex flex-col">
+```
+
+**Option B: Use `scrollIntoView()` in tests (when overflow is intentional)**
+
+If the container is meant to be scrollable, scroll the element into view before asserting visibility:
+
+```typescript
+// ❌ BEFORE
+cy.contains("Sleep & recovery").should("be.visible");
+
+// ✅ AFTER
+cy.contains("Sleep & recovery").scrollIntoView().should("be.visible");
+```
+
+**Option C: Fix placeholder text assertions**
+
+`cy.contains()` looks for visible text nodes, not `placeholder` attributes. Use attribute selectors for input placeholders:
+
+```typescript
+// ❌ BEFORE
+cy.contains("Ask about nutrition, exercise, finding a doctor...").should("be.visible");
+
+// ✅ AFTER
+cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
+```
+
+**Root cause analysis checklist:**
+1. Check parent containers for `overflow-hidden`, `overflow-y-auto`, or `overflow-clip`
+2. Check if the Cypress viewport size is smaller than the content height
+3. Check if the element is a placeholder (use attribute selector, not `cy.contains()`)
+4. Check if the element is inside a scrollable container (use `scrollIntoView()`)
+
+### Proactive Visual Testing Strategy (TDD Approach)
+
+To avoid reactive test-fixing cycles, adopt a **test-driven visual development** workflow:
+
+**The Problem:** Writing tests after components are built leads to stale baselines, reactive fixes, and tests that don't reflect design intent.
+
+**The Solution:** Build components with tests from the start, updating visual baselines incrementally.
+
+#### TDD Cycle for Visual Components
+
+```
+Write Test → Run (Fails) → Write Minimal Component → Generate Baseline → Iterate
+```
+
+**Step-by-step:**
+
+1. **Write the component test first** — before any component code:
    ```typescript
-   beforeEach(() => {
-     cy.mockApi({
-       apiPath: "/api/",
-       mocksFolder: "mocks", // resolves to cypress/fixtures/mocks (NOT cypress/fixtures/cypress/fixtures/mocks)
-       cache: true,
+   // src/components/MyComponent/MyComponent.spec.tsx
+   import { MyComponent } from './MyComponent';
+
+   describe('MyComponent', () => {
+     it('should render correctly', () => {
+       cy.mount(<MyComponent />);
+       cy.contains('Expected text').should('be.visible');
      });
    });
    ```
 
-4. **Mock fixture structure:**
-   ```text
-   cypress/fixtures/mocks/
-   └── user/
-       ├── get.json
-       ├── __/
-       │   └── profile/
-       │       └── get.json
-       └── --id=1/
-           └── get.json
+2. **Run test (it fails)** — component doesn't exist yet:
+   ```bash
+   npx cypress run --component --spec "src/components/MyComponent/MyComponent.spec.tsx"
    ```
 
-### Verification
-Use `cy.window().then(win => win.fetch(...))` instead of `cy.request()`. `cy.request()` bypasses the browser's network stack (where `cy.intercept()` operates) and makes direct Node-level HTTP calls, so it always skips browser-based mocks.
+3. **Create minimal component** — just enough to pass:
+   ```tsx
+   export function MyComponent() {
+     return <div>Expected text</div>;
+   }
+   ```
 
-```typescript
-it("should return mocked JSON", () => {
-  cy.visit("/");
-  cy.window().then(win => win.fetch("/api/user")).then(res => {
-    expect(res.status).to.eq(200);
-    return res.json();
-  }).then(data => {
-    expect(data).to.have.property("name", "Test User");
-  });
-});
+4. **Add visual snapshot and generate baseline**:
+   ```typescript
+   it('should render correctly', () => {
+     cy.mount(<MyComponent />);
+     cy.contains('Expected text').should('be.visible');
+     cy.compareSnapshot('my-component-initial');
+   });
+   ```
+   ```bash
+   npm run cy:update-snapshots:spec "src/components/MyComponent/MyComponent.spec.tsx"
+   ```
+
+5. **Iterate and enhance** — add features, update tests, regenerate baselines incrementally.
+
+#### When to Update Baselines
+
+**✅ DO Update When:**
+- Intentionally changing component design (new features, UI improvements)
+- Fixing visual bugs (like overflow issues)
+- Adjusting spacing, colors, typography per design specs
+- First time creating a component
+
+**❌ DO NOT Update When:**
+- Tests fail due to bugs or unintended changes
+- Layout breaks accidentally
+- Content is clipped or overflow issues occur (fix the code first)
+- Tests fail due to dynamic content (dates, times) — mock the data instead
+
+#### Standard Update Workflow
+
+**Scenario 1: Intentional Design Change**
+```bash
+# 1. Make code changes
+# 2. Run tests to see what broke
+npm run test:e2e
+# 3. Review diff images in cypress-visual-screenshots/diff/
+# 4. If changes look correct, update baseline
+npm run cy:update-snapshots
+# 5. Commit with clear message explaining changes
+git add cypress-visual-screenshots/baseline/
+git commit -m "chore: update visual baseline for [feature] [snap-update]"
 ```
 
-### Key Learnings
-- `@swimlane/cy-mockapi` requires Cypress >13.0.0 (project uses Cypress 15.18.0 ✓)
-- `mocksFolder` is resolved relative to `config.fixturesFolder` (`cypress/fixtures/`), so use `"mocks"`, not `"cypress/fixtures/mocks"`
-- `cy.intercept()` intercepts in-browser requests only; `cy.request()` runs in Node and cannot be intercepted
-- Wildcard slugs use `__` in folder/file names: `user/__/profile/get.json` matches `/user/*/profile`
-- Query parameters use `--`: `user/--id=1/get.json` matches `/user?id=1`
+**Scenario 2: Fixing Visual Bugs (Like Overflow)**
+```bash
+# 1. Identify the bug (e.g., "element not visible due to overflow clipping")
+# 2. Fix the code (e.g., remove overflow-y-auto)
+# 3. Run tests — should pass
+npm run test:e2e
+# 4. Update baseline to reflect the fix
+npm run cy:update-snapshots
+# 5. Commit fix + baseline update together
+git add src/components/... cypress-visual-screenshots/baseline/
+git commit -m "fix: [description] - Updated visual baseline"
+```
 
----
+**See also:** [Visual Regression Playbook](./docs/VISUAL_REGRESSION_PLAYBOOK.md) for complete TDD workflow and component testing strategy.
 
-## Visual Regression Testing: Artifacts Cleanup and Documentation
+### Radix UI Peer Dependencies
 
-### Problem Summary
-First run of `cy.compareSnapshot()` left large binary artifacts (PNG baselines, comparison, diff, HTML reports) in the working tree. These generated files bloat the repo and should not be committed.
+Components from IOPHA Resources depend on `@radix-ui/*` packages. All required peer dependencies must be installed in `IOPHA-frontend`:
 
-### Resolution
-1. Added generated artifact directories to `.gitignore`:
-   ```gitignore
-   # Visual Regression Test Artifacts
-   IOPHA-frontend/cypress-visual-screenshots/
-   IOPHA-frontend/cypress-visual-report/
-   ```
-2. Cleaned up existing artifacts before commit with `rm -rf`.
-3. Documented the visual testing strategy and artifact handling in `docs/product_plan/TECHNICAL_DESIGN_DOCUMENT.md` and added a comprehensive `docs/product_plan/VISUAL_REGRESSION_PLAYBOOK.md`.
-4. Added GitHub Actions artifact upload for visual diffs on test failure in `.github/workflows/ci-frontend.yml`.
+```bash
+npm install @radix-ui/react-avatar @radix-ui/react-progress @radix-ui/react-separator @radix-ui/react-tooltip @radix-ui/react-slot
+```
 
-### Verification
-Visual regression test passes on first run (baseline created) and fails with a diff image when UI changes. HTML reports are generated via `cy.task("generateReport")` in the `after()` hook.
+## Cypress Component Testing
+
+### Component Test Configuration
+
+Component tests are configured in `cypress.config.ts` under the `component` key. The test spec pattern is `src/components/**/*.spec.tsx`.
+
+**Common issues:**
+- **Tests not running**: Verify `cypress.config.ts` has the `component` configuration block.
+- **CSS not loading**: Ensure `cypress/support/component.ts` imports `../../src/index.css`.
+- **Vite not found**: The component test dev server uses Vite as the bundler. Ensure Vite is installed.
+
+### Component Test Patterns
+
+Each component test file follows this pattern:
+1. Mount the component with `cy.mount(<Component props />)`
+2. Assert rendered content with `cy.contains()` or `cy.get()`
+3. Test interactions with `cy.contains().click()`
+
+## Logging & Performance
+
+### Logger
+
+The custom `Logger` class (`src/utils/logger.ts`) suppresses `debug`, `info`, and `warn` in production. Only `error` is always emitted.
+
+### useLogRenders Hook
+
+Use `useLogRenders("ComponentName", trackedProps)` at the top of each component to track render frequency. Logs render count and prop snapshot via `Logger.debug`.
+
+### usePerformanceTracking Hook
+
+Use `usePerformanceTracking()` at the top of each component to capture render duration. Warns if render exceeds 16ms (60fps threshold) via `Logger.warn`.
+
+## Known Limitations
+
+### No Resource Library Gaps Encountered
+
+During implementation of the Landing Page, all required components (Avatar, Badge, Button, Input, Progress, Separator, Skeleton, Tooltip) were available in IOPHA Resources and copied successfully. No workarounds were needed.
+
+### Calendar Styling
+
+Calendar picker styles from `globals.css` are included in `index.css` for future use (booking flow). These styles target `.rdp-*` classes from the `react-day-picker` library, which is not yet installed.

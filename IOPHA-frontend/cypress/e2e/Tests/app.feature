@@ -1,5 +1,5 @@
-Feature: App
-  Scenario: User views the app
-    Given I am on the IOPHA homepage
+Feature: Landing Page
+  Scenario: User views the landing page
+    Given I am on the landing page
     When I view the page
-    Then I should see the title "IOPHA - Interactive Obesity Prevention Health Assistant"
+    Then I should see the title "Health Assistant"

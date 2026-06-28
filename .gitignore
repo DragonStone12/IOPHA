@@ -235,3 +235,6 @@ IOPHA-frontend/build
 
 # JetBrains IDE
 .idea/
+
+# Kilo
+.kilo/
