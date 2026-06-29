@@ -13,7 +13,7 @@ When("I view the page", () => {
 });
 
 When("I click the {string} chip", (chipLabel: string) => {
-  cy.contains(chipLabel).click();
+  cy.get("main").contains(chipLabel).click();
 });
 
 Then("I should see the title {string}", (expectedTitle: string) => {
