@@ -353,6 +353,44 @@ Each component test file follows this pattern:
 2. Assert rendered content with `cy.contains()` or `cy.get()`
 3. Test interactions with `cy.contains().click()`
 
+### Cypress React Import Error (Cypress 13+)
+
+**Error:**
+```
+"./react18" is not exported under the conditions ["module", "browser", "development", "import"]
+from package /path/to/node_modules/cypress
+```
+
+Or at runtime:
+```
+Failed to fetch dynamically imported module: http://localhost:3000/__cypress/src/cypress/support/component.ts
+```
+
+**Cause:** Cypress 13+ consolidated the React mounting adapter into a single `cypress/react` package. The old `cypress/react18` and `cypress/react17` subpath exports no longer exist. If `cypress/support/component.ts` uses `import { mount } from "cypress/react18"`, Vite cannot resolve the module and all component tests fail before they start.
+
+**Affected files:**
+- `IOPHA-frontend/cypress/support/component.ts`
+
+**Solution:** Change the import from `cypress/react18` to `cypress/react`:
+
+```typescript
+// ❌ BEFORE (Cypress < 13)
+import { mount } from "cypress/react18";
+
+// ✅ AFTER (Cypress 13+)
+import { mount } from "cypress/react";
+```
+
+The `mount` function from `cypress/react` automatically detects and works with React 18. No other changes are needed — all existing component tests will work with this single-line fix.
+
+**Verification:**
+```bash
+npx cypress run --component --spec "src/components/NutritionResponse/NutritionResponse.spec.tsx"
+# Should show: 12 passing
+```
+
+**Note:** This is a project-wide fix. All component tests (ChatArea, LandingPage, RiskProfileSidebar, NutritionResponse, etc.) share the same `cypress/support/component.ts` support file, so fixing the import resolves the issue for every component test at once.
+
 ## Logging & Performance
 
 ### Logger

@@ -4,262 +4,13 @@
 ## Overview
 Visual regression testing guards against unintended UI changes, layout shifts, broken components, and styling regressions that functional tests miss. This guide is tailored for our Cypress setup with `cypress-image-diff-js` for visual comparison.
 
+For E2E BDD testing, component testing, and the mandatory TDD workflow, see [`CYPRESS_TESTING.md`](./CYPRESS_TESTING.md).
+
 **Tech stack:**
-- Cypress 15 (E2E + Component Testing via `cy.mount`)
+- Cypress 15
 - `cypress-image-diff-js` — provides `cy.compareSnapshot()` for visual comparison
-- `@badeball/cypress-cucumber-preprocessor` — BDD `.feature` files for E2E
-- `@swimlane/cy-mockapi` — API response mocking
 - `start-server-and-test` — orchestrates dev server + Cypress in `test:e2e`
 - Husky (monorepo root) — pre-push runs `lint + test:e2e + audit`
-
----
-
-## Testing Strategy: E2E vs Component Tests
-
-### E2E Tests (Gherkin BDD)
-
-E2E tests use **Gherkin syntax** (`.feature` files) located in `cypress/e2e/Tests/`. These tests visit the actual application and verify user flows end-to-end.
-
-**File structure:**
-```
-cypress/e2e/
-└── Tests/
-    └── app.feature          # Gherkin feature files (E2E tests ONLY)
-```
-
-All E2E tests use Gherkin syntax in `.feature` files. Step definitions are in `cypress/support/step_definitions/`.
-
-**Gherkin feature file example** (`cypress/e2e/Tests/app.feature`):
-```gherkin
-Feature: Landing Page
-  Scenario: User views the landing page
-    Given I am on the landing page
-    When I view the page
-    Then I should see the title "Health Assistant"
-```
-
-**Step definitions** (`cypress/support/step_definitions/app.steps.ts`):
-```typescript
-import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor";
-
-Given("I am on the landing page", () => {
-  cy.visit("/");
-});
-
-When("I view the page", () => {
-  cy.contains("Health Assistant").should("be.visible");
-});
-
-Then("I should see the title {string}", (expectedTitle: string) => {
-  cy.contains(expectedTitle).should("be.visible");
-});
-```
-
-**When to use E2E tests:**
-- Full page layouts and user flows
-- Multi-component interactions
-- End-to-end user journeys
-- Visual regression snapshots of complete pages
-
-### Component Tests (`.spec.tsx`)
-
-Component tests use **Cypress Component Testing** with `cy.mount()` to test components in isolation. Test files use `.spec.tsx` extension and live alongside components in `src/components/`.
-
-**File structure:**
-```
-src/components/
-├── LandingPage/
-│   ├── LandingPage.tsx
-│   └── LandingPage.spec.tsx    # Component test
-├── RiskProfileSidebar/
-│   ├── RiskProfileSidebar.tsx
-│   └── RiskProfileSidebar.spec.tsx
-└── ChatArea/
-    ├── ChatArea.tsx
-    └── ChatArea.spec.tsx
-```
-
-**Component test example** (`src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx`):
-```typescript
-import { RiskProfileSidebar } from "./RiskProfileSidebar";
-
-describe("RiskProfileSidebar Component", () => {
-  it("should render user card with correct details", () => {
-    cy.mount(
-      <RiskProfileSidebar
-        userName="Test User"
-        userAge={28}
-        userLocation="New York, NY"
-      />
-    );
-    cy.contains("Test User").should("be.visible");
-    cy.contains("28 years").should("be.visible");
-  });
-
-  it("should display HIGH RISK badge when score > 70", () => {
-    cy.mount(<RiskProfileSidebar riskScore={85} />);
-    cy.contains("HIGH RISK").should("be.visible");
-  });
-});
-```
-
-**When to use component tests:**
-- Discrete UI states (hover, active, disabled)
-- Isolated component validation
-- Props and event handling
-- Faster feedback during development
-
----
-
-## Cypress Component Testing Guide
-
-### Setup
-
-Component testing is configured in `cypress.config.ts` under the `component` key:
-
-```typescript
-component: {
-  specPattern: "src/components/**/*.spec.tsx",
-  supportFile: "cypress/support/component.ts",
-  devServer: {
-    framework: "react",
-    bundler: "vite",
-  },
-}
-```
-
-**Support file** (`cypress/support/component.ts`):
-```typescript
-import { mount } from "cypress/react18";
-import "../../src/index.css";
-
-declare global {
-  namespace Cypress {
-    interface Chainable {
-      mount: typeof mount;
-    }
-  }
-}
-
-Cypress.Commands.add("mount", mount);
-```
-
-### Mounting Components
-
-**Basic mount:**
-```typescript
-cy.mount(<Button>Click me</Button>);
-cy.get("button").should("be.visible");
-```
-
-**Mount with props:**
-```typescript
-cy.mount(
-  <Card
-    title="Welcome"
-    description="Test card"
-    variant="primary"
-  />
-);
-cy.contains("Welcome").should("be.visible");
-```
-
-**Mount with providers/context:**
-```typescript
-cy.mount(
-  <QueryProvider>
-    <LandingPage userName="Sarah Mitchell" riskScore={78} />
-  </QueryProvider>
-);
-```
-
-### Testing Props and Events
-
-**Testing props:**
-```typescript
-it("renders different risk levels", () => {
-  cy.mount(<RiskProfileSidebar riskScore={85} />);
-  cy.contains("HIGH RISK").should("be.visible");
-
-  cy.mount(<RiskProfileSidebar riskScore={50} />);
-  cy.contains("MODERATE RISK").should("be.visible");
-});
-```
-
-**Testing callbacks with stubs:**
-```typescript
-it("fires onTopicSelect callback when chip is clicked", () => {
-  const callback = cy.stub().as("topicSelect");
-  cy.mount(<ChatArea onTopicSelect={callback} />);
-  cy.contains("Find a doctor").click();
-  cy.get("@topicSelect").should("have.been.calledWith", "find_a_doctor");
-});
-```
-
-### Stubbing Dependencies
-
-**Stubbing HTTP requests:**
-```typescript
-cy.intercept("GET", "/api/users", {
-  statusCode: 200,
-  body: [{ id: 1, name: "Alice" }],
-}).as("getUsers");
-
-cy.mount(<UserList />);
-cy.wait("@getUsers");
-cy.contains("Alice").should("be.visible");
-```
-
-### Visual Testing
-
-**Snapshot testing with cypress-image-diff-js:**
-```typescript
-it("matches snapshot for default state", () => {
-  cy.mount(<RiskProfileSidebar />);
-  cy.compareSnapshot("risk-profile-sidebar-default");
-});
-
-it("matches snapshot for high risk", () => {
-  cy.mount(<RiskProfileSidebar riskScore={85} />);
-  cy.compareSnapshot("risk-profile-sidebar-high-risk");
-});
-```
-
-### Best Practices
-
-**Test organization:**
-```typescript
-describe("LoginForm", () => {
-  describe("validation", () => {
-    it("shows error for invalid email");
-    it("shows error for short password");
-  });
-
-  describe("submission", () => {
-    it("submits valid credentials");
-    it("shows error on failed login");
-  });
-});
-```
-
-**Keep tests independent:**
-```typescript
-beforeEach(() => {
-  // Reset state before each test
-  cy.intercept("GET", "/api/cart", { items: [] });
-});
-```
-
-**Use semantic selectors:**
-```typescript
-// Good - stable selectors
-cy.contains("Sleep & recovery").should("be.visible");
-cy.get('input[placeholder*="Ask about"]').should("be.visible");
-
-// Avoid - fragile selectors
-cy.get(".btn-primary").click();
-cy.get("button").first().click();
-```
 
 ---
 
@@ -537,40 +288,7 @@ cy.get('#analytics-widget').invoke('remove');
 
 ---
 
-## 12. Component-Level vs Integration Testing
-
-**Use component tests** (Cypress Component Testing via `cy.mount`) for:
-- Discrete UI states: Button hover, Card layout, Form validation
-- Isolated validation without full page context
-- Faster feedback during development
-
-Component test files use `.spec.tsx` extension and live alongside components:
-```typescript
-// src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx
-import { RiskProfileSidebar } from './RiskProfileSidebar';
-
-describe('RiskProfileSidebar', () => {
-  it('renders user info', () => {
-    cy.mount(<RiskProfileSidebar userName="John Doe" userAge={30} userLocation="NYC" />);
-    cy.contains('John Doe').should('be.visible');
-    cy.contains('30 years').should('be.visible');
-  });
-
-  it('displays risk score', () => {
-    cy.mount(<RiskProfileSidebar riskScore={78} />);
-    cy.get('[data-slot="progress-indicator"]').should('have.css', 'width');
-  });
-});
-```
-
-**Use E2E tests** (Cucumber `.feature` files + `.cy.ts` specs) for:
-- Full page layouts
-- Multi-component interactions
-- End-to-end user flows
-
----
-
-## 13. Performance Considerations
+## 12. Performance Considerations
 
 Visual tests add runtime and storage overhead.
 
@@ -588,7 +306,7 @@ Visual tests add runtime and storage overhead.
 
 ---
 
-## 14. Handling Flaky Tests
+## 13. Handling Flaky Tests
 
 Common causes: animations, delayed rendering, third-party content.
 
@@ -615,7 +333,7 @@ cy.contains('Health Assistant')
 
 ---
 
-## 15. Maintenance and Cleanup
+## 14. Maintenance and Cleanup
 
 **Prevent snapshot bloat:**
 1. **Remove orphaned snapshots** when components are deleted
@@ -627,7 +345,7 @@ cy.contains('Health Assistant')
 
 ---
 
-## 16. Avoiding Overflow-Related Baseline Failures
+## 15. Avoiding Overflow-Related Baseline Failures
 
 Layout changes that introduce or remove `overflow` CSS properties are a common cause of visual regression baseline failures. When a parent container has `overflow-hidden` or `overflow-y-auto`, child content that exceeds the container bounds gets clipped. This causes two problems:
 
@@ -717,72 +435,7 @@ If visual regression baselines fail after you change overflow/layout CSS:
 
 ---
 
-## 17. Component-Driven Visual Testing Workflow (TDD Approach)
-
-Build components **with tests from the start**, updating visual baselines incrementally as each component is developed. This ensures tests always reflect the current design intent.
-
-### The TDD Cycle for Visual Components
-
-```
-Write Test → Run (Fails) → Write Minimal Component → Generate Baseline → Iterate
-```
-
-**Step 1: Write the component test first**
-```typescript
-// src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx
-import { RiskProfileSidebar } from './RiskProfileSidebar';
-
-describe('RiskProfileSidebar Component', () => {
-  it('should render risk profile sidebar', () => {
-    cy.mount(<RiskProfileSidebar />);
-    cy.contains('Sarah Mitchell').should('be.visible');
-  });
-});
-```
-
-**Step 2: Run test (it fails)**
-```bash
-# Component tests are configured in cypress.config.ts under the "component" key
-# Spec pattern: src/components/**/*.spec.tsx
-npx cypress run --component --spec "src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx"
-# Expected: Test fails because component doesn't exist yet
-```
-
-**Step 3: Create minimal component**
-```tsx
-export function RiskProfileSidebar() {
-  return (
-    <aside className="w-80 bg-card border-r">
-      <div>User: Sarah Mitchell</div>
-    </aside>
-  );
-}
-```
-
-**Step 4: Run test again — it passes**
-
-**Step 5: Add visual snapshot and generate baseline**
-```typescript
-it('should render risk profile sidebar', () => {
-  cy.mount(<RiskProfileSidebar />);
-  cy.contains('Sarah Mitchell').should('be.visible');
-  cy.compareSnapshot('risk-profile-sidebar-initial');
-});
-```
-
-```bash
-# Generate baseline
-npm run cy:update-snapshots:spec "src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx"
-# Creates: cypress-visual-screenshots/baseline/risk-profile-sidebar-initial.png
-```
-
-**Step 6: Iterate and enhance** — add features, update tests, regenerate baselines incrementally.
-
----
-
-## 18. Training Examples
-
-### Example 1: Fixing a Visual Bug (Overflow Issue)
+## 16. Training Example: Fixing a Visual Bug (Overflow Issue)
 
 **Before:**
 ```typescript
@@ -812,20 +465,6 @@ npm run cy:update-snapshots
 git commit -m "fix: sidebar overflow clipping bug - Updated visual baseline"
 ```
 
-### Example 2: Fixing Placeholder Text Assertion
-
-**Before:**
-```typescript
-// Test fails: can't find placeholder text
-cy.contains("Ask about nutrition, exercise, finding a doctor...").should("be.visible");
-```
-
-**Fix:**
-```typescript
-// cy.contains() looks for visible text nodes, not placeholder attributes
-cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
-```
-
 ---
 
 ## Quick Reference Card
@@ -833,7 +472,6 @@ cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
 | **Do** | **Don't** |
 |--------|-----------|
 | Use `cy.compareSnapshot()` | Use `cy.matchImageSnapshot()` (wrong library) |
-| Use semantic selectors (`aside`, `main`, class names) | Rely on `data-testid` (not used in this project) |
 | Wait for elements to load | Use `cy.wait()` arbitrarily |
 | Scope to stable regions | Blindly update snapshots |
 | Use meaningful snapshot names | Ignore diff reviews |
@@ -841,7 +479,6 @@ cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
 | Commit baselines to Git | Store snapshots only locally |
 | Mock dynamic content via `cy-mockapi` | Test with live unpredictable data |
 | Use `--env updateSnapshots=true` | Use `UPDATE_SNAPSHOTS=true` (wrong env var) |
-| Use `.spec.tsx` for component tests | Use `.cy.tsx` (wrong extension) |
 
 ---
 
