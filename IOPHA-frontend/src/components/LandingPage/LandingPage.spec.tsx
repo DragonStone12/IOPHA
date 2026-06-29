@@ -1,4 +1,4 @@
-import { LandingPage } from "../LandingPage";
+import { LandingPage } from "./LandingPage";
 
 describe("LandingPage Component", () => {
   it("should render with default props", () => {
@@ -8,6 +8,7 @@ describe("LandingPage Component", () => {
     cy.contains("78").should("be.visible");
     cy.contains("/100").should("be.visible");
     cy.contains("Baylor Scott & White Health").should("be.visible");
+    cy.compareSnapshot("landing-page-default");
   });
 
   it("should render with custom props", () => {

@@ -9,7 +9,7 @@ export default defineConfig({
     screenshotOnRunFailure: true,
     screenshotsFolder: "cypress/screenshots",
     supportFile: "cypress/support/e2e.ts",
-    specPattern: ["cypress/e2e/**/*.cy.ts", "cypress/e2e/Tests/**/*.feature"],
+    specPattern: "cypress/e2e/Tests/**/*.feature",
     baseUrl: "http://localhost:3000",
     async setupNodeEvents(on, config) {
       await addCucumberPreprocessorPlugin(on, config);
@@ -34,6 +34,11 @@ export default defineConfig({
     devServer: {
       framework: "react",
       bundler: "vite",
+    },
+    setupNodeEvents(on, config) {
+      const getCompareSnapshotsPlugin = require("cypress-image-diff-js/plugin");
+      getCompareSnapshotsPlugin(on, config);
+      return config;
     },
   },
   env: {
