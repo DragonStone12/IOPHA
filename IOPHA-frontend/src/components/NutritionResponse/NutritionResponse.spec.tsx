@@ -47,6 +47,7 @@ describe("NutritionResponse Component", () => {
   it("should render the introductory text mentioning irregular meal timing", () => {
     cy.mount(<NutritionResponse data={MOCK_DATA} />);
     cy.contains("irregular meal timing").should("be.visible");
+    cy.compareSnapshot("nutrition-response-default");
   });
 
   it("should render exactly 3 numbered dietary adjustment cards", () => {
@@ -98,12 +99,7 @@ describe("NutritionResponse Component", () => {
 
   it("should fire onBookPhysician callback when Book button is clicked", () => {
     const callback = cy.stub().as("bookPhysician");
-    cy.mount(
-      <NutritionResponse
-        data={MOCK_DATA}
-        onBookPhysician={callback}
-      />,
-    );
+    cy.mount(<NutritionResponse data={MOCK_DATA} onBookPhysician={callback} />);
     cy.contains("Book").click();
     cy.get("@bookPhysician").should("have.been.called");
   });
