@@ -5,6 +5,7 @@ import Logger from "../../utils/logger";
 import { Button } from "../shared/button";
 import { Input } from "../shared/input";
 import { NutritionResponse } from "../NutritionResponse/NutritionResponse";
+import { FindDoctorResponse } from "../FindDoctorResponse/FindDoctorResponse";
 import type { Physician } from "../NutritionResponse/PhysicianCard";
 
 interface ChatAreaProps {
@@ -217,6 +218,40 @@ export function ChatArea({
                 <NutritionResponse
                   onChipSelect={handleChipSelect}
                   onBookPhysician={onBookPhysician}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Find Doctor Response */}
+          {activeTopic === "find_a_doctor" && (
+            <div className="flex items-start gap-3 mb-6">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="size-8 rounded-full bg-primary flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4 text-primary-foreground"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                    <path d="M9 10h0" />
+                    <path d="M15 10h0" />
+                    <path d="M12 14v4" />
+                  </svg>
+                </div>
+                <span className="text-xs text-gray-500 mt-1.5">3:23 PM</span>
+              </div>
+              <div className="flex-1 max-w-2xl">
+                <FindDoctorResponse
+                  onBookProvider={(providerId) => {
+                    Logger.info("[ChatArea] Provider booked", { providerId });
+                  }}
+                  onChipSelect={handleChipSelect}
                 />
               </div>
             </div>
