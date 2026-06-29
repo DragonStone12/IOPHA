@@ -52,6 +52,7 @@ describe("NutritionResponse Component", () => {
 
   it("should render exactly 3 numbered dietary adjustment cards", () => {
     cy.mount(<NutritionResponse data={MOCK_DATA} />);
+    cy.get("[aria-posinset]").should("have.length", 3);
     cy.contains("Time-restricted eating").should("be.visible");
     cy.contains("Protein-first meals").should("be.visible");
     cy.contains("Eliminate liquid calories").should("be.visible");
