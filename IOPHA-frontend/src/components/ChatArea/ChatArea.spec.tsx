@@ -12,6 +12,7 @@ describe("ChatArea Component", () => {
     cy.contains("Welcome, Jane Smith").should("be.visible");
     cy.contains("Test Hospital AI assistant").should("be.visible");
     cy.contains("75/100").should("be.visible");
+    cy.compareSnapshot({ name: "chat-area-default", testThreshold: 0.05 });
   });
 
   it("should render all 4 action chips", () => {

@@ -228,6 +228,46 @@ cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
 3. Check if the element is a placeholder (use attribute selector, not `cy.contains()`)
 4. Check if the element is inside a scrollable container (use `scrollIntoView()`)
 
+### Duplicate Text Labels Across Sidebar and Chat Area
+
+**Error:**
+```
+AssertionError: Timed out retrying after 4000ms: Expected to find content: 'irregular meal timing' but never did.
+```
+
+The `NutritionResponse` component never renders after clicking the "Weight & nutrition tips" chip. The chat area shows the initial greeting and chips but no response content appears.
+
+**Cause:** Both `RiskProfileSidebar` and `ChatArea` render buttons with identical text labels (e.g., "Weight & nutrition tips", "Find a doctor", "Exercise guidance", "Sleep & recovery"). The sidebar buttons are static navigation items with **no `onClick` handler**. When a Cypress step definition uses `cy.contains(chipLabel).click()`, Cypress matches the **first** element in DOM order — the sidebar button. Since it has no handler, `activeTopic` is never set and `NutritionResponse` never mounts.
+
+**Affected files:**
+- `IOPHA-frontend/src/components/ChatArea/ChatArea.tsx` (line 25 — interactive chip with `value: "nutrition_tips"`)
+- `IOPHA-frontend/src/components/RiskProfileSidebar/RiskProfileSidebar.tsx` (line 180 — static nav item with no handler)
+- `IOPHA-frontend/cypress/support/step_definitions/app.steps.ts` (step definition for chip click)
+
+**Solution:** Scope the click selector to the chat area container (`<main>`) so Cypress targets the interactive chip instead of the sidebar button:
+
+```typescript
+// ❌ BEFORE — matches sidebar button first (no handler)
+When("I click the {string} chip", (chipLabel: string) => {
+  cy.contains(chipLabel).click();
+});
+
+// ✅ AFTER — scoped to the chat area
+When("I click the {string} chip", (chipLabel: string) => {
+  cy.get("main").contains(chipLabel).click();
+});
+```
+
+**Why this works:** The `<main>` element wraps the `ChatArea` component. Scoping `cy.contains()` to `cy.get("main")` restricts the search to the chat area's DOM subtree, bypassing the sidebar's duplicate labels entirely.
+
+**Diagnosis steps:**
+1. Open Cypress in headed mode: `npx cypress open --e2e`
+2. Watch the test — if the chip appears clicked but no response renders, check which element was actually clicked
+3. Inspect the DOM: both sidebar and chat area contain elements with the same text
+4. Check the click handler: sidebar buttons have no `onClick`, chat area buttons call `handleTopicClick()`
+
+**Prevention:** When writing E2E step definitions that interact with elements whose labels may appear in multiple regions of the page, always scope the selector to the correct container (`main`, `aside`, a specific `data-testid`, etc.).
+
 ### Proactive Visual Testing Strategy (TDD Approach)
 
 To avoid reactive test-fixing cycles, adopt a **test-driven visual development** workflow:
@@ -352,6 +392,44 @@ Each component test file follows this pattern:
 1. Mount the component with `cy.mount(<Component props />)`
 2. Assert rendered content with `cy.contains()` or `cy.get()`
 3. Test interactions with `cy.contains().click()`
+
+### Cypress React Import Error (Cypress 13+)
+
+**Error:**
+```
+"./react18" is not exported under the conditions ["module", "browser", "development", "import"]
+from package /path/to/node_modules/cypress
+```
+
+Or at runtime:
+```
+Failed to fetch dynamically imported module: http://localhost:3000/__cypress/src/cypress/support/component.ts
+```
+
+**Cause:** Cypress 13+ consolidated the React mounting adapter into a single `cypress/react` package. The old `cypress/react18` and `cypress/react17` subpath exports no longer exist. If `cypress/support/component.ts` uses `import { mount } from "cypress/react18"`, Vite cannot resolve the module and all component tests fail before they start.
+
+**Affected files:**
+- `IOPHA-frontend/cypress/support/component.ts`
+
+**Solution:** Change the import from `cypress/react18` to `cypress/react`:
+
+```typescript
+// ❌ BEFORE (Cypress < 13)
+import { mount } from "cypress/react18";
+
+// ✅ AFTER (Cypress 13+)
+import { mount } from "cypress/react";
+```
+
+The `mount` function from `cypress/react` automatically detects and works with React 18. No other changes are needed — all existing component tests will work with this single-line fix.
+
+**Verification:**
+```bash
+npx cypress run --component --spec "src/components/NutritionResponse/NutritionResponse.spec.tsx"
+# Should show: 12 passing
+```
+
+**Note:** This is a project-wide fix. All component tests (ChatArea, LandingPage, RiskProfileSidebar, NutritionResponse, etc.) share the same `cypress/support/component.ts` support file, so fixing the import resolves the issue for every component test at once.
 
 ## Logging & Performance
 
