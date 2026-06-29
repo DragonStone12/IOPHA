@@ -5,7 +5,7 @@ Given("I am on the IOPHA homepage", () => {
 });
 
 When("I click the {string} chip", (chipLabel: string) => {
-  cy.contains(chipLabel).click();
+  cy.get("main").contains(chipLabel).click();
 });
 
 Then(
