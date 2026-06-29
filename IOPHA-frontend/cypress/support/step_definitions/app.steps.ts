@@ -23,7 +23,7 @@ Then("I should see the title {string}", (expectedTitle: string) => {
 Then(
   "I should see the introductory text mentioning {string}",
   (keyword: string) => {
-    cy.contains(keyword).should("be.visible");
+    cy.contains(keyword).scrollIntoView().should("be.visible");
   },
 );
 
