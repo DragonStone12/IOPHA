@@ -35,6 +35,11 @@ export default defineConfig({
       framework: "react",
       bundler: "vite",
     },
+    setupNodeEvents(on, config) {
+      const getCompareSnapshotsPlugin = require("cypress-image-diff-js/plugin");
+      getCompareSnapshotsPlugin(on, config);
+      return config;
+    },
   },
   env: {
     VIDEO: false,
