@@ -81,7 +81,11 @@ export function NutritionResponse({
       </div>
 
       {/* Numbered tip cards */}
-      <div className="space-y-2" role="list" aria-label="Dietary adjustment tips">
+      <div
+        className="space-y-2"
+        role="list"
+        aria-label="Dietary adjustment tips"
+      >
         {data.tips.map((tip) => (
           <TipCard key={tip.id ?? tip.number} tip={tip} />
         ))}
@@ -93,10 +97,7 @@ export function NutritionResponse({
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
             Nearby Baylor Physicians
           </p>
-          <PhysicianCard
-            physician={data.physician}
-            onBook={onBookPhysician}
-          />
+          <PhysicianCard physician={data.physician} onBook={onBookPhysician} />
         </div>
       )}
 

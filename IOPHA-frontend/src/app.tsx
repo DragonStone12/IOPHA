@@ -3,7 +3,10 @@ import { QueryProvider } from "./providers/QueryProvider";
 import { LandingPage } from "./components/LandingPage/LandingPage";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { UserDisplay } from "./components/UserDisplay";
-import { onRenderCallback, logPagePerformanceMetrics } from "./utils/performance";
+import {
+  onRenderCallback,
+  logPagePerformanceMetrics,
+} from "./utils/performance";
 import { appRenderDebug } from "./utils/logger";
 import ReactDOM from "react-dom/client";
 import React, { Profiler } from "react";

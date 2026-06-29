@@ -24,10 +24,18 @@ E2E tests use **Gherkin syntax** (`.feature` files) located in `cypress/e2e/Test
 ```
 cypress/e2e/
 └── Tests/
-    └── app.feature          # Gherkin feature files (E2E tests ONLY)
+    ├── app.feature              # Gherkin feature files (E2E tests ONLY)
+    └── nutrition-tips.feature
+
+cypress/support/
+└── step_definitions/
+    ├── app.steps.ts             # Step definitions for app.feature
+    └── nutrition-tips.steps.ts  # Step definitions for nutrition-tips.feature
 ```
 
 All E2E tests use Gherkin syntax in `.feature` files. Step definitions are in `cypress/support/step_definitions/`.
+
+**Naming convention:** Each `.feature` file MUST have a corresponding `.steps.ts` file with a matching base name. For example, `nutrition-tips.feature` maps to `nutrition-tips.steps.ts`. Step definitions for one feature MUST NOT be placed in another feature's step definition file.
 
 **Gherkin feature file example** (`cypress/e2e/Tests/app.feature`):
 ```gherkin

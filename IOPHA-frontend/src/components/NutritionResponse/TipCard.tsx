@@ -15,10 +15,7 @@ interface TipCardProps {
 export function TipCard({ tip, className }: TipCardProps) {
   return (
     <div
-      className={cn(
-        "bg-card border border-border rounded-xl p-4",
-        className,
-      )}
+      className={cn("bg-card border border-border rounded-xl p-4", className)}
       role="listitem"
       aria-posinset={tip.number}
       aria-setsize={3}

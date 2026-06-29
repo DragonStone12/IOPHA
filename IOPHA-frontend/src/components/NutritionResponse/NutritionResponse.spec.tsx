@@ -98,12 +98,7 @@ describe("NutritionResponse Component", () => {
 
   it("should fire onBookPhysician callback when Book button is clicked", () => {
     const callback = cy.stub().as("bookPhysician");
-    cy.mount(
-      <NutritionResponse
-        data={MOCK_DATA}
-        onBookPhysician={callback}
-      />,
-    );
+    cy.mount(<NutritionResponse data={MOCK_DATA} onBookPhysician={callback} />);
     cy.contains("Book").click();
     cy.get("@bookPhysician").should("have.been.called");
   });
