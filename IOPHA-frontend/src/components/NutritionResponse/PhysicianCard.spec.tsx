@@ -63,7 +63,9 @@ describe("PhysicianCard Component", () => {
 
   it("should render hover state", () => {
     cy.mount(<PhysicianCard physician={MOCK_PHYSICIAN} />);
-    cy.get("div").first().trigger("mouseover");
+    cy.get('[aria-label*="Book appointment"]').trigger("mouseover", {
+      force: true,
+    });
     cy.compareSnapshot("physician-card-hover");
   });
 

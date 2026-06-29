@@ -17,6 +17,7 @@ describe("ChatArea Component", () => {
 
   it("should render all 4 action chips", () => {
     cy.mount(<ChatArea />);
+    cy.get("main .flex-wrap button").should("have.length", 4);
     cy.contains("Weight & nutrition tips").should("be.visible");
     cy.contains("Find a doctor").should("be.visible");
     cy.contains("Exercise guidance").should("be.visible");

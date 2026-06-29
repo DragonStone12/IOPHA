@@ -46,6 +46,7 @@ describe("RiskProfileSidebar Component", () => {
         contributingFactors={["Factor 1", "Factor 2", "Factor 3"]}
       />,
     );
+    cy.get("ul li").should("have.length", 3);
     cy.contains("Factor 1").should("be.visible");
     cy.contains("Factor 2").should("be.visible");
     cy.contains("Factor 3").should("be.visible");
@@ -53,6 +54,7 @@ describe("RiskProfileSidebar Component", () => {
 
   it("should render Quick Start navigation items", () => {
     cy.mount(<RiskProfileSidebar />);
+    cy.get("nav button").should("have.length", 4);
     cy.contains("Weight & nutrition tips").should("be.visible");
     cy.contains("Find a doctor").should("be.visible");
     cy.contains("Exercise guidance").should("be.visible");

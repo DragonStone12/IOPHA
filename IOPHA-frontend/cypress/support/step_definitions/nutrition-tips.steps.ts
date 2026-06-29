@@ -1,12 +1,4 @@
-import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor";
-
-Given("I am on the IOPHA homepage", () => {
-  cy.visit("/");
-});
-
-When("I click the {string} chip", (chipLabel: string) => {
-  cy.get("main").contains(chipLabel).click();
-});
+import { Then } from "@badeball/cypress-cucumber-preprocessor";
 
 Then(
   "I should see the introductory text mentioning {string}",
