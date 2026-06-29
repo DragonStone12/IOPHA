@@ -1,4 +1,4 @@
-import { LandingPage } from "../LandingPage";
+import { LandingPage } from "./LandingPage";
 
 describe("LandingPage Component", () => {
   it("should render with default props", () => {
@@ -40,6 +40,7 @@ describe("LandingPage Component", () => {
 
   it("should render all 4 action chips", () => {
     cy.mount(<LandingPage />);
+    cy.get("main .flex-wrap button").should("have.length", 4);
     cy.contains("Weight & nutrition tips").should("be.visible");
     cy.contains("Find a doctor").should("be.visible");
     cy.contains("Exercise guidance").should("be.visible");

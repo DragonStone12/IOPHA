@@ -1,4 +1,4 @@
-const compareSnapshotCommand = require("cypress-image-diff-js/command");
-compareSnapshotCommand();
+import compareSnapshotCommand from "cypress-image-diff-js/command";
+import "@swimlane/cy-mockapi/build/main/commands";
 
-require("@swimlane/cy-mockapi/build/main/commands");
+compareSnapshotCommand();
