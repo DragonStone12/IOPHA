@@ -225,6 +225,10 @@ yarn-error.log*
 
 # Visual Regression Test Artifacts
 IOPHA-frontend/cypress-visual-screenshots/
+IOPHA-frontend/visual-screenshots/
+IOPHA-frontend/visual-reports/
+IOPHA-frontend/cypress/screenshots/
+IOPHA-frontend/cypress/videos/
 IOPHA-frontend/cypress-visual-report/
 
 # Frontend Build
