@@ -63,6 +63,19 @@ Then("I should see the title {string}", (expectedTitle: string) => {
 });
 ```
 
+### Scoped Selectors for Interactive Elements
+
+When clicking interactive elements (chips, buttons, links) in E2E step definitions, always scope the selector to the correct container. The IOPHA landing page renders duplicate text labels in both the sidebar (`RiskProfileSidebar`) and the chat area (`ChatArea`). Using a bare `cy.contains(label).click()` will match the **first** element in DOM order — which is the sidebar's static navigation item with no click handler — causing the intended action to silently fail.
+
+**Correct pattern** — scope to the chat area (`<main>`):
+```typescript
+When("I click the {string} chip", (chipLabel: string) => {
+  cy.get("main").contains(chipLabel).click();
+});
+```
+
+This ensures Cypress clicks the interactive chip inside the chat area rather than the non-interactive sidebar navigation item. For more information on diagnosing and resolving this issue, see the [Troubleshooting guide](../TROUBLESHOOTING.md#duplicate-text-labels-across-sidebar-and-chat-area).
+
 **When to use E2E tests:**
 - Full page layouts and user flows
 - Multi-component interactions
@@ -233,6 +246,86 @@ it("fires onTopicSelect callback when chip is clicked", () => {
   cy.get("@topicSelect").should("have.been.calledWith", "find_a_doctor");
 });
 ```
+
+### Component Variants & States
+
+Test how a component looks and behaves in different states (e.g., hover, disabled, loading, error). Use visual snapshots to capture each variant for regression testing.
+
+**Testing button states:**
+```typescript
+describe("Button variants", () => {
+  it("renders default state", () => {
+    cy.mount(<Button>Click me</Button>);
+    cy.compareSnapshot("button-default");
+  });
+
+  it("renders disabled state", () => {
+    cy.mount(<Button disabled>Click me</Button>);
+    cy.get("button").should("be.disabled");
+    cy.compareSnapshot("button-disabled");
+  });
+
+  it("renders hover state", () => {
+    cy.mount(<Button>Click me</Button>);
+    cy.get("button").trigger("mouseover");
+    cy.compareSnapshot("button-hover");
+  });
+
+  it("renders loading state", () => {
+    cy.mount(<Button loading>Saving...</Button>);
+    cy.get("button").should("be.disabled");
+    cy.contains("Saving...").should("be.visible");
+    cy.compareSnapshot("button-loading");
+  });
+});
+```
+
+**Testing card variants:**
+```typescript
+describe("Card variants", () => {
+  it("renders default card", () => {
+    cy.mount(<Card title="Default" description="Default state" />);
+    cy.compareSnapshot("card-default");
+  });
+
+  it("renders error state", () => {
+    cy.mount(<Card title="Error" error="Something went wrong" />);
+    cy.contains("Something went wrong").should("be.visible");
+    cy.compareSnapshot("card-error");
+  });
+
+  it("renders with different sizes", () => {
+    cy.mount(<Card title="Small" size="sm" />);
+    cy.compareSnapshot("card-small");
+    
+    cy.mount(<Card title="Large" size="lg" />);
+    cy.compareSnapshot("card-large");
+  });
+});
+```
+
+**Testing modal states:**
+```typescript
+describe("Modal states", () => {
+  it("renders closed modal", () => {
+    cy.mount(<Modal isOpen={false}>Content</Modal>);
+    cy.contains("Content").should("not.exist");
+    cy.compareSnapshot("modal-closed");
+  });
+
+  it("renders open modal", () => {
+    cy.mount(<Modal isOpen={true}>Content</Modal>);
+    cy.contains("Content").should("be.visible");
+    cy.compareSnapshot("modal-open");
+  });
+});
+```
+
+**Why test variants with snapshots:**
+- Catches unintended visual changes across component states
+- Documents expected appearance for each state
+- Prevents regressions when refactoring component styles
+- Makes state coverage explicit and reviewable
 
 ### Stubbing Dependencies
 
@@ -478,3 +571,5 @@ If you see an error about `component-index.html` not found, create `cypress/supp
 | Import from `cypress/react` | Import from `cypress/react18` |
 | Keep tests independent with `beforeEach` | Share state between tests |
 | Use `cy.stub().as("name")` for callbacks | Test callbacks by checking DOM only |
+| Test component variants & states with snapshots | Skip testing hover/disabled/loading states |
+| Use `cy.compareSnapshot("name-state")` for variants | Use vague snapshot names like `"button-1"` |

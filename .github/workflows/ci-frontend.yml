@@ -29,6 +29,29 @@ jobs:
         if: failure()
         run: npm audit fix --force && npm audit --omit=dev --audit-level=high
 
+  cypress-component:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm ci --prefix IOPHA-frontend
+      - name: Cypress Component Tests
+        uses: cypress-io/github-action@v7
+        with:
+          working-directory: IOPHA-frontend
+          command: npx cypress run --component
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: component-test-screenshots
+          path: IOPHA-frontend/cypress/screenshots
+          if-no-files-found: ignore
+
   cypress-e2e:
     runs-on: ubuntu-latest
     strategy:
@@ -43,7 +66,7 @@ jobs:
           node-version: '24'
       - name: Install dependencies
         run: npm ci --prefix IOPHA-frontend
-      - name: Cypress Run
+      - name: Cypress E2E Tests (includes Cucumber BDD feature tests)
         uses: cypress-io/github-action@v7
         with:
           working-directory: IOPHA-frontend

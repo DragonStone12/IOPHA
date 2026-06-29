@@ -12,6 +12,7 @@ describe("RiskProfileSidebar Component", () => {
     cy.contains("Test User").should("be.visible");
     cy.contains("28 years").should("be.visible");
     cy.contains("New York, NY").should("be.visible");
+    cy.compareSnapshot("risk-profile-sidebar-default");
   });
 
   it("should render initials in avatar when no image provided", () => {

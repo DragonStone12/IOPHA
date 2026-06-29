@@ -9,8 +9,9 @@ For E2E BDD testing, component testing, and the mandatory TDD workflow, see [`CY
 **Tech stack:**
 - Cypress 15
 - `cypress-image-diff-js` — provides `cy.compareSnapshot()` for visual comparison
+- `@swimlane/cy-mockapi` — API response mocking for consistent test data
 - `start-server-and-test` — orchestrates dev server + Cypress in `test:e2e`
-- Husky (monorepo root) — pre-push runs `lint + test:e2e + audit`
+- Husky (monorepo root) — pre-push runs `lint + test:e2e + component tests + audit`
 
 ---
 
@@ -22,14 +23,14 @@ Visual test failures often trace back to differences in screen resolution, scali
 ```typescript
 export default defineConfig({
   e2e: {
-    viewportWidth: 1280,
-    viewportHeight: 720,
+    viewportWidth: 1440,
+    viewportHeight: 900,
     setupNodeEvents(on, config) {
       on('before:browser:launch', (browser = {}, launchOptions) => {
         if (browser.name === 'chrome' || browser.name === 'chromium') {
           launchOptions.args.push('--force-device-scale-factor=1');
           launchOptions.args.push('--disable-gpu');
-          launchOptions.args.push('--window-size=1280,720');
+          launchOptions.args.push('--window-size=1440,900');
           launchOptions.args.push('--font-render-hinting=none');
         }
         return launchOptions;
@@ -40,13 +41,15 @@ export default defineConfig({
 });
 ```
 
+**Note:** Use 1440x900 as the standard viewport. This matches typical desktop viewports and prevents content clipping that occurs at smaller sizes like 1280x720.
+
 ---
 
 ## 2. Normalize Dynamic or Transient Content
 
 Dynamic values such as timestamps, random IDs, or user-specific data produce false-positive diffs. Before taking a snapshot, intercept, mock, or mutate any DOM content that varies between sessions.
 
-**In your Cucumber step definitions or E2E tests:**
+**In your component tests or E2E tests:**
 ```typescript
 // Remove dynamic timestamps
 cy.get('.timestamp, .date').invoke('text', '[DATE]');
@@ -65,21 +68,21 @@ cy.get('.user-name').invoke('text', 'Test User');
 
 Snapshots taken before images, fonts, or SVGs finish loading produce inconsistent results. Assert that all critical visual components are present before capturing.
 
-**E2E test example:**
+**Component test example:**
 ```typescript
-it('should render the landing page correctly', () => {
-  cy.visit('/');
+it('should render the nutrition response correctly', () => {
+  cy.mount(<NutritionResponse data={MOCK_DATA} />);
 
   // Wait for critical visual elements
-  cy.contains('Health Assistant').should('be.visible');
-  cy.contains('Sarah Mitchell').should('be.visible');
+  cy.contains('irregular meal timing').should('be.visible');
+  cy.contains('Dr. Emily Chen, MD').should('be.visible');
   cy.get('svg').should('have.length.gt', 0);
 
   // Ensure fonts are loaded
   cy.get('body').should('have.css', 'font-family').and('not.be.empty');
 
   // Now take snapshot
-  cy.compareSnapshot('landing-page');
+  cy.compareSnapshot('nutrition-response-default');
 });
 ```
 
@@ -87,16 +90,17 @@ it('should render the landing page correctly', () => {
 
 ## 4. Keep Snapshots Isolated and Scoped
 
-**DO: Target scoped, stable regions**
+**DO: Target scoped, stable regions within a component**
 ```typescript
+// Snapshot a specific section of a mounted component
 cy.get('aside').compareSnapshot('sidebar-default');
-cy.get('main').compareSnapshot('chat-area-default');
+cy.get('[data-testid="physician-card"]').compareSnapshot('physician-card-default');
 ```
 
-**DON'T: Full-page snapshots when only one section changed**
+**DON'T: Snapshot the entire mounted component when only one section changed**
 ```typescript
-// Avoid this if you only changed the sidebar — too many moving parts
-cy.compareSnapshot('full-page');
+// If you only changed the physician card, don't snapshot the whole NutritionResponse
+// Instead, snapshot just the physician card section
 ```
 
 **Use semantic selectors for stability:**
@@ -105,22 +109,94 @@ cy.compareSnapshot('full-page');
 <aside className="w-80 shrink-0 bg-card border-r border-border">
 ```
 
+**Component-level snapshots:** When testing a component in isolation with `cy.mount()`, the entire mounted component IS the scope. In this case, one snapshot per test is appropriate. The "scoped" rule applies when you have multiple distinct visual regions within a single mounted component that could change independently.
+
 ---
 
-## 5. Use Meaningful Snapshot Names
+## 5. Component-Level Snapshot Testing in `*.spec.tsx`
+
+Visual snapshots belong inside component test files (`*.spec.tsx`) alongside functional assertions. Every component that renders UI should have at least one `cy.compareSnapshot()` call in its spec file.
+
+**Place `cy.compareSnapshot()` after your functional assertions in the same test:**
+
+```typescript
+// src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx
+import { RiskProfileSidebar } from './RiskProfileSidebar';
+
+describe('RiskProfileSidebar Component', () => {
+  it('should render user card with correct details', () => {
+    cy.mount(
+      <RiskProfileSidebar
+        userName="Test User"
+        userAge={28}
+        userLocation="New York, NY"
+      />,
+    );
+    cy.contains("Test User").should("be.visible");
+    cy.contains("28 years").should("be.visible");
+    cy.contains("New York, NY").should("be.visible");
+
+    // Visual snapshot — captures the rendered UI for regression comparison
+    cy.compareSnapshot("risk-profile-sidebar-default");
+  });
+
+  it('should display HIGH RISK badge when score > 70', () => {
+    cy.mount(<RiskProfileSidebar riskScore={85} />);
+    cy.contains("HIGH RISK").should("be.visible");
+    cy.compareSnapshot("risk-profile-sidebar-high-risk");
+  });
+});
+```
+
+**Rules for component snapshots:**
+
+1. **One snapshot per test** — each `it()` block that mounts a component should end with a `cy.compareSnapshot()` call.
+2. **Snapshot after assertions** — place `cy.compareSnapshot()` after all `cy.contains()` / `cy.get()` assertions so the DOM is fully rendered.
+3. **Descriptive names** — use `<component-name>-<state>` format: `nutrition-response-default`, `chat-area-with-greeting`, `sidebar-high-risk`.
+4. **Generate baselines locally first** — run `npm run cy:update-snapshots:spec "src/components/MyComponent/MyComponent.spec.tsx"` to create the baseline PNG before the test can pass.
+5. **Commit baselines to Git** — baseline PNGs live in `cypress-visual-screenshots/baseline/` and must be tracked in version control.
+
+**Current component snapshot coverage:**
+
+| Component | Spec File | Snapshot Name |
+|-----------|-----------|---------------|
+| LandingPage | `LandingPage/LandingPage.spec.tsx` | `landing-page-default` |
+| RiskProfileSidebar | `RiskProfileSidebar/RiskProfileSidebar.spec.tsx` | `risk-profile-sidebar-default` |
+| ChatArea | `ChatArea/ChatArea.spec.tsx` | `chat-area-default` |
+| NutritionResponse | `NutritionResponse/NutritionResponse.spec.tsx` | `nutrition-response-default` |
+
+**When adding a new component:**
+
+1. Create `src/components/MyComponent/MyComponent.spec.tsx`
+2. Write functional tests with `cy.mount()` and `cy.contains()`
+3. Add `cy.compareSnapshot("my-component-default")` at the end of each test
+4. Generate the baseline: `npm run cy:update-snapshots:spec "src/components/MyComponent/MyComponent.spec.tsx"`
+5. Commit the spec file and the generated baseline PNG together
+
+---
+
+## 6. Use Meaningful Snapshot Names
 
 Vague names make debugging difficult. Use descriptive names that reflect the UI area and state.
 
 **Good naming convention:**
 ```typescript
-cy.compareSnapshot('landing-page');
+cy.compareSnapshot('landing-page-default');
 cy.compareSnapshot('sidebar-high-risk');
 cy.compareSnapshot('chat-area-with-greeting');
+cy.compareSnapshot('nutrition-response-default');
+```
+
+**Bad naming convention:**
+```typescript
+cy.compareSnapshot('test1');
+cy.compareSnapshot('screenshot');
+cy.compareSnapshot('default');
 ```
 
 ---
 
-## 6. Commit Baseline Snapshots to Source Control
+## 7. Commit Baseline Snapshots to Source Control
 
 Track snapshot PNG files in version control to maintain historical traceability and make visual changes reviewable in pull requests.
 
@@ -142,7 +218,7 @@ IOPHA-frontend/cypress-visual-report/
 
 ---
 
-## 7. Review Diffs Carefully — Avoid Blind Updates
+## 8. Review Diffs Carefully — Avoid Blind Updates
 
 ### Updating Baselines Locally (Recommended)
 
@@ -162,7 +238,7 @@ Always update baselines locally first so you can visually verify the changes bef
 ```
 
 **What each script does:**
-- `test:e2e` — Starts Vite dev server and runs all Cypress E2E tests
+- `test:e2e` — Starts Vite dev server and runs all Cypress E2E tests (Gherkin BDD feature files)
 - `cy:update-snapshots` — Starts dev server, runs all tests, updates visual baselines
 - `cy:update-snapshots:core` — Runs Cypress with `updateSnapshots=true` (expects server already running)
 - `cy:update-snapshots:spec` — Starts server and updates baselines for a specific spec file
@@ -173,8 +249,11 @@ Always update baselines locally first so you can visually verify the changes bef
 # Update all visual baselines
 npm run cy:update-snapshots
 
-# Update baseline for a specific spec file only
-npm run cy:update-snapshots:spec "cypress/e2e/visual-regression.cy.ts"
+# Update baseline for a specific component test
+npm run cy:update-snapshots:spec "src/components/NutritionResponse/NutritionResponse.spec.tsx"
+
+# Update baseline for a specific E2E feature test
+npm run cy:update-snapshots:spec "cypress/e2e/Tests/nutrition-tips.feature"
 ```
 
 ### Commit Updated Baselines
@@ -191,9 +270,9 @@ If you update baselines in CI, you are blindly accepting whatever the UI looks l
 
 **NEVER commit `updateSnapshots=true` in CI workflows.** Treat snapshot failures as signals to investigate, not inconveniences to dismiss.
 
-**Husky pre-push hook** (at monorepo root `.husky/pre-push`) already runs `test:e2e` before every push, catching visual regressions locally before they reach CI:
+**Husky pre-push hook** (at monorepo root `.husky/pre-push`) runs lint, E2E tests, and component tests before every push, catching visual regressions locally before they reach CI:
 ```bash
-cd IOPHA-frontend && npm run lint && npm run test:e2e && npm audit --omit=dev --audit-level=high
+cd IOPHA-frontend && npm run lint && npm run test:e2e && npx cypress run --component && npm audit --omit=dev --audit-level=high
 ```
 
 **If update is intentional:**
@@ -206,9 +285,9 @@ cd IOPHA-frontend && npm run lint && npm run test:e2e && npm audit --omit=dev --
 
 ---
 
-## 8. Use CI for Visual Testing with Fixed Environments
+## 9. Use CI for Visual Testing with Fixed Environments
 
-The Husky pre-push hook runs `test:e2e` before every push, providing a consistent local environment. In CI, ensure the same viewport and browser settings are used.
+The Husky pre-push hook runs tests before every push, providing a consistent local environment. In CI, ensure the same viewport and browser settings are used.
 
 **Upload diff artifacts on failure** (add to your CI workflow):
 ```yaml
@@ -226,7 +305,7 @@ The Husky pre-push hook runs `test:e2e` before every push, providing a consisten
 
 ---
 
-## 9. Threshold Configuration
+## 10. Threshold Configuration
 
 `cypress-image-diff-js` uses pixel-by-pixel comparison. The default threshold is 0 (any difference fails). You can configure this in the plugin setup.
 
@@ -250,29 +329,29 @@ module.exports = {
 
 ---
 
-## 10. Responsive Design Testing
+## 11. Responsive Design Testing
 
 Test across multiple viewport sizes to catch responsive regressions.
 
-**In your E2E tests:**
+**In your component tests:**
 ```typescript
 it('should render correctly on mobile', () => {
   cy.viewport(375, 667);
-  cy.visit('/');
+  cy.mount(<LandingPage />);
   cy.contains('Health Assistant').should('be.visible');
   cy.compareSnapshot('landing-page-mobile-375x667');
 });
 
 it('should render correctly on tablet', () => {
   cy.viewport(768, 1024);
-  cy.visit('/');
+  cy.mount(<LandingPage />);
   cy.compareSnapshot('landing-page-tablet-768x1024');
 });
 ```
 
 ---
 
-## 11. Handle Third-Party Content
+## 12. Handle Third-Party Content
 
 Uncontrolled third-party content (maps, ads, embeds) produces inconsistent diffs. Mock or remove them before snapshotting.
 
@@ -288,17 +367,17 @@ cy.get('#analytics-widget').invoke('remove');
 
 ---
 
-## 12. Performance Considerations
+## 13. Performance Considerations
 
 Visual tests add runtime and storage overhead.
 
 **Optimizations:**
-1. **Scope snapshots** to key regions, not full pages
+1. **Scope snapshots** to key regions when possible, not full components
 2. **Use `.only()` locally** during development:
    ```typescript
    it.only('should render the landing page', () => { ... });
    ```
-3. **Run full suite in CI** via Husky pre-push hook
+3. **Run full suite in CI** via Husky pre-push hook and GitHub Actions
 4. **Clean up old diffs regularly:**
    ```bash
    npm run cy:clean-diffs
@@ -306,7 +385,7 @@ Visual tests add runtime and storage overhead.
 
 ---
 
-## 13. Handling Flaky Tests
+## 14. Handling Flaky Tests
 
 Common causes: animations, delayed rendering, third-party content.
 
@@ -327,13 +406,13 @@ cy.document().then((doc) => {
 cy.contains('Health Assistant')
   .should('be.visible')
   .then(() => {
-    cy.compareSnapshot('landing-page');
+    cy.compareSnapshot('landing-page-default');
   });
 ```
 
 ---
 
-## 14. Maintenance and Cleanup
+## 15. Maintenance and Cleanup
 
 **Prevent snapshot bloat:**
 1. **Remove orphaned snapshots** when components are deleted
@@ -345,7 +424,7 @@ cy.contains('Health Assistant')
 
 ---
 
-## 15. Avoiding Overflow-Related Baseline Failures
+## 16. Avoiding Overflow-Related Baseline Failures
 
 Layout changes that introduce or remove `overflow` CSS properties are a common cause of visual regression baseline failures. When a parent container has `overflow-hidden` or `overflow-y-auto`, child content that exceeds the container bounds gets clipped. This causes two problems:
 
@@ -359,7 +438,6 @@ Layout changes that introduce or remove `overflow` CSS properties are a common c
 | Parent has `overflow-hidden` | Content clipped at container edge | Remove `overflow-hidden` if content should be visible |
 | Sidebar has `overflow-y-auto` | Bottom items clipped in small viewports | Remove overflow or ensure content fits |
 | Cypress viewport too small | Content overflows in headless mode | Increase viewport size in `cypress.config.ts` |
-| Placeholder text assertion | `cy.contains()` can't find placeholder | Use `cy.get('input[placeholder*="..."]')` |
 
 ### Best Practices
 
@@ -406,16 +484,6 @@ If a container is meant to be scrollable, scroll elements into view before asser
 cy.contains("Bottom nav item").scrollIntoView().should("be.visible");
 ```
 
-**5. Use attribute selectors for placeholder text**
-
-```typescript
-// WRONG: cy.contains() looks for visible text nodes
-cy.contains("Search...").should("be.visible");
-
-// CORRECT: Check the placeholder attribute
-cy.get('input[placeholder*="Search"]').should("be.visible");
-```
-
 ### When Baselines Fail After Layout Changes
 
 If visual regression baselines fail after you change overflow/layout CSS:
@@ -423,7 +491,7 @@ If visual regression baselines fail after you change overflow/layout CSS:
 1. **Review the diff carefully** — confirm the change is intentional
 2. **Update the baseline locally** using the proper workflow:
    ```bash
-   npm run cy:update-snapshots:spec "cypress/e2e/visual-regression.cy.ts"
+   npm run cy:update-snapshots:spec "src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx"
    ```
 3. **Commit the updated baseline** with a descriptive message:
    ```bash
@@ -435,7 +503,7 @@ If visual regression baselines fail after you change overflow/layout CSS:
 
 ---
 
-## 16. Training Example: Fixing a Visual Bug (Overflow Issue)
+## 17. Training Example: Fixing a Visual Bug (Overflow Issue)
 
 **Before:**
 ```typescript
@@ -446,7 +514,7 @@ cy.contains('Sleep & recovery').should('be.visible');
 **Diagnosis:**
 ```bash
 # Check screenshot
-open cypress/screenshots/landing-page.cy.ts/failure.png
+open cypress/screenshots/RiskProfileSidebar.spec.tsx/failure.png
 # Found: parent has overflow-y-auto causing clipping
 ```
 
@@ -461,7 +529,7 @@ open cypress/screenshots/landing-page.cy.ts/failure.png
 
 **Update Baseline:**
 ```bash
-npm run cy:update-snapshots
+npm run cy:update-snapshots:spec "src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx"
 git commit -m "fix: sidebar overflow clipping bug - Updated visual baseline"
 ```
 
@@ -479,15 +547,16 @@ git commit -m "fix: sidebar overflow clipping bug - Updated visual baseline"
 | Commit baselines to Git | Store snapshots only locally |
 | Mock dynamic content via `cy-mockapi` | Test with live unpredictable data |
 | Use `--env updateSnapshots=true` | Use `UPDATE_SNAPSHOTS=true` (wrong env var) |
+| Use 1440x900 viewport | Use small viewports that cause clipping |
 
 ---
 
 ## Next Steps
 
-1. **Add visual test scenarios** to critical user flows
-2. **Configure browser launch flags** in `cypress.config.ts` for CI consistency
-3. **Create baseline snapshots** for current UI state
-4. **Add diff artifact upload** to CI workflow
+1. **Add responsive viewport tests** to critical components (mobile, tablet)
+2. **Add snapshot tests** to any new components created
+3. **Review and update baselines** when making intentional UI changes
+4. **Monitor CI artifact uploads** for visual diff debugging
 
 ---
 

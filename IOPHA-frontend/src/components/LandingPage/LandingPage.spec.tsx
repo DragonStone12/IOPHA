@@ -8,6 +8,7 @@ describe("LandingPage Component", () => {
     cy.contains("78").should("be.visible");
     cy.contains("/100").should("be.visible");
     cy.contains("Baylor Scott & White Health").should("be.visible");
+    cy.compareSnapshot("landing-page-default");
   });
 
   it("should render with custom props", () => {
