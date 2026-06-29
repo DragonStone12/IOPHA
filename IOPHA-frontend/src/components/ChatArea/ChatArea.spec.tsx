@@ -65,6 +65,6 @@ describe("ChatArea Component", () => {
     cy.mount(<ChatArea />);
     cy.contains("Find a doctor")
       .trigger("mouseover")
-      .should("have.class", "hover\\:bg-primary\\/10");
+      .should("have.class", "hover:bg-primary/10");
   });
 });
