@@ -4,12 +4,15 @@ import { usePerformanceTracking } from "../../utils/performance";
 import Logger from "../../utils/logger";
 import { Button } from "../shared/button";
 import { Input } from "../shared/input";
+import { NutritionResponse } from "../NutritionResponse/NutritionResponse";
+import type { Physician } from "../NutritionResponse/PhysicianCard";
 
 interface ChatAreaProps {
   userName?: string;
   hospitalName?: string;
   riskScore?: number;
   onTopicSelect?: (topic: string) => void;
+  onBookPhysician?: (physician: Physician) => void;
 }
 
 const DEFAULT_USER = {
@@ -25,25 +28,53 @@ const TOPICS = [
   { label: "Sleep & recovery", value: "sleep_recovery" },
 ];
 
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text?: string;
+  topic?: string;
+  timestamp: string;
+}
+
+let msgIdCounter = 0;
+
 export function ChatArea({
   userName = DEFAULT_USER.userName,
   hospitalName = DEFAULT_USER.hospitalName,
   riskScore = DEFAULT_USER.riskScore,
   onTopicSelect,
+  onBookPhysician,
 }: ChatAreaProps) {
   useLogRenders("ChatArea", { userName, riskScore });
   usePerformanceTracking();
 
   const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  const handleTopicClick = (topic: string) => {
-    Logger.info("[ChatArea] Topic selected", { topic });
-    onTopicSelect?.(topic);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activeTopic]);
+
+  const handleTopicClick = (topicValue: string, topicLabel: string) => {
+    Logger.info("[ChatArea] Topic selected", { topic: topicValue });
+
+    const userMsg: ChatMessage = {
+      id: `msg-${++msgIdCounter}`,
+      role: "user",
+      text: topicLabel,
+      timestamp: formatTime(new Date()),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setActiveTopic(topicValue);
+    onTopicSelect?.(topicValue);
   };
 
   const handleSend = () => {
@@ -58,6 +89,21 @@ export function ChatArea({
     }
   };
 
+  const handleChipSelect = (chip: string) => {
+    Logger.info("[ChatArea] Follow-up chip selected", { chip });
+
+    const userMsg: ChatMessage = {
+      id: `msg-${++msgIdCounter}`,
+      role: "user",
+      text: chip,
+      timestamp: formatTime(new Date()),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setActiveTopic(null);
+    onTopicSelect?.(chip);
+  };
+
   const greetingMessage = `Welcome, ${userName}. I'm your ${hospitalName} AI assistant. Based on your recently completed health survey, your obesity risk score is ${riskScore}/100 — placing you in the high-risk category. The encouraging news: this is exactly when early intervention is most effective. I can provide personalized, evidence-based guidance right now, and connect you with a ${hospitalName.split(" ")[0]} physician nearby if you'd like a professional consultation. How can I help you today?`;
 
   return (
@@ -65,7 +111,7 @@ export function ChatArea({
       {/* Chat Content */}
       <div className="flex-1 overflow-y-auto p-8 bg-[#F5F3EF]">
         <div className="max-w-4xl mx-auto">
-          {/* AI Greeting - No avatar, centered bubble */}
+          {/* AI Greeting */}
           <div className="mb-8">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <p className="text-gray-800 leading-relaxed text-[15px]">
@@ -103,13 +149,80 @@ export function ChatArea({
                   variant="secondary"
                   size="sm"
                   className="rounded-full bg-white border border-gray-200 text-sm px-4 py-2 text-gray-700 hover:bg-primary/10 hover:border-primary/30 transition-colors"
-                  onClick={() => handleTopicClick(topic.value)}
+                  onClick={() => handleTopicClick(topic.value, topic.label)}
                 >
                   {topic.label}
                 </Button>
               ))}
             </div>
           </div>
+
+          {/* Chat Messages */}
+          {messages.map((msg) => (
+            <div key={msg.id} className="mb-6">
+              {msg.role === "user" ? (
+                <div className="flex items-end gap-3 flex-row-reverse mb-4">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="size-8 rounded-full bg-secondary flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-4 text-primary"
+                      >
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1.5">
+                      {msg.timestamp}
+                    </span>
+                  </div>
+                  <div className="bg-primary text-white rounded-2xl rounded-br-sm px-4 py-3 text-sm max-w-[70%]">
+                    {msg.text}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ))}
+
+          {/* Nutrition Response */}
+          {activeTopic === "nutrition_tips" && (
+            <div className="flex items-start gap-3 mb-6">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="size-8 rounded-full bg-primary flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4 text-primary-foreground"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                    <path d="M9 10h0" />
+                    <path d="M15 10h0" />
+                    <path d="M12 14v4" />
+                  </svg>
+                </div>
+                <span className="text-xs text-gray-500 mt-1.5">3:14 PM</span>
+              </div>
+              <div className="flex-1 max-w-2xl">
+                <NutritionResponse
+                  onChipSelect={handleChipSelect}
+                  onBookPhysician={onBookPhysician}
+                />
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
@@ -153,4 +266,8 @@ export function ChatArea({
       </div>
     </main>
   );
+}
+
+function formatTime(d: Date): string {
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
