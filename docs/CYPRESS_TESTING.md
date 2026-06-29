@@ -55,6 +55,19 @@ Then("I should see the title {string}", (expectedTitle: string) => {
 });
 ```
 
+### Scoped Selectors for Interactive Elements
+
+When clicking interactive elements (chips, buttons, links) in E2E step definitions, always scope the selector to the correct container. The IOPHA landing page renders duplicate text labels in both the sidebar (`RiskProfileSidebar`) and the chat area (`ChatArea`). Using a bare `cy.contains(label).click()` will match the **first** element in DOM order — which is the sidebar's static navigation item with no click handler — causing the intended action to silently fail.
+
+**Correct pattern** — scope to the chat area (`<main>`):
+```typescript
+When("I click the {string} chip", (chipLabel: string) => {
+  cy.get("main").contains(chipLabel).click();
+});
+```
+
+This ensures Cypress clicks the interactive chip inside the chat area rather than the non-interactive sidebar navigation item. For more information on diagnosing and resolving this issue, see the [Troubleshooting guide](../TROUBLESHOOTING.md#duplicate-text-labels-across-sidebar-and-chat-area).
+
 **When to use E2E tests:**
 - Full page layouts and user flows
 - Multi-component interactions
