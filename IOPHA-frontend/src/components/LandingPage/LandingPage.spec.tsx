@@ -56,6 +56,7 @@ describe("LandingPage Component", () => {
 
   it("should render contributing factors list", () => {
     cy.mount(<LandingPage />);
+    cy.get("ul li").should("have.length", 4);
     cy.contains("Sedentary lifestyle").should("be.visible");
     cy.contains("High-calorie diet").should("be.visible");
     cy.contains("Family history").should("be.visible");
