@@ -14,7 +14,8 @@
     "cy:update-snapshots": "start-server-and-test dev http://localhost:3000 cy:update-snapshots:core",
     "cy:update-snapshots:core": "cypress run --env updateSnapshots=true",
     "cy:update-snapshots:spec": "start-server-and-test dev http://localhost:3000 'cypress run --env updateSnapshots=true --spec'",
-    "cy:clean-diffs": "find cypress-visual-screenshots/diff -type f -name '*.png' -delete"
+    "cy:clean-diffs": "find cypress-visual-screenshots/diff -type f -name '*.png' -delete",
+    "cy:check-steps": "node scripts/check-duplicate-steps.js"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.0",
