@@ -63,6 +63,35 @@ Then("I should see the title {string}", (expectedTitle: string) => {
 });
 ```
 
+### Step Definition Organization Rules
+
+**Each step definition must be unique across all step files.** Cucumber loads all step definitions when running E2E tests, and duplicate definitions cause immediate failures:
+
+```
+Error: Multiple matching step definitions for: I am on the IOPHA homepage
+```
+
+**Rules:**
+
+1. **Shared steps go in `app.steps.ts`** — Steps used by multiple features (e.g., `Given("I am on the IOPHA homepage")`, `When("I click the {string} chip")`) must be defined only once in `app.steps.ts`.
+
+2. **Feature-specific steps go in dedicated files** — Steps unique to a feature belong in that feature's `.steps.ts` file (e.g., `nutrition-tips.steps.ts` for nutrition-specific assertions).
+
+3. **Never duplicate steps across files** — If a step is needed by multiple features, it belongs in `app.steps.ts`, not duplicated in each feature's file.
+
+4. **Run `npm run cy:check-steps` before pushing** — The pre-push hook runs this automatically, but you can run it manually to check for duplicates:
+   ```bash
+   npm run cy:check-steps
+   ```
+
+**Why CI caught this but local tests didn't:**
+
+The CI runs tests against the **PR merge commit** (your branch + main). If your branch defines a step that also exists in main, the merge creates duplicates. Local tests only run against your branch in isolation, so they pass. The `cy:check-steps` script catches duplicates within your branch, but cannot predict merge conflicts with main.
+
+**To avoid merge conflicts:**
+- Before creating a new step, check if it already exists in `app.steps.ts` or other step files
+- When in doubt, use `grep -r "step text" cypress/support/step_definitions/` to search for existing definitions
+
 ### Scoped Selectors for Interactive Elements
 
 When clicking interactive elements (chips, buttons, links) in E2E step definitions, always scope the selector to the correct container. The IOPHA landing page renders duplicate text labels in both the sidebar (`RiskProfileSidebar`) and the chat area (`ChatArea`). Using a bare `cy.contains(label).click()` will match the **first** element in DOM order — which is the sidebar's static navigation item with no click handler — causing the intended action to silently fail.
