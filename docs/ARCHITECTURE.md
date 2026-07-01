@@ -1,5 +1,17 @@
 # IOPHA: System Architecture (High-Level Design)
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Executive Summary](#1-executive-summary) | System purpose and scope |
+| 2 | [System Context](#2-system-context--scope) | Users, boundaries, in/out of scope |
+| 3 | [High-Level Architecture](#3-high-level-architecture) | Diagram, trust boundaries, security zones |
+| 4 | [Infrastructure](#4-infrastructure-topology-aws) | AWS service topology |
+| 5 | [Data Flow](#5-data-flow-overview) | Chat flow and document ingestion sequences |
+| 6 | [Compliance](#6-compliance--regulatory-posture) | HIPAA alignment and gap analysis |
+| 7 | [Third-Party Integrations](#7-third-party-integrations) | pgvector, Textract, LLM provider |
+
 ## 1. Executive Summary
 
 IOPHA (Interactive Obesity Prevention Health Assistant) is an AI-powered health assistant that delivers personalized, evidence-based obesity prevention guidance and routes high-risk users to in-network medical professionals immediately after risk detection. The assistant operates within hospital and healthcare organization ecosystems, delivering dual-pathway interventions: self-directed prevention tips and direct care scheduling.

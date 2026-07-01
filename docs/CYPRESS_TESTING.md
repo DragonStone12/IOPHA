@@ -1,6 +1,18 @@
 # Cypress Testing Guide
 **For IOPHA Frontend (Cypress 15 + React 18 + Vite + Tailwind CSS v4)**
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Overview](#overview) | Tech stack and scope |
+| 2 | [E2E vs Component Tests](#testing-strategy-e2e-vs-component-tests) | When to use each testing approach |
+| 3 | [Component Testing Guide](#cypress-component-testing-guide) | Setup, mounting, props, variants, best practices |
+| 4 | [TDD Workflow](#mandatory-tdd-workflow-for-component-tests) | Mandatory test-driven development cycle |
+| 5 | [Component vs Integration](#component-level-vs-integration-testing) | Scope and use-case guidance |
+| 6 | [Troubleshooting](#troubleshooting) | Common Cypress errors and fixes |
+| 7 | [Quick Reference](#quick-reference-card) | Do/Don't cheat sheet |
+
 ## Overview
 
 This guide covers all Cypress testing for the IOPHA frontend: E2E tests with Cucumber BDD, component tests, and the mandatory TDD workflow. Visual regression testing is documented separately in `VISUAL_REGRESSION_PLAYBOOK.md`.

@@ -1,5 +1,19 @@
 # TROUBLESHOOTING
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Vite Configuration](#vite-configuration) | `import.meta.env.PROD` undefined pitfall |
+| 2 | [IOPHA Resources Integration](#iophha-resources-integration) | Component copying, `use client`, Tailwind v4, Input ref forwarding |
+| 3 | [Cypress E2E: Overflow Clipping](#cypress-e2e-test-element-clipped-by-overflow-parent) | Elements hidden by `overflow` CSS |
+| 4 | [Duplicate Text Labels](#duplicate-text-labels-across-sidebar-and-chat-area) | Sidebar vs chat area click targets |
+| 5 | [Visual Testing TDD](#proactive-visual-testing-strategy-tdd-approach) | Test-driven visual development workflow |
+| 6 | [Radix UI Peer Dependencies](#radix-ui-peer-dependencies) | Required `@radix-ui/*` packages |
+| 7 | [Cypress Component Testing](#cypress-component-testing) | Config, patterns, React import error |
+| 8 | [Logging & Performance](#logging--performance) | Logger, `useLogRenders`, `usePerformanceTracking` |
+| 9 | [Known Limitations](#known-limitations) | Resource library gaps, calendar styling |
+
 ## Vite Configuration
 
 ### Environment Variable Pitfall
