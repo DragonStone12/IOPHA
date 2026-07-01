@@ -70,6 +70,7 @@
     "*.{json,md,yml,yaml}": "prettier --write"
   },
   "overrides": {
-    "mocha": "10.8.2"
+    "mocha": "10.8.2",
+    "serialize-javascript": "^7.0.5"
   }
 }
