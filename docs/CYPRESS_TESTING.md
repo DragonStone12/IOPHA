@@ -68,7 +68,9 @@ Then("I should see the title {string}", (expectedTitle: string) => {
 **Each step definition must be unique across all step files.** Cucumber loads all step definitions when running E2E tests, and duplicate definitions cause immediate failures:
 
 ```
-Error: Multiple matching step definitions for: I am on the IOPHA homepage
+Error: Multiple matching step definitions for: I should see introductory text mentioning "ACSM protocol" and "BMI"
+ I should see introductory text mentioning {string} and {string}
+ I should see introductory text mentioning {string} and {string}
 ```
 
 **Rules:**
@@ -84,6 +86,71 @@ Error: Multiple matching step definitions for: I am on the IOPHA homepage
    npm run cy:check-steps
    ```
 
+**Decision framework — where does this step belong?**
+
+When writing a new step definition, ask: **"Is this step text used by more than one `.feature` file?"**
+
+- **Yes** → Define it in `app.steps.ts`. Do NOT copy it into each feature's step file.
+- **No** → Define it in that feature's dedicated `.steps.ts` file.
+
+**Common mistake — copying steps between feature files:**
+
+When creating a new feature file (e.g., `exercise-guidance.feature`), it's tempting to copy an existing feature's step file (e.g., `sleep-recovery.steps.ts`) as a starting point and then modify it. This copies all step definitions, including ones that are already defined in `app.steps.ts` or in other feature files. Even if the step text is identical, Cucumber treats each `Then(...)` / `Given(...)` / `When(...)` call as a separate registration, and two registrations with the same pattern cause a `MultipleDefinitionsError`.
+
+**Real-world example:**
+
+Both `exercise-guidance.steps.ts` and `sleep-recovery.steps.ts` defined identical steps:
+
+```typescript
+// ❌ DUPLICATE — defined in both exercise-guidance.steps.ts AND sleep-recovery.steps.ts
+Then(
+  "I should see introductory text mentioning {string} and {string}",
+  (keyword1: string, keyword2: string) => {
+    cy.contains(keyword1).scrollIntoView().should("be.visible");
+    cy.contains(keyword2).scrollIntoView().should("be.visible");
+  },
+);
+
+Then("the first card should be titled {string}", (title: string) => {
+  cy.get('[aria-posinset="1"]').contains(title).should("be.visible");
+});
+```
+
+This passed locally when only one feature file existed, but failed in CI when both features ran together because Cucumber loaded all step files and found two registrations for the same pattern.
+
+**Correct approach:**
+
+```typescript
+// ✅ app.steps.ts — shared steps used by multiple features
+Then(
+  "I should see introductory text mentioning {string} and {string}",
+  (keyword1: string, keyword2: string) => {
+    cy.contains(keyword1).scrollIntoView().should("be.visible");
+    cy.contains(keyword2).scrollIntoView().should("be.visible");
+  },
+);
+
+Then("the first card should be titled {string}", (title: string) => {
+  cy.get('[aria-posinset="1"]').contains(title).should("be.visible");
+});
+
+// ✅ exercise-guidance.steps.ts — only feature-specific steps
+Then(
+  "I should see {int} numbered exercise recommendation cards",
+  (count: number) => {
+    cy.get("[aria-posinset]").should("have.length", count);
+  },
+);
+
+// ✅ sleep-recovery.steps.ts — only feature-specific steps
+Then(
+  "I should see {int} numbered sleep recommendation cards",
+  (count: number) => {
+    cy.get("[aria-posinset]").should("have.length", count);
+  },
+);
+```
+
 **Why CI caught this but local tests didn't:**
 
 The CI runs tests against the **PR merge commit** (your branch + main). If your branch defines a step that also exists in main, the merge creates duplicates. Local tests only run against your branch in isolation, so they pass. The `cy:check-steps` script catches duplicates within your branch, but cannot predict merge conflicts with main.
@@ -91,6 +158,7 @@ The CI runs tests against the **PR merge commit** (your branch + main). If your 
 **To avoid merge conflicts:**
 - Before creating a new step, check if it already exists in `app.steps.ts` or other step files
 - When in doubt, use `grep -r "step text" cypress/support/step_definitions/` to search for existing definitions
+- When starting a new feature's step file, do NOT copy another feature's step file — start with an empty file and only add steps unique to that feature
 
 ### Scoped Selectors for Interactive Elements
 

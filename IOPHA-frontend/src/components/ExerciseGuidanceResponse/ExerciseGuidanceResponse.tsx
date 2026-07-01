@@ -3,72 +3,76 @@ import { usePerformanceTracking } from "../../utils/performance";
 import { TipCard, type Tip } from "../NutritionResponse/TipCard";
 import { Button } from "../shared/button";
 
-export type SleepTip = Tip;
+export type ExerciseTip = Tip;
 
 export interface FollowUpAction {
   label: string;
-  actionType: "NAVIGATE_TOPIC" | "BOOK_DOCTOR";
-  topicId?: string;
+  actionType: "NAVIGATE_TOPIC";
+  topicId: string;
 }
 
-export interface SleepRecoveryData {
+export interface ExerciseGuidanceData {
   introText: string;
-  tips: SleepTip[];
+  tips: ExerciseTip[];
   followUpActions: FollowUpAction[];
 }
 
-interface SleepRecoveryResponseProps {
-  data: SleepRecoveryData;
+interface ExerciseGuidanceResponseProps {
+  data: ExerciseGuidanceData;
   onChipSelect?: (chip: string) => void;
   timestamp?: string;
   className?: string;
 }
 
-const DEFAULT_DATA: SleepRecoveryData = {
+const DEFAULT_DATA: ExerciseGuidanceData = {
   introText:
-    "Sleep quality is directly correlated with metabolic health and weight regulation. Research shows sleeping under 6 hours increases ghrelin (the hunger hormone) by 28% and decreases leptin (satiety hormone) by 18% — both of which amplify the risk factors in your profile.",
+    "For your risk profile, structured movement delivers the highest return of any single intervention. The ACSM protocol for high-risk individuals at your BMI focuses on consistency over intensity — especially in the first 8 weeks.",
   tips: [
     {
       number: 1,
-      title: "Target 7–9 hours with a fixed schedule",
+      title: "Start with daily walking",
       description:
-        "Set a consistent bedtime and wake time, including weekends. Consistency regulates cortisol, which directly controls where your body stores fat.",
+        "20 minutes of brisk walking (3 mph) five days per week. This alone significantly reduces insulin resistance within 2 weeks and burns 150–200 calories per session.",
     },
     {
       number: 2,
-      title: "Screens off 60 minutes before bed",
+      title: "Resistance training twice weekly",
       description:
-        "Blue light suppresses melatonin production by up to 50%. Switch to reading or dimmed warm lighting in the final hour to accelerate sleep onset.",
+        "Bodyweight squats, push-ups, and rows preserve lean muscle mass, which directly improves your resting metabolic rate and is protective against weight regain.",
     },
     {
       number: 3,
-      title: "Cool your bedroom to 65–68°F",
+      title: "Maximize NEAT (non-exercise activity)",
       description:
-        "Core body temperature drop is the primary trigger for sleep onset and deeper sleep stages. This single environmental change improves sleep quality for most people within days.",
+        "Taking stairs, standing desks, and walking during calls can add 300–500 extra calories burned daily with zero scheduled workout time — a major advantage for busy schedules.",
     },
   ],
   followUpActions: [
     {
-      label: "Nutrition advice",
+      label: "Nutrition tips",
       actionType: "NAVIGATE_TOPIC",
       topicId: "nutrition_tips",
     },
     {
-      label: "Exercise tips",
+      label: "Find a doctor",
       actionType: "NAVIGATE_TOPIC",
-      topicId: "exercise_guidance",
+      topicId: "find_a_doctor",
     },
-    { label: "Book a doctor", actionType: "BOOK_DOCTOR" },
+    {
+      label: "Sleep advice",
+      actionType: "NAVIGATE_TOPIC",
+      topicId: "sleep_recovery",
+    },
   ],
 };
 
-export function SleepRecoveryResponse({
+export function ExerciseGuidanceResponse({
   data = DEFAULT_DATA,
   onChipSelect,
-  timestamp = "3:32 PM",
+  timestamp = "3:28 PM",
   className,
-}: SleepRecoveryResponseProps) {
-  useLogRenders("SleepRecoveryResponse", { tipCount: data.tips.length });
+}: ExerciseGuidanceResponseProps) {
+  useLogRenders("ExerciseGuidanceResponse", { tipCount: data.tips.length });
   usePerformanceTracking();
 
   return (
@@ -80,8 +84,12 @@ export function SleepRecoveryResponse({
         </p>
       </div>
 
-      {/* Numbered sleep tip cards */}
-      <ol className="space-y-2" role="list" aria-label="Sleep recommendations">
+      {/* Numbered exercise tip cards */}
+      <ol
+        className="space-y-2"
+        role="list"
+        aria-label="Exercise recommendations"
+      >
         {data.tips.map((tip) => (
           <li key={tip.id ?? tip.number}>
             <TipCard tip={tip} />
