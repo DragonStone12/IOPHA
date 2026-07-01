@@ -1,5 +1,17 @@
 # IOPHA: Technical Design (Low-Level Design)
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Technology Stack](#1-technology-stack) | Frontend, backend, database, and testing technologies |
+| 2 | [Project Structure](#2-project-structure-monorepo) | Monorepo directory layout |
+| 3 | [Frontend Implementation](#3-frontend-implementation-details) | Styling, logging, state management, performance |
+| 4 | [Backend Implementation](#4-backend-implementation-details) | API spec, database schema, RAG pipeline |
+| 5 | [Testing Strategy](#5-testing-strategy) | Unit, integration, E2E, visual regression, performance |
+| 6 | [CI/CD & Deployment](#6-cicd--deployment) | GitHub Actions, environment config, local dev |
+| 7 | [Decision Points](#7-decision-points-pending) | Pending architectural decisions |
+
 ## 1. Technology Stack
 
 | Layer | Technology | Version |

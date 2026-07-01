@@ -51,6 +51,7 @@ const DEFAULT_DATA: NutritionResponseData = {
     reviewCount: 234,
     nextAvailable: "Today, 3:30 PM",
     imageUrl:
+      // eslint-disable-next-line no-secrets/no-secrets
       "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop&auto=format",
   },
   followUpChips: [

@@ -1,6 +1,30 @@
 # Visual Regression Testing Best Practices Playbook
 **For IOPHA Frontend (Cypress + cypress-image-diff-js + React/Vite/Tailwind CSS v4)**
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Overview](#overview) | Tech stack and scope |
+| 2 | [Browser Launch Flags](#1-ensure-consistent-rendering-with-browser-launch-flags) | Normalize rendering across environments |
+| 3 | [Dynamic Content](#2-normalize-dynamic-or-transient-content) | Handle timestamps, IDs, user-specific data |
+| 4 | [Wait for Elements](#3-wait-for-all-visual-elements-before-snapshot) | Ensure fonts, images, SVGs load |
+| 5 | [Scoped Snapshots](#4-keep-snapshots-isolated-and-scoped) | Target stable regions, not entire pages |
+| 6 | [Component Snapshots](#5-component-level-snapshot-testing-in-spectsx) | Snapshot rules and naming conventions |
+| 7 | [Snapshot Naming](#6-use-meaningful-snapshot-names) | Descriptive naming patterns |
+| 8 | [Version Control](#7-commit-baseline-snapshots-to-source-control) | Track baselines in Git |
+| 9 | [Review Diffs](#8-review-diffs-carefully--avoid-blind-updates) | Local update workflow |
+| 10 | [CI Testing](#9-use-ci-for-visual-testing-with-fixed-environments) | Fixed viewport, artifact uploads |
+| 11 | [Thresholds](#10-threshold-configuration) | Pixel tolerance settings |
+| 12 | [Responsive Design](#11-responsive-design-testing) | Mobile and tablet viewports |
+| 13 | [Third-Party Content](#12-handle-third-party-content) | Mock maps, ads, embeds |
+| 14 | [Performance](#13-performance-considerations) | Optimize runtime and storage |
+| 15 | [Flaky Tests](#14-handling-flaky-tests) | Stabilize animations and delayed rendering |
+| 16 | [Maintenance](#15-maintenance-and-cleanup) | Prevent snapshot bloat |
+| 17 | [Overflow Issues](#16-avoiding-overflow-related-baseline-failures) | Handle CSS overflow clipping |
+| 18 | [Training Example](#17-training-example-fixing-a-visual-bug-overflow-issue) | Step-by-step overflow fix |
+| 19 | [Quick Reference](#quick-reference-card) | Do/Don't cheat sheet |
+
 ## Overview
 Visual regression testing guards against unintended UI changes, layout shifts, broken components, and styling regressions that functional tests miss. This guide is tailored for our Cypress setup with `cypress-image-diff-js` for visual comparison.
 
