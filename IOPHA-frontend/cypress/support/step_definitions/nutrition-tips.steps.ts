@@ -24,11 +24,3 @@ Then(
     cy.contains(buttonText).should("be.visible");
   },
 );
-
-Then(
-  "I should see follow-up chips including {string} and {string}",
-  (chip1: string, chip2: string) => {
-    cy.contains(chip1).should("be.visible");
-    cy.contains(chip2).should("be.visible");
-  },
-);
