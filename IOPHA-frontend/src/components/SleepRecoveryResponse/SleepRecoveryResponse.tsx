@@ -3,7 +3,7 @@ import { usePerformanceTracking } from "../../utils/performance";
 import { TipCard, type Tip } from "../NutritionResponse/TipCard";
 import { Button } from "../shared/button";
 
-export interface SleepTip extends Tip {}
+export type SleepTip = Tip;
 
 export interface FollowUpAction {
   label: string;

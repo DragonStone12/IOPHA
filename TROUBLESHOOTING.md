@@ -268,6 +268,81 @@ When("I click the {string} chip", (chipLabel: string) => {
 
 **Prevention:** When writing E2E step definitions that interact with elements whose labels may appear in multiple regions of the page, always scope the selector to the correct container (`main`, `aside`, a specific `data-testid`, etc.).
 
+### Multiple Matching Step Definitions (Duplicate Steps)
+
+**Error:**
+```
+Error: Multiple matching step definitions for: I should see introductory text mentioning "ACSM protocol" and "BMI"
+ I should see introductory text mentioning {string} and {string}
+ I should see introductory text mentioning {string} and {string}
+```
+
+The E2E test fails immediately with a `MultipleDefinitionsError` before any assertions run. The error lists the same step pattern twice, indicating two files registered the same step.
+
+**Cause:** The same step definition (e.g., `Then("I should see introductory text mentioning {string} and {string}", ...)`) is defined in more than one `.steps.ts` file. Cucumber loads all step definition files at runtime, and when two files register the same pattern, it cannot determine which implementation to use and throws a `MultipleDefinitionsError`.
+
+This commonly happens when a developer copies an existing feature's step file as a starting point for a new feature, without removing steps that are already defined in `app.steps.ts` or in other feature-specific files.
+
+**Affected files (example):**
+- `IOPHA-frontend/cypress/support/step_definitions/exercise-guidance.steps.ts` — defined `I should see introductory text mentioning {string} and {string}`
+- `IOPHA-frontend/cypress/support/step_definitions/sleep-recovery.steps.ts` — defined the same step
+
+**Solution:** Move the shared step to `app.steps.ts` and remove it from all feature-specific files. Only steps unique to a single feature should remain in that feature's `.steps.ts` file.
+
+```typescript
+// ✅ app.steps.ts — shared steps used by multiple features
+Then(
+  "I should see introductory text mentioning {string} and {string}",
+  (keyword1: string, keyword2: string) => {
+    cy.contains(keyword1).scrollIntoView().should("be.visible");
+    cy.contains(keyword2).scrollIntoView().should("be.visible");
+  },
+);
+
+Then("the first card should be titled {string}", (title: string) => {
+  cy.get('[aria-posinset="1"]').contains(title).should("be.visible");
+});
+
+// ✅ exercise-guidance.steps.ts — only steps unique to exercise guidance
+Then(
+  "I should see {int} numbered exercise recommendation cards",
+  (count: number) => {
+    cy.get("[aria-posinset]").should("have.length", count);
+  },
+);
+
+// ✅ sleep-recovery.steps.ts — only steps unique to sleep recovery
+Then(
+  "I should see {int} numbered sleep recommendation cards",
+  (count: number) => {
+    cy.get("[aria-posinset]").should("have.length", count);
+  },
+);
+```
+
+**Diagnosis steps:**
+1. Run the duplicate check script:
+   ```bash
+   npm run cy:check-steps
+   ```
+2. If the script doesn't catch it (e.g., the duplicate is with a step in `main` that hasn't been merged yet), search manually:
+   ```bash
+   grep -r "I should see introductory text mentioning" cypress/support/step_definitions/
+   ```
+3. Identify all files that define the same step pattern
+4. Determine which steps are shared (used by multiple features) vs. feature-specific
+5. Move shared steps to `app.steps.ts`, remove duplicates from feature files
+
+**Why this passes locally but fails in CI:**
+
+If one feature file was added in a previous PR (already in `main`) and a new feature file copies the same steps, local tests pass because the branch only contains the new file in isolation. CI runs against the **PR merge commit** (branch + main), which loads both files and triggers the duplicate error. The `cy:check-steps` script only checks within the current branch, so it cannot detect conflicts with `main`.
+
+**Prevention:**
+- When creating a new feature's step file, start with an empty file — do NOT copy another feature's step file
+- Before writing a new step, search for existing definitions: `grep -r "step text" cypress/support/step_definitions/`
+- If a step is used by more than one `.feature` file, it belongs in `app.steps.ts`
+- Run `npm run cy:check-steps` before pushing (the pre-push hook does this automatically)
+
 ### Proactive Visual Testing Strategy (TDD Approach)
 
 To avoid reactive test-fixing cycles, adopt a **test-driven visual development** workflow:
