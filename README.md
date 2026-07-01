@@ -12,6 +12,10 @@ IOPHA is an AI-powered health assistant that delivers personalized, evidence-bas
 | [Visual Regression Playbook](docs/VISUAL_REGRESSION_PLAYBOOK.md) | Best practices for visual regression testing with `cypress-image-diff-js`: browser launch flags, dynamic content normalization, snapshot naming conventions, baseline management, overflow handling, responsive design testing, and flaky test stabilization. |
 | [ESLint Security & Bug Detection](docs/ESLINT_SECURITY_BUG_DETECTION.md) | Security and bug detection via ESLint plugins: code injection, XSS prevention, hardcoded credential scanning, cognitive complexity, promise handling, Node.js API misuse, regex safety (ReDoS), CI SARIF integration, and violation handling. |
 | [Troubleshooting](TROUBLESHOOTING.md) | Known issues and solutions: Vite environment variable pitfalls, IOPHA Resources integration, Tailwind CSS v4 configuration, Cypress overflow clipping, duplicate text labels, React import errors, and logging/performance hooks. |
+| [Appointment Flow](docs/features/APPOINTMENT_FLOW.md) | Physician appointment booking flow implementation details |
+| [SARIF Justification](docs/security/SARIF_JUSTIFICATION.md) | SARIF security report format rationale and integration notes |
+| [Business Case](docs/product_plan/BUSINESS_CASE.md) | Product business case and market analysis |
+| [Product Requirements](docs/product_plan/PRD.md) | Product requirements document with feature specifications |
 
 ## Running the code
 

@@ -7,6 +7,7 @@ const sonarjsPlugin = require("eslint-plugin-sonarjs");
 const promisePlugin = require("eslint-plugin-promise");
 const nPlugin = require("eslint-plugin-n");
 const regexpPlugin = require("eslint-plugin-regexp");
+const noSecretsPlugin = require("eslint-plugin-no-secrets");
 
 module.exports = [
   js.configs.recommended,
@@ -26,6 +27,7 @@ module.exports = [
       promise: promisePlugin,
       n: nPlugin,
       regexp: regexpPlugin,
+      "no-secrets": noSecretsPlugin,
     },
     rules: {
       "@typescript-eslint/no-unused-vars": "warn",
@@ -54,12 +56,7 @@ module.exports = [
     },
   },
   {
-    files: [
-      "cypress/**/*",
-      "**/*.spec.tsx",
-      "**/*.spec.ts",
-      "**/*.steps.ts",
-    ],
+    files: ["cypress/**/*", "**/*.spec.tsx", "**/*.spec.ts", "**/*.steps.ts"],
     rules: {
       "no-secrets/no-secrets": "off",
       "promise/catch-or-return": "off",
