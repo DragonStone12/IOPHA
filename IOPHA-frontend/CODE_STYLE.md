@@ -268,3 +268,4 @@ const ERROR_INPUT_CLASSES =
 | Magic string in `setState` / `if` / `switch` | Replace with constant property reference |
 | Duplicated validation message | Extract to `const ERROR_MESSAGE = "text";` and reuse |
 | Duplicated Tailwind class string | Extract to `const CLASS_NAME = "..."` and reuse |
+| Unused manual union type when derived type exists | Delete the manual type; use `type Name = typeof CONSTANT[keyof typeof CONSTANT]` instead |
