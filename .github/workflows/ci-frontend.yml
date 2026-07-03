@@ -28,6 +28,16 @@ jobs:
       - name: Fix npm vulnerabilities
         if: failure()
         run: npm audit fix --force && npm audit --omit=dev --audit-level=high
+      - name: Generate ESLint SARIF
+        if: always()
+        run: |
+          npx eslint src --ext .ts,.tsx --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif || true
+      - name: Upload SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: IOPHA-frontend/eslint-results.sarif
+          category: eslint-security-bug-analysis
 
   cypress-component:
     runs-on: ubuntu-latest

@@ -1,5 +1,17 @@
 # IOPHA: Technical Design (Low-Level Design)
 
+## Table of Contents
+
+| # | Section | Description |
+|---|---------|-------------|
+| 1 | [Technology Stack](#1-technology-stack) | Frontend, backend, database, and testing technologies |
+| 2 | [Project Structure](#2-project-structure-monorepo) | Monorepo directory layout |
+| 3 | [Frontend Implementation](#3-frontend-implementation-details) | Styling, logging, state management, performance |
+| 4 | [Backend Implementation](#4-backend-implementation-details) | API spec, database schema, RAG pipeline |
+| 5 | [Testing Strategy](#5-testing-strategy) | Unit, integration, E2E, visual regression, performance |
+| 6 | [CI/CD & Deployment](#6-cicd--deployment) | GitHub Actions, environment config, local dev |
+| 7 | [Decision Points](#7-decision-points-pending) | Pending architectural decisions |
+
 ## 1. Technology Stack
 
 | Layer | Technology | Version |
@@ -203,7 +215,28 @@ Strategy:
 - Tool: Locust
 - Target: 100 concurrent users, <2s p95 latency
 
-### 5.6 CI Integration
+### 5.6 Code Quality & Linting
+
+**ESLint Configuration**:
+- Version: ESLint 9.x (flat config format)
+- Config file: `eslint.config.js` (replaces deprecated `.eslintrc.cjs`)
+- TypeScript support: `@typescript-eslint/parser` and `@typescript-eslint/eslint-plugin`
+- TanStack Query plugin: `@tanstack/eslint-plugin-query` for exhaustive-deps rule
+- Ignores: `node_modules/`, `dist/`, `cypress/`
+
+**Lint Script**:
+```bash
+npm run lint
+# Executes: eslint src --max-warnings=0
+```
+
+**Pre-commit Hooks**:
+- Husky pre-commit hook runs ESLint with `--fix` on staged `.ts` and `.tsx` files
+- Pre-push hook runs: lint, duplicate step check, E2E tests, component tests, and security audit
+
+**IMPORTANT: Never run `git push --no-verify`**. All hooks must run to catch errors locally before they reach CI. The pre-push hook runs the same checks as GitHub Actions (lint, E2E tests, component tests, security audit). Bypassing hooks with `--no-verify` will cause the CI build to fail, blocking your PR from merging. Always fix issues locally before pushing.
+
+### 5.7 CI Integration
 - Tests run on every PR to main
 - Screenshots uploaded as artifacts on failure
 
@@ -212,10 +245,15 @@ Strategy:
 ### 6.1 GitHub Actions Workflows
 
 **ci-frontend.yml**:
-- Lint (ESLint, Prettier)
-- npm audit
+- Lint step: `npm run lint` (ESLint 9.x with flat config `eslint.config.js`)
+- Duplicate step check: `npm run cy:check-steps`
+- E2E tests: `npm run test:e2e` (Cypress with Cucumber BDD)
+- Component tests: `npx cypress run --component`
+- Security audit: `npm audit --omit=dev --audit-level=high`
 - Cypress E2E matrix (chrome, firefox, edge)
 - Screenshot artifacts on failure
+
+**Note**: ESLint 9.x uses flat config format (`eslint.config.js`). The deprecated `.eslintrc.cjs` and `.eslintignore` files have been removed. The lint script no longer uses the `--ext` flag (removed in ESLint 9.x).
 
 **ci-backend.yml**:
 - Bandit SAST scanning

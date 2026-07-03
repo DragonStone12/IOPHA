@@ -53,6 +53,7 @@ const DEFAULT_DATA: FindDoctorResponseData = {
       reviewCount: 234,
       nextAvailableSlot: "Today, 3:30 PM",
       imageUrl:
+        // eslint-disable-next-line no-secrets/no-secrets
         "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop&auto=format",
     },
     {
@@ -65,6 +66,7 @@ const DEFAULT_DATA: FindDoctorResponseData = {
       reviewCount: 187,
       nextAvailableSlot: "Tomorrow, 9:00 AM",
       imageUrl:
+        // eslint-disable-next-line no-secrets/no-secrets
         "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&auto=format",
     },
   ],
