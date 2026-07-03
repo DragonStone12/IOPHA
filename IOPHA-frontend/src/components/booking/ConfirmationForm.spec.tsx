@@ -104,7 +104,7 @@ describe("ConfirmationForm Component", () => {
         selectedTime={MOCK_TIME}
       />,
     );
-    cy.contains("04:00 PM").should("be.visible");
+    cy.contains("04:00 PM").scrollIntoView().should("be.visible");
   });
 
   it("should display location in details", () => {
