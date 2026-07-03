@@ -126,6 +126,51 @@ If the test sets a viewport, it must use 1440x900 as the standard. Tests should 
 
 ## 5. ESLint & Security Patterns
 
+### Empty Object Types
+
+Do not use an empty `interface` that only extends an existing type. Use `type` instead.
+
+```tsx
+// CORRECT
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+
+// VIOLATION
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+```
+
+Rule: `@typescript-eslint/no-empty-object-type` — an interface declaring no members is equivalent to its supertype and enables accidental merging.
+
+For more examples, see [IOPHA-frontend/CODE_STYLE.md](IOPHA-frontend/CODE_STYLE.md#1-component-props-type-vs-interface).
+
+### Duplicate String Literals
+
+If the same string literal appears 3 or more times in a file, it violates `sonarjs/no-duplicate-string`. Extract repeated values into a `as const` object and reference the object properties everywhere.
+
+```tsx
+// CORRECT
+export const BOOKING_VIEWS = {
+  CHAT: "chat",
+  TIME_SELECTION: "time-selection",
+  CONFIRMATION: "confirmation",
+  SUCCESS: "success",
+} as const;
+
+export type BookingViewType = typeof BOOKING_VIEWS[keyof typeof BOOKING_VIEWS];
+
+const [bookingView, setBookingView] = useState<BookingViewType>(BOOKING_VIEWS.CHAT);
+setBookingView(BOOKING_VIEWS.TIME_SELECTION);
+
+if (bookingView === BOOKING_VIEWS.CONFIRMATION) { ... }
+
+// VIOLATION
+type BookingView = "chat" | "time-selection" | "confirmation" | "success";
+setBookingView("time-selection");
+setBookingView("time-selection");
+if (bookingView === "time-selection") { ... }
+```
+
+For the full pattern guide, see [IOPHA-frontend/CODE_STYLE.md](IOPHA-frontend/CODE_STYLE.md#2-state-objects-extract-string-literals-with-as-const).
+
 ### Inline Disable Comments
 
 When an ESLint rule is disabled inline, the scope must be limited to the specific line. File-level or block-level disables for security rules are violations.

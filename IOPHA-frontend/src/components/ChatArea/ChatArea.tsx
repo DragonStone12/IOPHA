@@ -48,6 +48,15 @@ interface ChatMessage {
 
 type BookingView = "chat" | "time-selection" | "confirmation" | "success";
 
+const BOOKING_VIEWS = {
+  CHAT: "chat",
+  TIME_SELECTION: "time-selection",
+  CONFIRMATION: "confirmation",
+  SUCCESS: "success",
+} as const;
+
+type BookingViewType = typeof BOOKING_VIEWS[keyof typeof BOOKING_VIEWS];
+
 let msgIdCounter = 0;
 
 export function ChatArea({
@@ -66,7 +75,7 @@ export function ChatArea({
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
-  const [bookingView, setBookingView] = useState<BookingView>("chat");
+  const [bookingView, setBookingView] = useState<BookingViewType>(BOOKING_VIEWS.CHAT);
   const [selectedPhysician, setSelectedPhysician] = useState<Physician | null>(
     null,
   );
@@ -141,7 +150,7 @@ export function ChatArea({
   const handleBookPhysician = (physician: Physician) => {
     Logger.info("[ChatArea] Booking initiated", { physician: physician.name });
     setSelectedPhysician(physician);
-    setBookingView("time-selection");
+    setBookingView(BOOKING_VIEWS.TIME_SELECTION);
     onBookPhysician?.(physician);
   };
 
@@ -155,23 +164,23 @@ export function ChatArea({
 
   const handleContinueToConfirmation = () => {
     if (selectedDate && selectedTime) {
-      setBookingView("confirmation");
+      setBookingView(BOOKING_VIEWS.CONFIRMATION);
     }
   };
 
   const handleBackToChat = () => {
-    setBookingView("chat");
+    setBookingView(BOOKING_VIEWS.CHAT);
     setSelectedPhysician(null);
     setSelectedDate(undefined);
     setSelectedTime(undefined);
   };
 
   const handleBackToTimeSelection = () => {
-    setBookingView("time-selection");
+    setBookingView(BOOKING_VIEWS.TIME_SELECTION);
   };
 
   const handleChangeDateTime = () => {
-    setBookingView("time-selection");
+    setBookingView(BOOKING_VIEWS.TIME_SELECTION);
   };
 
   const handleConfirmBooking = (data: {
@@ -180,7 +189,7 @@ export function ChatArea({
     phone: string;
   }) => {
     setConfirmedPatientData(data);
-    setBookingView("success");
+    setBookingView(BOOKING_VIEWS.SUCCESS);
   };
 
   const handleBookingDone = () => {
@@ -192,7 +201,7 @@ export function ChatArea({
       });
     }
     setAppointmentConfirmed(true);
-    setBookingView("chat");
+    setBookingView(BOOKING_VIEWS.CHAT);
     setSelectedPhysician(null);
     setSelectedDate(undefined);
     setSelectedTime(undefined);
@@ -201,9 +210,9 @@ export function ChatArea({
 
   const greetingMessage = `Welcome, ${userName}. I'm your ${hospitalName} AI assistant. Based on your recently completed health survey, your obesity risk score is ${riskScore}/100 — placing you in the high-risk category. The encouraging news: this is exactly when early intervention is most effective. I can provide personalized, evidence-based guidance right now, and connect you with a ${hospitalName.split(" ")[0]} physician nearby if you'd like a professional consultation. How can I help you today?`;
 
-  const showChatContent = bookingView === "chat";
+  const showChatContent = bookingView === BOOKING_VIEWS.CHAT;
 
-  if (bookingView === "time-selection" && selectedPhysician) {
+  if (bookingView === BOOKING_VIEWS.TIME_SELECTION && selectedPhysician) {
     return (
       <main className="flex-1 flex flex-col min-w-0">
         <TimeSelector
@@ -221,7 +230,7 @@ export function ChatArea({
   }
 
   if (
-    bookingView === "confirmation" &&
+    bookingView === BOOKING_VIEWS.CONFIRMATION &&
     selectedPhysician &&
     selectedDate &&
     selectedTime
@@ -244,7 +253,7 @@ export function ChatArea({
   }
 
   if (
-    bookingView === "success" &&
+    bookingView === BOOKING_VIEWS.SUCCESS &&
     selectedPhysician &&
     selectedDate &&
     selectedTime &&
