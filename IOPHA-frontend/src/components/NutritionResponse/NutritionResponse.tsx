@@ -12,7 +12,7 @@ export interface NutritionResponseData {
 }
 
 interface NutritionResponseProps {
-  data: NutritionResponseData;
+  data?: NutritionResponseData;
   onChipSelect?: (chip: string) => void;
   onBookPhysician?: (physician: Physician) => void;
   timestamp?: string;

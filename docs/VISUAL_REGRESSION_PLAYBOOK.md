@@ -196,9 +196,9 @@ cy.compareSnapshot('default');
 
 ---
 
-## 7. Commit Baseline Snapshots to Source Control
+## 7. Baseline Storage and Version Control
 
-Track snapshot PNG files in version control to maintain historical traceability and make visual changes reviewable in pull requests.
+Visual regression baselines are generated locally and are **not committed to Git**. They do not represent test fixtures; they are cached artifacts from the last local snapshot update.
 
 **Baseline location:**
 ```text
@@ -215,6 +215,8 @@ IOPHA-frontend/cypress-visual-screenshots/comparison/
 ```text
 IOPHA-frontend/cypress-visual-report/
 ```
+
+Add these directories to `.gitignore` so local baselines are not accidentally committed. The goal is simply to locally verify that visual diffs are intentional, not to preserve a historical baseline in source control.
 
 ---
 
@@ -256,31 +258,14 @@ npm run cy:update-snapshots:spec "src/components/NutritionResponse/NutritionResp
 npm run cy:update-snapshots:spec "cypress/e2e/Tests/nutrition-tips.feature"
 ```
 
-### Commit Updated Baselines
+### Baseline Scope
 
-Once the command finishes, commit the updated baselines:
-```bash
-git add cypress-visual-screenshots/baseline/
-git commit -m "chore: update visual baselines for sidebar redesign [snap-update]"
-```
+Visual diffs are only local-dev artifacts. Baseline PNGs in `cypress-visual-screenshots/baseline/` are regenerated on every local snapshot update and are not committed to Git.
 
-### Why You Should NOT Update Baselines in CI
-
-If you update baselines in CI, you are blindly accepting whatever the UI looks like at that exact moment, which completely defeats the purpose of visual regression testing. If a developer accidentally pushes a broken UI, the CI will silently update the baseline to the broken state.
-
-**NEVER commit `updateSnapshots=true` in CI workflows.** Treat snapshot failures as signals to investigate, not inconveniences to dismiss.
-
-**Husky pre-push hook** (at monorepo root `.husky/pre-push`) runs lint, E2E tests, and component tests before every push, catching visual regressions locally before they reach CI:
-```bash
-cd IOPHA-frontend && npm run lint && npm run test:e2e && npx cypress run --component && npm audit --omit=dev --audit-level=high
-```
-
-**If update is intentional:**
+If update is intentional:
 1. Review the diff image in `cypress-visual-screenshots/diff/`
 2. Run with update flag locally: `npm run cy:update-snapshots`
-3. Commit snapshots in a separate commit with message:
-   ```bash
-   git commit -m "chore: update visual snapshots after sidebar redesign [snap-update]"
+3. Do not commit the regenerated baselines
    ```
 
 ---

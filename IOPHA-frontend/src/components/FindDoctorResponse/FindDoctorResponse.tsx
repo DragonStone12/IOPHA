@@ -32,8 +32,8 @@ export interface FindDoctorResponseData {
 }
 
 interface FindDoctorResponseProps {
-  data: FindDoctorResponseData;
-  onBookProvider?: (providerId: string) => void;
+  data?: FindDoctorResponseData;
+  onBookProvider?: (physician: Physician) => void;
   onChipSelect?: (chip: string) => void;
   timestamp?: string;
   className?: string;
@@ -93,6 +93,7 @@ function providerToPhysician(provider: Provider): Physician {
     reviewCount: provider.reviewCount,
     nextAvailable: provider.nextAvailableSlot,
     imageUrl: provider.imageUrl,
+    facility: provider.facility,
   };
 }
 
@@ -107,7 +108,7 @@ export function FindDoctorResponse({
   usePerformanceTracking();
 
   const handleBook = (physician: Physician) => {
-    onBookProvider?.(physician.id);
+    onBookProvider?.(physician);
   };
 
   return (
@@ -144,7 +145,18 @@ export function FindDoctorResponse({
             variant="secondary"
             size="sm"
             className="rounded-full bg-card border border-border text-xs px-3 py-1.5 text-foreground hover:bg-secondary hover:border-primary/30 hover:text-primary transition-colors"
-            onClick={() => onChipSelect?.(action.label)}
+            onClick={() => {
+              if (action.actionType === "BOOK_PROVIDER" && action.providerId) {
+                const provider = data.providers.find(
+                  (p) => p.id === action.providerId,
+                );
+                if (provider) {
+                  onBookProvider?.(providerToPhysician(provider));
+                  return;
+                }
+              }
+              onChipSelect?.(action.label);
+            }}
             aria-label={action.label}
           >
             {action.label}

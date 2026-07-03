@@ -68,4 +68,50 @@ describe("ChatArea Component", () => {
       .trigger("mouseover")
       .should("have.class", "hover:bg-primary/10");
   });
+
+  it("should show appointment confirmation after booking flow completes", () => {
+    cy.clock(new Date(2026, 5, 26, 15, 0, 0));
+    cy.mount(
+      <ChatArea
+        onBookPhysician={cy.stub().as("bookPhysician")}
+        onConfirmBooking={cy.stub().as("confirmBooking")}
+      />,
+    );
+
+    // Find doctor
+    cy.contains("Find a doctor").click();
+
+    // Book with Dr. Chen (initiates time selection)
+    cy.contains("Book with Dr. Chen").click();
+
+    // Select a date
+    cy.get("td[data-day]")
+      .not("[data-outside]")
+      .not("[data-disabled]")
+      .find("button")
+      .first()
+      .click();
+
+    // Select a time slot
+    cy.get("button[aria-label*='Select']").first().click();
+
+    // Continue to confirmation
+    cy.contains("Continue to Confirmation").click();
+
+    // Fill form
+    cy.get("#patient-name").type("John Doe");
+    cy.get("#patient-email").type("john@example.com");
+    cy.get("#patient-phone").type("1234567890");
+
+    // Submit
+    cy.contains("Confirm Appointment").click();
+
+    // Auto-dismiss after 3 seconds (mock time)
+    cy.tick(3000);
+
+    // Verify appointment confirmation appears in chat
+    cy.contains("Appointment confirmed").should("be.visible");
+    cy.contains("Dr. Emily Chen, MD").should("be.visible");
+    cy.contains("Weight & nutrition tips").should("be.visible");
+  });
 });

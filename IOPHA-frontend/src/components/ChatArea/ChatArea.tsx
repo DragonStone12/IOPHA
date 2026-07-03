@@ -6,6 +6,10 @@ import { Button } from "../shared/button";
 import { Input } from "../shared/input";
 import { NutritionResponse } from "../NutritionResponse/NutritionResponse";
 import { FindDoctorResponse } from "../FindDoctorResponse/FindDoctorResponse";
+import { TimeSelector } from "../booking/TimeSelector";
+import { ConfirmationForm } from "../booking/ConfirmationForm";
+import { SuccessModal } from "../booking/SuccessModal";
+import { AppointmentConfirmation } from "../booking/AppointmentConfirmation";
 import type { Physician } from "../NutritionResponse/PhysicianCard";
 
 interface ChatAreaProps {
@@ -14,6 +18,9 @@ interface ChatAreaProps {
   riskScore?: number;
   onTopicSelect?: (topic: string) => void;
   onBookPhysician?: (physician: Physician) => void;
+  patientName?: string;
+  patientEmail?: string;
+  patientPhone?: string;
 }
 
 const DEFAULT_USER = {
@@ -37,6 +44,8 @@ interface ChatMessage {
   timestamp: string;
 }
 
+type BookingView = "chat" | "time-selection" | "confirmation" | "success";
+
 let msgIdCounter = 0;
 
 export function ChatArea({
@@ -45,6 +54,9 @@ export function ChatArea({
   riskScore = DEFAULT_USER.riskScore,
   onTopicSelect,
   onBookPhysician,
+  patientName,
+  patientEmail,
+  patientPhone,
 }: ChatAreaProps) {
   useLogRenders("ChatArea", { userName, riskScore });
   usePerformanceTracking();
@@ -52,6 +64,25 @@ export function ChatArea({
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
+  const [bookingView, setBookingView] = useState<BookingView>("chat");
+  const [selectedPhysician, setSelectedPhysician] = useState<Physician | null>(
+    null,
+  );
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string | undefined>(
+    undefined,
+  );
+  const [confirmedPatientData, setConfirmedPatientData] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+  const [appointmentConfirmed, setAppointmentConfirmed] = useState(false);
+  const [completedBooking, setCompletedBooking] = useState<{
+    physician: Physician;
+    date: Date;
+    time: string;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -105,7 +136,133 @@ export function ChatArea({
     onTopicSelect?.(chip);
   };
 
+  const handleBookPhysician = (physician: Physician) => {
+    Logger.info("[ChatArea] Booking initiated", { physician: physician.name });
+    setSelectedPhysician(physician);
+    setBookingView("time-selection");
+    onBookPhysician?.(physician);
+  };
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+  };
+
+  const handleContinueToConfirmation = () => {
+    if (selectedDate && selectedTime) {
+      setBookingView("confirmation");
+    }
+  };
+
+  const handleBackToChat = () => {
+    setBookingView("chat");
+    setSelectedPhysician(null);
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+  };
+
+  const handleBackToTimeSelection = () => {
+    setBookingView("time-selection");
+  };
+
+  const handleChangeDateTime = () => {
+    setBookingView("time-selection");
+  };
+
+  const handleConfirmBooking = (data: {
+    name: string;
+    email: string;
+    phone: string;
+  }) => {
+    setConfirmedPatientData(data);
+    setBookingView("success");
+  };
+
+  const handleBookingDone = () => {
+    if (selectedPhysician && selectedDate && selectedTime) {
+      setCompletedBooking({
+        physician: selectedPhysician,
+        date: selectedDate,
+        time: selectedTime,
+      });
+    }
+    setAppointmentConfirmed(true);
+    setBookingView("chat");
+    setSelectedPhysician(null);
+    setSelectedDate(undefined);
+    setSelectedTime(undefined);
+    setConfirmedPatientData(null);
+  };
+
   const greetingMessage = `Welcome, ${userName}. I'm your ${hospitalName} AI assistant. Based on your recently completed health survey, your obesity risk score is ${riskScore}/100 — placing you in the high-risk category. The encouraging news: this is exactly when early intervention is most effective. I can provide personalized, evidence-based guidance right now, and connect you with a ${hospitalName.split(" ")[0]} physician nearby if you'd like a professional consultation. How can I help you today?`;
+
+  const showChatContent = bookingView === "chat";
+
+  if (bookingView === "time-selection" && selectedPhysician) {
+    return (
+      <main className="flex-1 flex flex-col min-w-0">
+        <TimeSelector
+          physician={selectedPhysician}
+          selectedDate={selectedDate}
+          selectedTime={selectedTime}
+          onDateSelect={handleDateSelect}
+          onTimeSelect={handleTimeSelect}
+          onContinue={handleContinueToConfirmation}
+          onBack={handleBackToChat}
+          onBackToSearch={handleBackToChat}
+        />
+      </main>
+    );
+  }
+
+  if (
+    bookingView === "confirmation" &&
+    selectedPhysician &&
+    selectedDate &&
+    selectedTime
+  ) {
+    return (
+      <main className="flex-1 flex flex-col min-w-0">
+        <ConfirmationForm
+          physician={selectedPhysician}
+          selectedDate={selectedDate}
+          selectedTime={selectedTime}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          patientPhone={patientPhone}
+          onConfirm={handleConfirmBooking}
+          onChangeDateTime={handleChangeDateTime}
+          onBack={handleBackToTimeSelection}
+        />
+      </main>
+    );
+  }
+
+  if (
+    bookingView === "success" &&
+    selectedPhysician &&
+    selectedDate &&
+    selectedTime &&
+    confirmedPatientData
+  ) {
+    return (
+      <main className="flex-1 flex flex-col min-w-0">
+        <SuccessModal
+          physician={selectedPhysician}
+          selectedDate={selectedDate}
+          selectedTime={selectedTime}
+          patientName={confirmedPatientData.name}
+          patientEmail={confirmedPatientData.email}
+          patientPhone={confirmedPatientData.phone}
+          onClose={handleBookingDone}
+          onChangeDateTime={handleChangeDateTime}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 flex flex-col min-w-0">
@@ -187,7 +344,37 @@ export function ChatArea({
                     {msg.text}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex items-start gap-3 mb-6">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="size-8 rounded-full bg-primary flex items-center justify-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-4 text-primary-foreground"
+                      >
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M9 10h0" />
+                        <path d="M15 10h0" />
+                        <path d="M12 14v4" />
+                      </svg>
+                    </div>
+                    <span className="text-xs text-gray-500 mt-1.5">
+                      {msg.timestamp}
+                    </span>
+                  </div>
+                  <div className="flex-1 max-w-2xl">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                      <p className="text-sm text-green-800">{msg.text}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 
@@ -217,7 +404,7 @@ export function ChatArea({
               <div className="flex-1 max-w-2xl">
                 <NutritionResponse
                   onChipSelect={handleChipSelect}
-                  onBookPhysician={onBookPhysician}
+                  onBookPhysician={handleBookPhysician}
                 />
               </div>
             </div>
@@ -248,9 +435,47 @@ export function ChatArea({
               </div>
               <div className="flex-1 max-w-2xl">
                 <FindDoctorResponse
-                  onBookProvider={(providerId) => {
-                    Logger.info("[ChatArea] Provider booked", { providerId });
-                  }}
+                  onBookProvider={handleBookPhysician}
+                  onChipSelect={handleChipSelect}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Appointment Confirmation */}
+          {appointmentConfirmed && completedBooking && (
+            <div className="flex items-start gap-3 mb-6">
+              <div className="flex flex-col items-center shrink-0">
+                <div className="size-8 rounded-full bg-primary flex items-center justify-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4 text-primary-foreground"
+                  >
+                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                    <path d="M9 10h0" />
+                    <path d="M15 10h0" />
+                    <path d="M12 14v4" />
+                  </svg>
+                </div>
+                <span className="text-xs text-gray-500 mt-1.5">
+                  {formatTime(new Date())}
+                </span>
+              </div>
+              <div className="flex-1 max-w-2xl">
+                <AppointmentConfirmation
+                  physicianName={completedBooking.physician.name}
+                  facility={
+                    completedBooking.physician.facility ||
+                    "Baylor University Medical Center"
+                  }
+                  date={completedBooking.date}
+                  time={completedBooking.time}
                   onChipSelect={handleChipSelect}
                 />
               </div>
@@ -262,43 +487,47 @@ export function ChatArea({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 bg-white p-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex gap-3">
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about nutrition, exercise, finding a doctor..."
-              className="flex-1 bg-[#F0EEEB] border-0 rounded-full text-gray-700 placeholder:text-gray-400 focus-visible:ring-0 h-12 px-5"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!inputValue.trim()}
-              className="bg-[#B0C8CC] hover:bg-[#9AB0B5] text-white rounded-full size-12 p-0 shrink-0"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-5"
+      {showChatContent && (
+        <div className="border-t border-gray-200 bg-white p-4">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex gap-3">
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setInputValue(e.target.value)
+                }
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about nutrition, exercise, finding a doctor..."
+                className="flex-1 bg-[#F0EEEB] border-0 rounded-full text-gray-700 placeholder:text-gray-400 focus-visible:ring-0 h-12 px-5"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!inputValue.trim()}
+                className="bg-[#B0C8CC] hover:bg-[#9AB0B5] text-white rounded-full size-12 p-0 shrink-0"
               >
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
-              </svg>
-            </Button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-5"
+                >
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              AI responses are for informational purposes only · Not a
+              substitute for professional medical advice
+            </p>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-2">
-            AI responses are for informational purposes only · Not a substitute
-            for professional medical advice
-          </p>
         </div>
-      </div>
+      )}
     </main>
   );
 }

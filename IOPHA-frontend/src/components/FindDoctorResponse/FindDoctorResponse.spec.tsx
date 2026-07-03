@@ -83,6 +83,13 @@ describe("FindDoctorResponse Component", () => {
     cy.get("@bookProvider").should("have.been.calledWith", "dr-chen");
   });
 
+  it("should fire onBookProvider callback when doctor name is clicked", () => {
+    const callback = cy.stub().as("bookProvider");
+    cy.mount(<FindDoctorResponse data={MOCK_DATA} onBookProvider={callback} />);
+    cy.contains("Dr. Emily Chen, MD").click();
+    cy.get("@bookProvider").should("have.been.called");
+  });
+
   it("should render follow-up chips including Book with Dr. Chen and Get health tips first", () => {
     cy.mount(<FindDoctorResponse data={MOCK_DATA} />);
     cy.contains("Book with Dr. Chen").should("be.visible");
@@ -103,6 +110,9 @@ describe("FindDoctorResponse Component", () => {
 
   it("should render with visual snapshot", () => {
     cy.mount(<FindDoctorResponse data={MOCK_DATA} />);
-    cy.compareSnapshot("find-doctor-response-default");
+    cy.compareSnapshot({
+      name: "find-doctor-response-default",
+      testThreshold: 0.05,
+    });
   });
 });

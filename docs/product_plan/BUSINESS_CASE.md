@@ -1,4 +1,4 @@
-# The Business Problem
+npm# The Business Problem
 
 Our predictive models identify users at high risk for obesity based on lifestyle data, but early detection alone is insufficient. Without timely intervention and prevention strategies, these individuals face severe long-term health complications. Untreated obesity leads to chronic conditions like diabetes and heart disease, significantly increasing long-term healthcare costs for both the user and the provider. Currently, there is a gap between identifying the risk and providing the immediate, actionable prevention needed to alter the health trajectory. Furthermore, there is a friction point in connecting these high-risk users to immediate, in-network medical professionals. Users are often left without a seamless pathway to schedule an appointment with a nearby physician within the hospital's organization, or to receive reliable, immediate health guidance if they are hesitant to seek medical care right away.
 

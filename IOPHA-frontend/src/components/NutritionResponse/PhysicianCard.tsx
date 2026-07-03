@@ -11,6 +11,7 @@ export interface Physician {
   reviewCount: number;
   nextAvailable: string;
   imageUrl?: string;
+  facility?: string;
 }
 
 interface PhysicianCardProps {
@@ -35,7 +36,7 @@ export function PhysicianCard({
   return (
     <div
       className={cn(
-        "bg-background border border-border rounded-xl p-4 flex gap-3 hover:border-primary/30 transition-colors",
+        "bg-card border border-border rounded-xl p-4 flex gap-3 hover:border-primary/30 transition-colors",
         className,
       )}
     >
@@ -51,9 +52,15 @@ export function PhysicianCard({
       </Avatar>
 
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-foreground truncate">
-          {physician.name}
-        </p>
+        <button
+          onClick={() => onBook?.(physician)}
+          className="text-left p-0 bg-transparent border-0 hover:underline focus:outline-none focus-visible:underline"
+          aria-label={`Book appointment with ${physician.name}`}
+        >
+          <p className="font-semibold text-sm text-foreground truncate">
+            {physician.name}
+          </p>
+        </button>
         <p className="text-xs text-muted-foreground">{physician.specialty}</p>
 
         <div className="flex items-center gap-3 mt-1.5">
