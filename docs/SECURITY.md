@@ -8,9 +8,10 @@
 | 2 | [Trust Boundaries & Data Classification](#trust-boundaries--data-classification) | PHI zones, encryption, and access controls |
 | 3 | [Static Application Security Testing](#static-application-security-testing) | ESLint security plugins, SARIF integration, CI enforcement |
 | 4 | [Dependency & Supply-Chain Security](#dependency--supply-chain-security) | `npm audit`, pre-push hooks, CI audit |
-| 5 | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows) | Booking form, logging, and transport security |
-| 6 | [Compliance & Regulatory](#compliance--regulatory) | HIPAA, TLS, and audit requirements |
-| 7 | [Quick Reference](#quick-reference) | Commands and links |
+| 5 | [Kilo AI Code Reviews & Security Agent](#kilo-ai-code-reviews--security-agent) | AI-powered PR reviews, Dependabot triage, auto-remediation |
+| 6 | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows) | Booking form, logging, and transport security |
+| 7 | [Compliance & Regulatory](#compliance--regulatory) | HIPAA, TLS, and audit requirements |
+| 8 | [Quick Reference](#quick-reference) | Commands and links |
 
 ## Overview
 
@@ -199,6 +200,77 @@ cd IOPHA-frontend && npm run lint && npm run cy:check-steps && npm run test:e2e 
 
 **Never bypass hooks with `--no-verify` or any other mechanism. If a hook fails, resolve the underlying issue instead of bypassing it.
 
+## Kilo AI Code Reviews & Security Agent
+
+[Kilo Code](https://kilo.ai) is integrated into this repository via a GitHub App. It provides two automated security and quality services: **AI Code Reviews** on pull requests and a **Security Agent** that triages dependency vulnerabilities.
+
+### AI Code Reviews
+
+Kilo's Code Reviewer automatically analyzes every pull request opened or updated on `DragonStone12/IOPHA`. The agent uses the **Auto Frontier** AI model and is configured in **Strict** review style, which flags all potential issues and prioritizes quality and security.
+
+| Setting | Value |
+|---|---|
+| AI Model | Auto Frontier |
+| Review Style | Strict |
+| PR Gate Threshold | Critical issues only |
+| Trigger | PR opened, new commits pushed, PR reopened, draft marked ready |
+
+**PR Gate Threshold** — When set to "Critical issues only", the Kilo review posts a failing status check on the PR if any critical-severity findings are detected. This blocks merging until the critical issues are resolved or the threshold is adjusted.
+
+**Focus Areas** — The reviewer is configured to check all six focus areas:
+
+| Focus Area | What It Catches |
+|---|---|
+| Security vulnerabilities | SQL injection, XSS, unsafe APIs, hardcoded secrets |
+| Performance issues | N+1 queries, inefficient loops, unnecessary re-renders |
+| Bug detection | Logic errors, edge cases, null handling |
+| Code style | Formatting, naming conventions, consistency |
+| Test coverage | Missing or inadequate tests for changed code |
+| Documentation | Missing JSDoc, outdated comments |
+
+The reviewer also respects the repository's `REVIEW.md` file, which provides domain-specific review guidance, severity calibration, and sub-agent routing instructions.
+
+### Security Agent
+
+The Kilo Security Agent syncs **GitHub Dependabot alerts** and performs AI-powered triage to determine whether each CVE is actually exploitable in this codebase. It operates in two phases:
+
+1. **AI Triage** — Evaluates package, advisory, severity, and dependency context without opening the repository sandbox. Routes each finding to: *Safe to Dismiss*, *Needs Analysis*, or *Needs Review*.
+2. **Sandbox Analysis** — For findings that need deeper investigation, the agent inspects actual repository usage, identifies relevant files and code paths, captures evidence, and recommends a fix.
+
+| Setting | Value |
+|---|---|
+| Auto-analysis | Enabled — All severities |
+| Auto-remediation | Enabled — All severities (opens PRs for eligible exploitable findings) |
+| Finding notifications | Email on — High and above |
+| SLA compliance | 100% (no assigned deadlines) |
+| Codebase risk | 100% (0 open findings) |
+
+**Analysis Outcomes** — Each security finding is classified into one of:
+
+| Outcome | Meaning |
+|---|---|
+| Confirmed exploitable | The vulnerable code path is reachable in this codebase |
+| Not exploitable | The vulnerable dependency is not used in an exploitable way |
+| Needs your review | The agent could not determine exploitability automatically |
+| Analysis not complete | Sandbox analysis has not yet run |
+| No SLA deadline assigned | Finding is tracked but no remediation deadline is set |
+
+**Auto-remediation** — When enabled for all severities, Kilo automatically opens a pull request with a suggested fix for every eligible exploitable finding. Duplicate PRs are suppressed. The finding is not closed until Dependabot reports it fixed or a user manually dismisses it.
+
+**SLA Tracking** — Remediation deadlines can be set per severity level. The dashboard tracks whether findings are resolved within their deadlines and sends warning/breach notifications.
+
+### How This Complements Existing Security Layers
+
+| Layer | Tool | When It Runs |
+|---|---|---|
+| Local static analysis | ESLint + security plugins | Pre-commit (Husky) |
+| Local dependency audit | `npm audit` | Pre-push (Husky) |
+| CI static analysis | ESLint → SARIF → GitHub Code Scanning | GitHub Actions on push/PR |
+| CI dependency audit | `npm audit --audit-level=high` | GitHub Actions on push/PR |
+| **AI code review** | **Kilo Code Reviewer** | **On PR open/update** |
+| **Dependency vulnerability triage** | **Kilo Security Agent** | **Continuous (Dependabot sync)** |
+| **Auto-remediation PRs** | **Kilo Security Agent** | **When exploitable finding detected** |
+
 ## PII Handling in Frontend Flows
 
 ### Booking Form
@@ -241,9 +313,13 @@ The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-sev
 | `npm run test:e2e` | Start dev server + run all E2E tests |
 | `npm run cy:update-snapshots` | Update visual regression baselines |
 | `npm audit --omit=dev --audit-level=high` | Audit dependencies for high-severity issues |
+| Kilo Code Reviewer dashboard | AI PR reviews, focus areas, PR gate threshold |
+| Kilo Security Agent dashboard | Dependabot alerts triage, SLA tracking, auto-remediation |
 
 **Related Documentation:**
 - [ESLint Security & Bug Detection](ESLINT_SECURITY_BUG_DETECTION.md)
 - [SARIF Justification](security/SARIF_JUSTIFICATION.md)
 - [Architecture](ARCHITECTURE.md)
 - [Cypress Testing Guide](CYPRESS_TESTING.md)
+- [Kilo Code Reviews Documentation](https://kilo.ai/docs/automate/code-reviews/overview)
+- [Kilo Security Agent Documentation](https://kilo.ai/docs/deploy-secure/security-reviews)
