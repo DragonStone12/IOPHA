@@ -144,7 +144,6 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 ### Technical Risks
 
 - Performance: Calendar rendering with 30+ days of slot data could lag. Mitigation: Lazy load slots only when date is selected.
-- **For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
 - PII (Name, Phone, Email) in booking form. Mitigation: Ensure HTTPS only; do not log form payloads; sanitize inputs server-side.
 - Data Integrity: Double-booking risk. Mitigation: Optimistic locking or atomic DB transactions on slot reservation.
 - Accessibility: Custom calendar components often fail WCAG. Mitigation: Use established library primitives; audit with axe-core.
