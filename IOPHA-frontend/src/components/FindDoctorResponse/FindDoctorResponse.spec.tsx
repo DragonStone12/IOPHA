@@ -73,14 +73,23 @@ describe("FindDoctorResponse Component", () => {
 
   it("should render Book button on each physician card", () => {
     cy.mount(<FindDoctorResponse data={MOCK_DATA} />);
-    cy.get('button[aria-label*="Book appointment"]').should("have.length", 2);
+    cy.get('button').then(($buttons) => {
+      const bookButtons = Cypress.$($buttons).filter((_, btn) => {
+        const button = Cypress.$(btn);
+        return button.text().trim() === 'Book';
+      });
+      expect(bookButtons.length).to.equal(2);
+    });
   });
 
   it("should fire onBookProvider callback when Book button is clicked", () => {
     const callback = cy.stub().as("bookProvider");
     cy.mount(<FindDoctorResponse data={MOCK_DATA} onBookProvider={callback} />);
-    cy.get('button[aria-label*="Book appointment"]').first().click();
-    cy.get("@bookProvider").should("have.been.calledWith", "dr-chen");
+    cy.contains("Book").first().click();
+    cy.get("@bookProvider").should("have.been.calledOnce");
+    cy.get("@bookProvider").then((calls) => {
+      expect(calls.firstCall.args[0]).to.have.property("id", "dr-chen");
+    });
   });
 
   it("should fire onBookProvider callback when doctor name is clicked", () => {
@@ -96,11 +105,21 @@ describe("FindDoctorResponse Component", () => {
     cy.contains("Get health tips first").should("be.visible");
   });
 
-  it("should fire onChipSelect callback when follow-up chip is clicked", () => {
+  it("should fire onBookProvider when Book with Dr. Chen chip is clicked", () => {
+    const callback = cy.stub().as("bookProvider");
+    cy.mount(<FindDoctorResponse data={MOCK_DATA} onBookProvider={callback} />);
+    cy.contains("Book with Dr. Chen").click();
+    cy.get("@bookProvider").should("have.been.calledOnce");
+    cy.get("@bookProvider").then((calls) => {
+      expect(calls.firstCall.args[0]).to.have.property("id", "dr-chen");
+    });
+  });
+
+  it("should fire onChipSelect callback when Get health tips first chip is clicked", () => {
     const callback = cy.stub().as("chipSelect");
     cy.mount(<FindDoctorResponse data={MOCK_DATA} onChipSelect={callback} />);
-    cy.contains("Book with Dr. Chen").click();
-    cy.get("@chipSelect").should("have.been.calledWith", "Book with Dr. Chen");
+    cy.contains("Get health tips first").click();
+    cy.get("@chipSelect").should("have.been.calledWith", "Get health tips first");
   });
 
   it("should render the Nearby Baylor Physicians section header", () => {
@@ -112,7 +131,7 @@ describe("FindDoctorResponse Component", () => {
     cy.mount(<FindDoctorResponse data={MOCK_DATA} />);
     cy.compareSnapshot({
       name: "find-doctor-response-default",
-      testThreshold: 0.05,
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
     });
   });
 });

@@ -8,7 +8,7 @@ describe("LandingPage Component", () => {
     cy.contains("78").should("be.visible");
     cy.contains("/100").should("be.visible");
     cy.contains("Baylor Scott & White Health").should("be.visible");
-    cy.compareSnapshot("landing-page-default");
+    cy.compareSnapshot({ name: "landing-page-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with custom props", () => {

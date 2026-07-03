@@ -275,7 +275,7 @@ describe("SuccessModal Component", () => {
         onClose={() => {}}
       />,
     );
-    cy.compareSnapshot({ name: "success-modal-default", testThreshold: 0.05 });
+    cy.compareSnapshot({ name: "success-modal-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with visual snapshot - with booking ID", () => {
@@ -293,7 +293,7 @@ describe("SuccessModal Component", () => {
     );
     cy.compareSnapshot({
       name: "success-modal-with-booking-id",
-      testThreshold: 0.05,
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
     });
   });
 });

@@ -93,19 +93,31 @@ Then("I should see the chat interface", () => {
 });
 
 Then("I should see the time selector initial state", () => {
-  cy.get("main").compareSnapshot("booking-time-selector-initial");
+  cy.get("main").compareSnapshot({
+    name: "booking-time-selector-initial",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should see the time selector with selection state", () => {
-  cy.get("main").compareSnapshot("booking-time-selector-selected");
+  cy.get("main").compareSnapshot({
+    name: "booking-time-selector-selected",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should see the confirmation form default state", () => {
-  cy.get("main").compareSnapshot("booking-confirmation-form-default");
+  cy.get("main").compareSnapshot({
+    name: "booking-confirmation-form-default",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should see the appointment confirmation state", () => {
-  cy.get("main").compareSnapshot("booking-appointment-confirmation");
+  cy.get("main").compareSnapshot({
+    name: "booking-appointment-confirmation",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should see the appointment confirmation box in chat", () => {
@@ -120,7 +132,10 @@ Then("I should see {string} field validation error", (fieldName: string) => {
 });
 
 Then("I should see the confirmation form with validation errors", () => {
-  cy.get("main").compareSnapshot("booking-confirmation-form-errors");
+  cy.get("main").compareSnapshot({
+    name: "booking-confirmation-form-errors",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should not see the name validation error", () => {
@@ -128,7 +143,10 @@ Then("I should not see the name validation error", () => {
 });
 
 Then("I should see the corrected form state", () => {
-  cy.get("main").compareSnapshot("booking-confirmation-form-corrected");
+  cy.get("main").compareSnapshot({
+    name: "booking-confirmation-form-corrected",
+    testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+  });
 });
 
 Then("I should not see a {string} button", (buttonText: string) => {

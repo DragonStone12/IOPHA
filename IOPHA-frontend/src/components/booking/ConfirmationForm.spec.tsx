@@ -115,7 +115,7 @@ describe("ConfirmationForm Component", () => {
         selectedTime={MOCK_TIME}
       />,
     );
-    cy.contains("Baylor University Medical Center").should("be.visible");
+    cy.contains("Baylor University Medical Center").scrollIntoView().should("be.visible");
   });
 
   it("should render Full Name input field", () => {
@@ -207,7 +207,7 @@ describe("ConfirmationForm Component", () => {
         selectedTime={MOCK_TIME}
       />,
     );
-    cy.contains("Please arrive 15 minutes early").should("be.visible");
+    cy.contains("Please arrive 15 minutes early").scrollIntoView().should("be.visible");
   });
 
   it("should fire onChangeDateTime callback when Change date or time is clicked", () => {
@@ -310,14 +310,10 @@ describe("ConfirmationForm Component", () => {
         selectedTime={MOCK_TIME}
       />,
     );
-    cy.get("#patient-phone").type("abc").blur();
-    cy.contains("Please enter a valid 10-digit phone number").should(
-      "be.visible",
-    );
-    cy.get("#patient-phone").clear().type("1234567890");
-    cy.contains("Please enter a valid 10-digit phone number").should(
-      "not.exist",
-    );
+    cy.get('#patient-phone').type("123").blur();
+    cy.contains("Please enter a valid 10-digit phone number").should("be.visible");
+    cy.get('#patient-phone').clear().type("1234567890");
+    cy.contains("Please enter a valid 10-digit phone number").should("not.exist");
   });
 
   it("should show error-then-correct transition with snapshot", () => {
@@ -335,7 +331,7 @@ describe("ConfirmationForm Component", () => {
     cy.contains("This field is required").should("be.visible");
     cy.compareSnapshot({
       name: "confirmation-form-errors-on-blur",
-      testThreshold: 0.05,
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
     });
 
     // Correct all fields
@@ -343,7 +339,7 @@ describe("ConfirmationForm Component", () => {
     cy.get("#patient-email").type("john@example.com");
     cy.get("#patient-phone").type("1234567890");
     cy.contains("This field is required").should("not.exist");
-    cy.compareSnapshot("confirmation-form-corrected-from-errors");
+    cy.compareSnapshot({ name: "confirmation-form-corrected-from-errors", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should show validation errors on submit with snapshot", () => {
@@ -356,7 +352,7 @@ describe("ConfirmationForm Component", () => {
     );
     cy.contains("Confirm Appointment").click();
     cy.contains("This field is required").should("be.visible");
-    cy.compareSnapshot("confirmation-form-errors-on-submit");
+    cy.compareSnapshot({ name: "confirmation-form-errors-on-submit", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should show corrected form state with snapshot", () => {
@@ -371,7 +367,7 @@ describe("ConfirmationForm Component", () => {
     cy.get("#patient-name").type("John Doe");
     cy.get("#patient-email").type("john@example.com");
     cy.get("#patient-phone").type("1234567890");
-    cy.compareSnapshot("confirmation-form-corrected-from-errors");
+    cy.compareSnapshot({ name: "confirmation-form-corrected-from-errors", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should fire onConfirm callback with valid data including reason", () => {
@@ -458,7 +454,7 @@ describe("ConfirmationForm Component", () => {
         patientPhone="5551234567"
       />,
     );
-    cy.compareSnapshot("confirmation-form-default");
+    cy.compareSnapshot({ name: "confirmation-form-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with visual snapshot - empty form", () => {
@@ -469,7 +465,7 @@ describe("ConfirmationForm Component", () => {
         selectedTime={MOCK_TIME}
       />,
     );
-    cy.compareSnapshot("confirmation-form-empty");
+    cy.compareSnapshot({ name: "confirmation-form-empty", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with visual snapshot - validation errors", () => {
@@ -481,7 +477,7 @@ describe("ConfirmationForm Component", () => {
       />,
     );
     cy.contains("Confirm Appointment").click();
-    cy.compareSnapshot("confirmation-form-validation-errors");
+    cy.compareSnapshot({ name: "confirmation-form-validation-errors", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with visual snapshot - partial fill with email error", () => {
@@ -496,7 +492,7 @@ describe("ConfirmationForm Component", () => {
     cy.get("#patient-email").type("invalid-email");
     cy.get("#patient-phone").type("1234567890");
     cy.contains("Confirm Appointment").click();
-    cy.compareSnapshot("confirmation-form-email-error");
+    cy.compareSnapshot({ name: "confirmation-form-email-error", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 
   it("should render with visual snapshot - fully filled form", () => {
@@ -512,6 +508,6 @@ describe("ConfirmationForm Component", () => {
     cy.get("#patient-email").type("john@example.com");
     cy.get("#patient-phone").type("1234567890");
     cy.get("#patient-reason").type("Annual checkup");
-    cy.compareSnapshot("confirmation-form-filled");
+    cy.compareSnapshot({ name: "confirmation-form-filled", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
   });
 });

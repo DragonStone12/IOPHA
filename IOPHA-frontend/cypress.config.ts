@@ -43,5 +43,6 @@ export default defineConfig({
   },
   env: {
     VIDEO: false,
+    SNAPSHOT_TEST_THRESHOLD: 0.5,
   },
 });

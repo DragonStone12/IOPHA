@@ -217,6 +217,8 @@ Strategy:
 
 ### 5.6 Code Quality & Linting
 
+**For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
+
 **ESLint Configuration**:
 - Version: ESLint 9.x (flat config format)
 - Config file: `eslint.config.js` (replaces deprecated `.eslintrc.cjs`)
