@@ -18,7 +18,7 @@ export interface SleepRecoveryData {
 }
 
 interface SleepRecoveryResponseProps {
-  data: SleepRecoveryData;
+  data?: SleepRecoveryData;
   onChipSelect?: (chip: string) => void;
   timestamp?: string;
   className?: string;

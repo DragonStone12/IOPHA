@@ -1,8 +1,10 @@
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
+import type { ErrorInfo } from "react";
 import Logger from "../utils/logger";
 
 // Keep the fallback UI extremely simple to prevent secondary crashes
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
   return (
     <div
       role="alert"
@@ -10,7 +12,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
     >
       <h2 className="font-bold text-lg">Something went wrong</h2>
       <pre className="text-sm mt-2 whitespace-pre-wrap break-words">
-        {error.message}
+        {errorMessage}
       </pre>
       <button
         onClick={resetErrorBoundary}
@@ -31,14 +33,13 @@ export function AppErrorBoundary({
   children,
   boundaryName = "App",
 }: AppErrorBoundaryProps) {
-  const handleError = (
-    error: Error,
-    info: { componentStack: string | null },
-  ) => {
+  const handleError = (error: unknown, info: ErrorInfo) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     // Integrate with the custom Logger created in the previous story
     Logger.error(`[ErrorBoundary: ${boundaryName}] caught a render error`, {
-      errorMessage: error.message,
-      errorStack: error.stack,
+      errorMessage,
+      errorStack,
       componentStack: info.componentStack,
     });
   };

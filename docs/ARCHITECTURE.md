@@ -106,6 +106,8 @@ sequenceDiagram
 
 ## 6. Compliance & Regulatory Posture
 
+**For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
+
 ### HIPAA Alignment
 
 | Control Category | Implementation Status | Details |

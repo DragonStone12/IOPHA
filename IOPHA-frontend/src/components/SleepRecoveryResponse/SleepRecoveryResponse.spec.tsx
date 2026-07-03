@@ -83,6 +83,9 @@ describe("SleepRecoveryResponse Component", () => {
 
   it("should render with visual snapshot", () => {
     cy.mount(<SleepRecoveryResponse data={MOCK_DATA} />);
-    cy.compareSnapshot("sleep-recovery-default");
+    cy.compareSnapshot({
+      name: "sleep-recovery-default",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 });

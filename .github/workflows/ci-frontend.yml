@@ -7,27 +7,39 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint:
+  lint-and-audit:
+    name: Lint & Security Audit
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: IOPHA-frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: IOPHA-frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
       - name: Run ESLint
         run: npm run lint
       - name: Run npm audit
+        id: audit_step
         run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
       - name: Fix npm vulnerabilities
-        if: failure()
-        run: npm audit fix --force && npm audit --omit=dev --audit-level=high
+        if: steps.audit_step.outcome == 'failure'
+        run: |
+          echo "⚠️ Initial audit failed. Attempting fix..."
+          npm audit fix --force
+          npm audit --omit=dev --audit-level=high
       - name: Generate ESLint SARIF
         if: always()
         run: |
@@ -40,58 +52,71 @@ jobs:
           category: eslint-security-bug-analysis
 
   cypress-component:
+    name: Cypress Component Tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IOPHA-frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: IOPHA-frontend/package-lock.json
       - name: Install dependencies
-        run: npm ci --prefix IOPHA-frontend
-      - name: Cypress Component Tests
+        run: npm ci
+      - name: Run Component Tests
         uses: cypress-io/github-action@v7
         with:
           working-directory: IOPHA-frontend
           command: npx cypress run --component
-      - name: Upload screenshots
+      - name: Upload Component Screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: component-test-screenshots
+          name: component-screenshots
           path: IOPHA-frontend/cypress/screenshots
           if-no-files-found: ignore
 
   cypress-e2e:
+    name: Cypress E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         browser: [chrome, firefox, edge]
       fail-fast: false
+    defaults:
+      run:
+        working-directory: IOPHA-frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node.js
+      - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: IOPHA-frontend/package-lock.json
       - name: Install dependencies
-        run: npm ci --prefix IOPHA-frontend
-      - name: Cypress E2E Tests (includes Cucumber BDD feature tests)
+        run: npm ci
+      - name: Run E2E Tests
         uses: cypress-io/github-action@v7
         with:
           working-directory: IOPHA-frontend
           build: npm run build
           start: npm run dev
           wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120
           command: npx cypress run --e2e --browser ${{ matrix.browser }}
-      - name: Upload screenshots
+      - name: Upload E2E Screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: cypress-screenshots-${{ matrix.browser }}
+          name: e2e-screenshots-${{ matrix.browser }}
           path: IOPHA-frontend/cypress/screenshots
           if-no-files-found: ignore
-      - name: Upload visual diffs
+      - name: Upload Visual Diffs
         uses: actions/upload-artifact@v4
         if: failure()
         with:

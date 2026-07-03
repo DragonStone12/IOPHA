@@ -217,6 +217,8 @@ Strategy:
 
 ### 5.6 Code Quality & Linting
 
+**For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
+
 **ESLint Configuration**:
 - Version: ESLint 9.x (flat config format)
 - Config file: `eslint.config.js` (replaces deprecated `.eslintrc.cjs`)
@@ -234,7 +236,7 @@ npm run lint
 - Husky pre-commit hook runs ESLint with `--fix` on staged `.ts` and `.tsx` files
 - Pre-push hook runs: lint, duplicate step check, E2E tests, component tests, and security audit
 
-**IMPORTANT: Never run `git push --no-verify`**. All hooks must run to catch errors locally before they reach CI. The pre-push hook runs the same checks as GitHub Actions (lint, E2E tests, component tests, security audit). Bypassing hooks with `--no-verify` will cause the CI build to fail, blocking your PR from merging. Always fix issues locally before pushing.
+**IMPORTANT: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI. The pre-push hook runs the same checks as GitHub Actions (lint, E2E tests, component tests, security audit). If a hook fails, fix the underlying issue instead of attempting to bypass it.
 
 ### 5.7 CI Integration
 - Tests run on every PR to main

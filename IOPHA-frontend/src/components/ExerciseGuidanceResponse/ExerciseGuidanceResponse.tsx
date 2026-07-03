@@ -18,7 +18,7 @@ export interface ExerciseGuidanceData {
 }
 
 interface ExerciseGuidanceResponseProps {
-  data: ExerciseGuidanceData;
+  data?: ExerciseGuidanceData;
   onChipSelect?: (chip: string) => void;
   timestamp?: string;
   className?: string;

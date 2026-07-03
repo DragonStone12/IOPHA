@@ -47,7 +47,10 @@ describe("NutritionResponse Component", () => {
   it("should render the introductory text mentioning irregular meal timing", () => {
     cy.mount(<NutritionResponse data={MOCK_DATA} />);
     cy.contains("irregular meal timing").should("be.visible");
-    cy.compareSnapshot("nutrition-response-default");
+    cy.compareSnapshot({
+      name: "nutrition-response-default",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 
   it("should render exactly 3 numbered dietary adjustment cards", () => {

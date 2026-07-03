@@ -656,6 +656,7 @@ If you see an error about `component-index.html` not found, create `cypress/supp
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>Components App</title>
   </head>
@@ -664,6 +665,24 @@ If you see an error about `component-index.html` not found, create `cypress/supp
   </body>
 </html>
 ```
+
+### Components Test Fails Because Element Is Not Visible in Headless Mode
+
+Local monitors are typically taller than the default Cypress headless viewport (1000x660). If a component contains a long layout or uses `position: sticky`/`fixed`, elements near the bottom can be clipped in CI, causing `.should("be.visible")` to time out.
+
+**Fix:** Use `scrollIntoView()` before asserting visibility for elements that may fall outside the viewport:
+
+```typescript
+// BEFORE — passes locally, fails in CI because element is clipped
+cy.contains("04:00 PM").should("be.visible");
+
+// AFTER — scrolls element into view before asserting visibility
+cy.contains("04:00 PM").scrollIntoView().should("be.visible");
+```
+
+**Root cause:** The `AppointmentDetails` card uses `sticky top-4`. In a shorter viewport, the sticky container can cause the time element to be considered overlapped/overflowed.
+
+**For more information on diagnosing and resolving this issue**, see the [Troubleshooting guide](../TROUBLESHOOTING.md#cypress-e2e-test-element-clipped-by-overflow-parent).
 
 ---
 
@@ -682,3 +701,4 @@ If you see an error about `component-index.html` not found, create `cypress/supp
 | Use `cy.stub().as("name")` for callbacks | Test callbacks by checking DOM only |
 | Test component variants & states with snapshots | Skip testing hover/disabled/loading states |
 | Use `cy.compareSnapshot("name-state")` for variants | Use vague snapshot names like `"button-1"` |
+| Use `cy.contains("text").scrollIntoView().should("be.visible")` for elements near the bottom of a component | Assume elements are visible without scrolling in headless component tests |

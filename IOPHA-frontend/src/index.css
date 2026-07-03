@@ -211,13 +211,7 @@
 }
 
 .rdp-day_selected {
-  background-color: #2563eb !important;
-  color: white !important;
   font-weight: 600;
-}
-
-.rdp-day_selected:hover {
-  background-color: #1d4ed8 !important;
 }
 
 .rdp-day_today:not(.rdp-day_selected) {
