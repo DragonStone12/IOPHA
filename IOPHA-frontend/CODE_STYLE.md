@@ -6,7 +6,8 @@ This document defines style rules for the IOPHA frontend. Adhere to these patter
 
 1. [Component Props: `type` vs `interface`](#1-component-props-type-vs-interface)
 2. [State Objects: Extract String Literals with `as const`](#2-state-objects-extract-string-literals-with-as-const)
-3. [Quick Reference](#3-quick-reference)
+3. [Validation Messages: Extract Repeated Error Strings](#3-validation-messages-extract-repeated-error-strings)
+4. [Quick Reference](#4-quick-reference)
 
 ---
 
@@ -22,7 +23,31 @@ An empty `interface` that only extends an existing type is redundant. TypeScript
 
 Additionally, ESLint rule `@typescript-eslint/no-empty-object-type` enforces this because an empty object type provides no value over its supertype.
 
-### Example
+### Modern Best Practice: `React.ComponentProps<"input">`
+
+For standard HTML elements, the modern React best practice is to use `React.ComponentProps<"input">` directly in the `forwardRef` generic. This avoids creating any intermediate type alias and automatically includes all standard HTML attributes, ARIA attributes, and React-specific props.
+
+```tsx
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+```
+
+### Acceptable Shortcut: Inline Type Alias
+
+If you prefer to keep a named type alias for readability, define it directly without an empty interface:
 
 ```tsx
 // CORRECT
@@ -37,6 +62,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 // INCORRECT
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 ```
+
+### Why the empty interface is wrong
+
+The ESLint rule `@typescript-eslint/no-empty-object-type` flags this because an interface that only extends another type and adds no new properties is functionally identical to just using the supertype:
+
+1. **Redundancy:** `interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}` adds no new fields, methods, or constraints.
+2. **Cognitive overhead:** When another developer sees `InputProps`, they have to hunt down its definition only to realize it is just an empty alias.
+3. **Type system bloat:** TypeScript is designed to handle type intersections and extensions natively. Creating empty interfaces clutters the module namespace with useless type aliases.
 
 ### When to Use `interface`
 
@@ -115,10 +148,73 @@ If `sonarjs/no-duplicate-string` flags a string literal appearing 3 or more time
 
 ---
 
-## 3. Quick Reference
+## 3. Validation Messages: Extract Repeated Error Strings
+
+### Rule
+
+When the same validation or error message string is reused 3 or more times in a file (common in Zod schemas, form validation, or toast notifications), extract it into a named constant. Do not scatter magic strings throughout validation logic.
+
+### Why
+
+This satisfies `sonarjs/no-duplicate-string` and makes the codebase ready for future i18n.
+
+### Implementation
+
+**1. Define the constant at the top of the file:**
+
+```tsx
+const REQUIRED_FIELD_ERROR = "This field is required";
+```
+
+**2. Reference it in your validation schema:**
+
+```tsx
+const validationSchema = z.object({
+  name: z.string().min(1, REQUIRED_FIELD_ERROR),
+  email: z
+    .string()
+    .min(1, REQUIRED_FIELD_ERROR)
+    .email("Please enter a valid email address"),
+  phone: z
+    .string()
+    .min(1, REQUIRED_FIELD_ERROR)
+    .regex(/^\d{10}$/, "Please enter a valid 10-digit phone number"),
+  reason: z.string().optional(),
+});
+```
+
+### Alternative: Zod Built-ins
+
+If you use `.min(1)` solely to prevent empty strings, Zod offers `.nonempty()` as a cleaner alias:
+
+```tsx
+z.string().nonempty(REQUIRED_FIELD_ERROR)
+```
+
+This is functionally identical to `.min(1, message)` but more semantically accurate.
+
+### What Triggers This Rule
+
+- Validation strings duplicated across fields in the same file
+- Error messages hardcoded in multiple `if` branches or `switch` cases
+- Toast notification labels repeated in different handlers
+
+### Benefits
+
+| Benefit | Explanation |
+|---------|-------------|
+| Single source of truth | Product updates copy once; UI updates everywhere |
+| Prevents typos | `REQUIRED_FIELD_ERROR` is checked by TS; `"This field is requred"` is not |
+| i18n-ready | Centralized strings are trivial to replace with translation keys |
+| CI green | Satisfies `sonarjs/no-duplicate-string` |
+
+---
+
+## 4. Quick Reference
 
 | Violation | Fix |
 |-----------|-----|
 | Empty `interface Props extends SomeType {}` | Change to `type Props = SomeType;` |
 | String literal used 3+ times | Extract to `const OBJECT = { KEY: "value" } as const;` |
 | Magic string in `setState` / `if` / `switch` | Replace with constant property reference |
+| Duplicated validation message | Extract to `const ERROR_MESSAGE = "text";` and reuse |

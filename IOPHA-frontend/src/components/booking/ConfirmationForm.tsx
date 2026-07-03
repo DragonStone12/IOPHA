@@ -5,15 +5,17 @@ import { cn } from "../shared/utils";
 import { Input } from "../shared/input";
 import type { Physician } from "../NutritionResponse/PhysicianCard";
 
+const REQUIRED_FIELD_ERROR = "This field is required";
+
 const validationSchema = z.object({
-  name: z.string().min(1, "This field is required"),
+  name: z.string().min(1, REQUIRED_FIELD_ERROR),
   email: z
     .string()
-    .min(1, "This field is required")
+    .min(1, REQUIRED_FIELD_ERROR)
     .email("Please enter a valid email address"),
   phone: z
     .string()
-    .min(1, "This field is required")
+    .min(1, REQUIRED_FIELD_ERROR)
     .regex(/^\d{10}$/, "Please enter a valid 10-digit phone number"),
   reason: z.string().optional(),
 });
