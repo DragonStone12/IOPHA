@@ -257,3 +257,4 @@ Callback events must be verified with `cy.stub().as(...)`. Verifying callbacks b
 | Independent tests | Tests share mutable state without `beforeEach` reset |
 | Callback verification | Callback checked by DOM only, not `cy.stub()` |
 | Duplicate string literals | Same string literal used 3+ times anywhere in a source file (not test files) — extract to a named constant |
+| Duplicate Tailwind class strings | Same long Tailwind class string used 3+ times anywhere in a source file — extract to a named constant at the top of the file |

@@ -210,7 +210,56 @@ This is functionally identical to `.min(1, message)` but more semantically accur
 
 ---
 
-## 4. Quick Reference
+## 4. Tailwind Class Strings: Extract Repeated Utility Classes
+
+### Rule
+
+When the same long Tailwind class string is copy-pasted 3 or more times in a file (common in form input error styles, button variants, card layouts), extract it into a named constant at the top of the file.
+
+### Why
+
+This satisfies `sonarjs/no-duplicate-string` and makes JSX readable. If your design system changes a color or spacing value, you update the constant once.
+
+### Implementation
+
+**1. Define the constants at the top of the file:**
+
+```tsx
+const DEFAULT_INPUT_CLASSES =
+  "border-blue-600 focus:border-blue-600 focus-visible:border-blue-600 focus:ring-blue-600/50 focus-visible:ring-blue-600/50 focus:!outline-none";
+
+const ERROR_INPUT_CLASSES =
+  "border-destructive focus:border-destructive focus-visible:border-destructive focus:ring-destructive/20 focus-visible:ring-destructive/20";
+```
+
+**2. Reference them in your `cn()` calls:**
+
+```tsx
+<Input
+  className={cn(
+    DEFAULT_INPUT_CLASSES,
+    errors.name && ERROR_INPUT_CLASSES,
+  )}
+/>
+```
+
+### What Triggers This Rule
+
+- Input error styles repeated across multiple fields in the same form
+- Button variant classes repeated across multiple buttons
+- Card layout classes repeated across multiple cards
+
+### Benefits
+
+| Benefit | Explanation |
+|---------|-------------|
+| Single source of truth | Design updates propagate everywhere |
+| Cleaner JSX | Logic is visible; 200-character strings are not |
+| CI green | Satisfies `sonarjs/no-duplicate-string` |
+
+---
+
+## 5. Quick Reference
 
 | Violation | Fix |
 |-----------|-----|
@@ -218,3 +267,4 @@ This is functionally identical to `.min(1, message)` but more semantically accur
 | String literal used 3+ times | Extract to `const OBJECT = { KEY: "value" } as const;` |
 | Magic string in `setState` / `if` / `switch` | Replace with constant property reference |
 | Duplicated validation message | Extract to `const ERROR_MESSAGE = "text";` and reuse |
+| Duplicated Tailwind class string | Extract to `const CLASS_NAME = "..."` and reuse |

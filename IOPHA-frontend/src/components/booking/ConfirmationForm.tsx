@@ -7,6 +7,11 @@ import type { Physician } from "../NutritionResponse/PhysicianCard";
 
 const REQUIRED_FIELD_ERROR = "This field is required";
 
+const DEFAULT_INPUT_CLASSES =
+  "border-blue-600 focus:border-blue-600 focus-visible:border-blue-600 focus:ring-blue-600/50 focus-visible:ring-blue-600/50 focus:!outline-none";
+const ERROR_INPUT_CLASSES =
+  "border-destructive focus:border-destructive focus-visible:border-destructive focus:ring-destructive/20 focus-visible:ring-destructive/20";
+
 const validationSchema = z.object({
   name: z.string().min(1, REQUIRED_FIELD_ERROR),
   email: z
@@ -226,9 +231,8 @@ export function ConfirmationForm({
                     aria-invalid={!!errors.name}
                     aria-describedby={errors.name ? "name-error" : undefined}
                     className={cn(
-                      "border-blue-600 focus:border-blue-600 focus-visible:border-blue-600 focus:ring-blue-600/50 focus-visible:ring-blue-600/50 focus:!outline-none",
-                      errors.name &&
-                        "border-destructive focus:border-destructive focus-visible:border-destructive focus:ring-destructive/20 focus-visible:ring-destructive/20",
+                      DEFAULT_INPUT_CLASSES,
+                      errors.name && ERROR_INPUT_CLASSES,
                     )}
                   />
                   {errors.name && (
@@ -264,9 +268,8 @@ export function ConfirmationForm({
                     aria-invalid={!!errors.email}
                     aria-describedby={errors.email ? "email-error" : undefined}
                     className={cn(
-                      "border-blue-600 focus:border-blue-600 focus-visible:border-blue-600 focus:ring-blue-600/50 focus-visible:ring-blue-600/50 focus:!outline-none",
-                      errors.email &&
-                        "border-destructive focus:border-destructive focus-visible:border-destructive focus:ring-destructive/20 focus-visible:ring-destructive/20",
+                      DEFAULT_INPUT_CLASSES,
+                      errors.email && ERROR_INPUT_CLASSES,
                     )}
                   />
                   {errors.email && (
@@ -302,9 +305,8 @@ export function ConfirmationForm({
                     aria-invalid={!!errors.phone}
                     aria-describedby={errors.phone ? "phone-error" : undefined}
                     className={cn(
-                      "border-blue-600 focus:border-blue-600 focus-visible:border-blue-600 focus:ring-blue-600/50 focus-visible:ring-blue-600/50 focus:!outline-none",
-                      errors.phone &&
-                        "border-destructive focus:border-destructive focus-visible:border-destructive focus:ring-destructive/20 focus-visible:ring-destructive/20",
+                      DEFAULT_INPUT_CLASSES,
+                      errors.phone && ERROR_INPUT_CLASSES,
                     )}
                   />
                   {errors.phone && (
