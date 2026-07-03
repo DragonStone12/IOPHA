@@ -35,13 +35,13 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         type={type}
         className={cn(
           "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          className
+          className,
         )}
         ref={ref}
         {...props}
       />
     );
-  }
+  },
 );
 ```
 
@@ -103,13 +103,16 @@ export const BOOKING_VIEWS = {
 **2. Derive the state type from the constant:**
 
 ```tsx
-export type BookingViewType = typeof BOOKING_VIEWS[keyof typeof BOOKING_VIEWS];
+export type BookingViewType =
+  (typeof BOOKING_VIEWS)[keyof typeof BOOKING_VIEWS];
 ```
 
 **3. Use the constant in state and all transitions:**
 
 ```tsx
-const [bookingView, setBookingView] = useState<BookingViewType>(BOOKING_VIEWS.CHAT);
+const [bookingView, setBookingView] = useState<BookingViewType>(
+  BOOKING_VIEWS.CHAT,
+);
 
 setBookingView(BOOKING_VIEWS.TIME_SELECTION);
 setBookingView(BOOKING_VIEWS.CONFIRMATION);
@@ -139,12 +142,12 @@ If `sonarjs/no-duplicate-string` flags a string literal appearing 3 or more time
 
 ### Benefits
 
-| Benefit | Explanation |
-|---------|-------------|
-| Single source of truth | Change the value once; all references update |
-| Zero-cost type safety | Typos in property names cause TypeScript errors; typos in raw strings do not |
-| Self-documenting | `BOOKING_VIEWS.TIME_SELECTION` is clearer than `"time-selection"` |
-| CI green | Satisfies `sonarjs/no-duplicate-string` without file-level disables |
+| Benefit                | Explanation                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| Single source of truth | Change the value once; all references update                                 |
+| Zero-cost type safety  | Typos in property names cause TypeScript errors; typos in raw strings do not |
+| Self-documenting       | `BOOKING_VIEWS.TIME_SELECTION` is clearer than `"time-selection"`            |
+| CI green               | Satisfies `sonarjs/no-duplicate-string` without file-level disables          |
 
 ---
 
@@ -188,7 +191,7 @@ const validationSchema = z.object({
 If you use `.min(1)` solely to prevent empty strings, Zod offers `.nonempty()` as a cleaner alias:
 
 ```tsx
-z.string().nonempty(REQUIRED_FIELD_ERROR)
+z.string().nonempty(REQUIRED_FIELD_ERROR);
 ```
 
 This is functionally identical to `.min(1, message)` but more semantically accurate.
@@ -201,12 +204,12 @@ This is functionally identical to `.min(1, message)` but more semantically accur
 
 ### Benefits
 
-| Benefit | Explanation |
-|---------|-------------|
-| Single source of truth | Product updates copy once; UI updates everywhere |
-| Prevents typos | `REQUIRED_FIELD_ERROR` is checked by TS; `"This field is requred"` is not |
-| i18n-ready | Centralized strings are trivial to replace with translation keys |
-| CI green | Satisfies `sonarjs/no-duplicate-string` |
+| Benefit                | Explanation                                                               |
+| ---------------------- | ------------------------------------------------------------------------- |
+| Single source of truth | Product updates copy once; UI updates everywhere                          |
+| Prevents typos         | `REQUIRED_FIELD_ERROR` is checked by TS; `"This field is requred"` is not |
+| i18n-ready             | Centralized strings are trivial to replace with translation keys          |
+| CI green               | Satisfies `sonarjs/no-duplicate-string`                                   |
 
 ---
 
@@ -236,10 +239,7 @@ const ERROR_INPUT_CLASSES =
 
 ```tsx
 <Input
-  className={cn(
-    DEFAULT_INPUT_CLASSES,
-    errors.name && ERROR_INPUT_CLASSES,
-  )}
+  className={cn(DEFAULT_INPUT_CLASSES, errors.name && ERROR_INPUT_CLASSES)}
 />
 ```
 
@@ -251,21 +251,21 @@ const ERROR_INPUT_CLASSES =
 
 ### Benefits
 
-| Benefit | Explanation |
-|---------|-------------|
-| Single source of truth | Design updates propagate everywhere |
-| Cleaner JSX | Logic is visible; 200-character strings are not |
-| CI green | Satisfies `sonarjs/no-duplicate-string` |
+| Benefit                | Explanation                                     |
+| ---------------------- | ----------------------------------------------- |
+| Single source of truth | Design updates propagate everywhere             |
+| Cleaner JSX            | Logic is visible; 200-character strings are not |
+| CI green               | Satisfies `sonarjs/no-duplicate-string`         |
 
 ---
 
 ## 5. Quick Reference
 
-| Violation | Fix |
-|-----------|-----|
-| Empty `interface Props extends SomeType {}` | Change to `type Props = SomeType;` |
-| String literal used 3+ times | Extract to `const OBJECT = { KEY: "value" } as const;` |
-| Magic string in `setState` / `if` / `switch` | Replace with constant property reference |
-| Duplicated validation message | Extract to `const ERROR_MESSAGE = "text";` and reuse |
-| Duplicated Tailwind class string | Extract to `const CLASS_NAME = "..."` and reuse |
+| Violation                                         | Fix                                                                                      |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Empty `interface Props extends SomeType {}`       | Change to `type Props = SomeType;`                                                       |
+| String literal used 3+ times                      | Extract to `const OBJECT = { KEY: "value" } as const;`                                   |
+| Magic string in `setState` / `if` / `switch`      | Replace with constant property reference                                                 |
+| Duplicated validation message                     | Extract to `const ERROR_MESSAGE = "text";` and reuse                                     |
+| Duplicated Tailwind class string                  | Extract to `const CLASS_NAME = "..."` and reuse                                          |
 | Unused manual union type when derived type exists | Delete the manual type; use `type Name = typeof CONSTANT[keyof typeof CONSTANT]` instead |

@@ -41,6 +41,9 @@ describe("TipCard Component", () => {
 
   it("should render with visual snapshot", () => {
     cy.mount(<TipCard tip={MOCK_TIP} />);
-    cy.compareSnapshot({ name: "tip-card-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "tip-card-default",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 });

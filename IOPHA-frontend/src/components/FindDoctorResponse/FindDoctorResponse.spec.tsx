@@ -73,10 +73,10 @@ describe("FindDoctorResponse Component", () => {
 
   it("should render Book button on each physician card", () => {
     cy.mount(<FindDoctorResponse data={MOCK_DATA} />);
-    cy.get('button').then(($buttons) => {
+    cy.get("button").then(($buttons) => {
       const bookButtons = Cypress.$($buttons).filter((_, btn) => {
         const button = Cypress.$(btn);
-        return button.text().trim() === 'Book';
+        return button.text().trim() === "Book";
       });
       expect(bookButtons.length).to.equal(2);
     });
@@ -119,7 +119,10 @@ describe("FindDoctorResponse Component", () => {
     const callback = cy.stub().as("chipSelect");
     cy.mount(<FindDoctorResponse data={MOCK_DATA} onChipSelect={callback} />);
     cy.contains("Get health tips first").click();
-    cy.get("@chipSelect").should("have.been.calledWith", "Get health tips first");
+    cy.get("@chipSelect").should(
+      "have.been.calledWith",
+      "Get health tips first",
+    );
   });
 
   it("should render the Nearby Baylor Physicians section header", () => {

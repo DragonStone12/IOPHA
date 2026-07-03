@@ -197,7 +197,7 @@ cd IOPHA-frontend && npm run lint && npm run cy:check-steps && npm run test:e2e 
 4. Component tests
 5. `npm audit` (high severity only)
 
-**Never bypass hooks with `git push --no-verify`.** Bypassing causes CI build failures and blocks PR merges.
+**Never bypass hooks with `--no-verify` or any other mechanism. If a hook fails, resolve the underlying issue instead of bypassing it.
 
 ## PII Handling in Frontend Flows
 

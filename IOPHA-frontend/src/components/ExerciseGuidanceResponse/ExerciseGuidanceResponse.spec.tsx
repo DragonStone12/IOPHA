@@ -87,6 +87,9 @@ describe("ExerciseGuidanceResponse Component", () => {
 
   it("should render with visual snapshot", () => {
     cy.mount(<ExerciseGuidanceResponse data={MOCK_DATA} />);
-    cy.compareSnapshot({ name: "exercise-guidance-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "exercise-guidance-default",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 });

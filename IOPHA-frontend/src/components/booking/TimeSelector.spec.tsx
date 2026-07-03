@@ -149,8 +149,11 @@ describe("TimeSelector Component", () => {
     cy.mount(
       <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={testDate} />,
     );
-    cy.get('td[data-selected="true"] button')
-      .should("have.css", "border-width", "2px");
+    cy.get('td[data-selected="true"] button').should(
+      "have.css",
+      "border-width",
+      "2px",
+    );
     cy.clock().then((clock) => clock.restore());
   });
 
@@ -171,7 +174,10 @@ describe("TimeSelector Component", () => {
 
   it("should render with visual snapshot - initial state", () => {
     cy.mount(<TimeSelector physician={MOCK_PHYSICIAN} />);
-    cy.compareSnapshot({ name: "time-selector-initial", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "time-selector-initial",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 
   it("should render with visual snapshot - date selected only", () => {
@@ -194,7 +200,10 @@ describe("TimeSelector Component", () => {
         selectedTime="04:00 PM"
       />,
     );
-    cy.compareSnapshot({ name: "time-selector-selected", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "time-selector-selected",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 
   it("should render with visual snapshot - no slots available", () => {

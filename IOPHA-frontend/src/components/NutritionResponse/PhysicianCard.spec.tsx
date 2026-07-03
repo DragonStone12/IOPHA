@@ -58,13 +58,19 @@ describe("PhysicianCard Component", () => {
     };
     cy.mount(<PhysicianCard physician={physicianWithoutImage} />);
     cy.contains("EC").should("be.visible");
-    cy.compareSnapshot({ name: "physician-card-no-image", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "physician-card-no-image",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 
   it("should render hover state", () => {
     cy.mount(<PhysicianCard physician={MOCK_PHYSICIAN} />);
     cy.contains("Book").trigger("mouseover", { force: true });
-    cy.compareSnapshot({ name: "physician-card-hover", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "physician-card-hover",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 
   it("should have aria-label for rating", () => {
@@ -86,6 +92,9 @@ describe("PhysicianCard Component", () => {
 
   it("should render with visual snapshot", () => {
     cy.mount(<PhysicianCard physician={MOCK_PHYSICIAN} />);
-    cy.compareSnapshot({ name: "physician-card-default", testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD") });
+    cy.compareSnapshot({
+      name: "physician-card-default",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
   });
 });

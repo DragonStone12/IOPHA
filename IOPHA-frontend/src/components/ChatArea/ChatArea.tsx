@@ -53,7 +53,7 @@ const BOOKING_VIEWS = {
   SUCCESS: "success",
 } as const;
 
-type BookingView = typeof BOOKING_VIEWS[keyof typeof BOOKING_VIEWS];
+type BookingView = (typeof BOOKING_VIEWS)[keyof typeof BOOKING_VIEWS];
 
 let msgIdCounter = 0;
 
@@ -73,7 +73,9 @@ export function ChatArea({
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
-  const [bookingView, setBookingView] = useState<BookingView>(BOOKING_VIEWS.CHAT);
+  const [bookingView, setBookingView] = useState<BookingView>(
+    BOOKING_VIEWS.CHAT,
+  );
   const [selectedPhysician, setSelectedPhysician] = useState<Physician | null>(
     null,
   );
