@@ -1,1 +1,4 @@
-cd IOPHA-frontend && npm run lint && npm run format && git add -A
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+cd IOPHA-frontend && npx lint-staged

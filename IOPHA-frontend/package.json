@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "echo \"No tests configured yet\" && exit 0",
+    "test:changed": "node ../scripts/test-changed.js",
     "cy:open": "cypress open --e2e",
     "cy:run": "cypress run --e2e",
     "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run",
