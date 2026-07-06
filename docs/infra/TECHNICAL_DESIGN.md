@@ -217,7 +217,12 @@ Strategy:
 
 ### 5.6 Code Quality & Linting
 
-**For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
+**Backend Linting & Type Checking**:
+- **Ruff**: Fast Rust-based linter with Pyflakes (F), Pycodestyle (E/W), Bandit Security (S), Bugbear (B), and Pylint Refactoring (PLR) rules
+- **Mypy**: Static type checker with strict mode enabled (disallow_untyped_defs, warn_return_any, etc.)
+- Configuration in `IOPHA-backend/pyproject.toml`
+
+**For more information, read the security document.** ([docs/security/SECURITY.md](security/SECURITY.md))
 
 **ESLint Configuration**:
 - Version: ESLint 9.x (flat config format)
@@ -258,9 +263,11 @@ npm run lint
 **Note**: ESLint 9.x uses flat config format (`eslint.config.js`). The deprecated `.eslintrc.cjs` and `.eslintignore` files have been removed. The lint script no longer uses the `--ext` flag (removed in ESLint 9.x).
 
 **ci-backend.yml**:
+- Ruff linting (Pyflakes, Pycodestyle, Security, Bugbear, Refactoring)
+- Ruff formatting check
+- Mypy static type checking
 - Bandit SAST scanning
 - pip-audit for dependencies
-- pytest unit tests
 
 ### 6.2 Environment Configuration
 
@@ -290,7 +297,30 @@ cd IOPHA-frontend && npm install && npm run dev
 
 # Backend development (requires main.py in app/)
 cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
+
+# Install pre-commit hooks (required for local quality enforcement)
+pip install pre-commit && pre-commit install
 ```
+
+#### Pre-Commit Hook Configuration
+
+The project uses pre-commit to enforce code quality before commits reach CI:
+
+| Hook | Tool | Purpose |
+|---|---|---|
+| `ruff` | Ruff | Lint with auto-fix on staged files |
+| `ruff-format` | Ruff | Code formatting (Black-compatible) |
+| `mypy` | Mypy | Static type checking |
+| `bandit` | Bandit | Security scanning for Python |
+| `pip-audit` | pip-audit | Dependency vulnerability audit |
+| `frontend-eslint` | ESLint | Frontend linting |
+| `prettier` | Prettier | Frontend formatting |
+
+**Rules Enabled**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR)
+
+**Pre-Commit Enforcement Rule**: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI.
+
+**Incremental Linting**: Run `python scripts/lint-changed.py` to lint only changed Python files instead of the entire codebase.
 
 ## 7. Decision Points (Pending)
 
