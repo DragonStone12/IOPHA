@@ -304,6 +304,49 @@ The booking confirmation form collects Name, Email, and Phone. Security controls
 
 The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-severity dependency vulnerabilities block the push until resolved.
 
+## Backend PII/PHI Sanitization
+
+The IOPHA backend implements a defense-in-depth sanitization strategy across three distinct boundaries to prevent accidental PHI exposure in CloudWatch logs, metrics, and API responses.
+
+### HTTP Transport Middleware
+
+`PIISanitizationMiddleware` is registered **before** logging and metrics middleware in the FastAPI app initialization. It:
+
+- Normalizes dynamic URL paths using optimized regex (e.g., `/patients/12345` → `/patients/:id`)
+- Redacts sensitive query parameters (`ssn`, `email`, `phone`, `medical_record_number`)
+- Attaches sanitized values to `request.state` for downstream middleware access
+
+### Logging Framework Filter
+
+`PIISanitizerFilter` is a Python standard `logging.Filter` attached to the root logger. It:
+
+- Intercepts all log records before JSON serialization
+- Regex patterns redact PII from `record.msg`, `record.args`, and `record.extra`
+- Handles `record.args` tuple immutability by reconstructing and reassigning the tuple
+- Uses optimized regex to prevent catastrophic backtracking in the async event loop
+
+**Regex Patterns**:
+
+| Pattern | Replacement | Purpose |
+|---|---|---|
+| `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b` | `[EMAIL_REDACTED]` | Email addresses |
+| `\b\d{3}[-.]?\d{3}[-.]?\d{4}\b` | `[PHONE_REDACTED]` | Phone numbers |
+| `\b\d{3}-\d{2}-\d{4}\b` | `[SSN_REDACTED]` | Social security numbers |
+
+### Pydantic DTO Serialization
+
+External-facing Pydantic response models use `@field_serializer` to automatically mask PII fields during serialization. Internal domain models remain unmasked for database operations.
+
+**Separation Rationale**: Applying serializers to internal domain models would mask data needed for database writes and internal business logic. By separating internal models from external DTOs, serializers only apply at the API boundary.
+
+### HIPAA Compliance
+
+| Control | Implementation |
+|---|---|
+| Audit Controls (§164.312) | PII/PHI sanitization in logging ensures no sensitive data reaches CloudWatch |
+| Transmission Security (§164.312) | Query parameter redaction prevents sensitive data leakage in URLs |
+| Integrity Controls | Path normalization prevents metric cardinality attacks and infrastructure fingerprinting |
+
 ## Quick Reference
 
 | Command | Purpose |

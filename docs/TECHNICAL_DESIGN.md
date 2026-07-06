@@ -174,7 +174,32 @@ Strategy:
 - `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small)
 - HNSW or IVFFlat index strategy based on dataset size
 
-### 4.3 RAG Pipeline Logic
+### 4.3 PII/PHI Sanitization Architecture
+
+A defense-in-depth sanitization strategy is implemented across three layers to prevent accidental PHI exposure in logs, metrics, and API responses.
+
+**Layer 1 — HTTP Transport Middleware** (`PIISanitizationMiddleware`):
+- Normalizes dynamic URL paths before they reach logging/metrics middleware (e.g., `/patients/12345` → `/patients/:id`)
+- Redacts sensitive query parameters (`ssn`, `email`, `phone`, `medical_record_number`)
+- Attaches sanitized values to `request.state` for downstream consumers
+- Registered **before** logging and metrics middleware to ensure raw paths are never captured
+
+**Layer 2 — Logging Filter** (`PIISanitizerFilter`):
+- Uses Python's standard `logging.Filter` attached to the root logger
+- Intercepts all `LogRecord` objects before JSON formatter serializes them
+- Regex patterns redact email, phone, and SSN from `record.msg`, `record.args`, and `record.extra`
+- Handles `record.args` tuple immutability by reconstructing and reassigning the tuple
+- Patterns are optimized to prevent catastrophic backtracking in the async event loop
+
+**Layer 3 — Pydantic DTO Serializers**:
+- External-facing response models (DTOs) use `@field_serializer` to mask PII fields
+- Internal domain models remain unmasked for database operations
+- Enforces strict separation between internal and external data representations
+
+**Rationale for DTO Separation**:
+Applying `@field_serializer` to internal domain models would mask data needed for database writes and internal business logic. By separating internal models from external DTOs, we ensure serializers only apply at the API boundary.
+
+### 4.4 RAG Pipeline Logic
 
 **Chunking Strategy**:
 - 512-token windows with 10% overlap (51 tokens)
