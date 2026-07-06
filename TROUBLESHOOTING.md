@@ -454,7 +454,7 @@ git add src/components/... cypress-visual-screenshots/baseline/
 git commit -m "fix: [description] - Updated visual baseline"
 ```
 
-**See also:** [Visual Regression Playbook](./docs/VISUAL_REGRESSION_PLAYBOOK.md) for complete TDD workflow and component testing strategy.
+**See also:** [Visual Regression Playbook](./docs/testing/VISUAL_REGRESSION_PLAYBOOK.md) for complete TDD workflow and component testing strategy.
 
 ### Radix UI Peer Dependencies
 
