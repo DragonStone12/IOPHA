@@ -174,7 +174,53 @@ Strategy:
 - `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small)
 - HNSW or IVFFlat index strategy based on dataset size
 
-### 4.3 RAG Pipeline Logic
+### 4.3 Structured JSON Logging & Auditing
+
+The backend emits structured JSON logs for every HTTP transaction, enabling direct ingestion by CloudWatch and Elasticsearch without custom parsers.
+
+**Log Key Schema**:
+
+| Field | Type | Description |
+|---|---|---|
+| `timestamp` | ISO string | Event time in ISO 8601 format |
+| `level` | string | Log severity: `INFO`, `WARNING`, `ERROR` |
+| `logger` | string | Logger namespace (e.g., `com.example.PatientService`) |
+| `message` | string | Event name (`request.start` or `request.complete`) |
+| `requestId` | string | Tracking identifier, masked if containing user IDs |
+| `method` | string | HTTP method |
+| `path` | string | Sanitized URL path with dynamic segments normalized |
+| `userAgent` | string | Client user agent |
+| `status` | int | HTTP response status code |
+| `durationMs` | int | Request processing duration in milliseconds |
+| `responseSize` | int | Response payload size in bytes |
+| `queryParams` | object | Sanitized query parameters |
+
+**Path-Masking Regular Expressions**:
+
+| Pattern | Replacement | Purpose |
+|---|---|---|
+| `/patients/\d+` | `/patients/:id` | Normalize patient endpoint cardinality |
+| `/providers/\d+` | `/providers/:id` | Normalize provider endpoint cardinality |
+| `/sessions/\d+` | `/sessions/:id` | Normalize session endpoint cardinality |
+| `/users/\d+` | `/users/:id` | Normalize user endpoint cardinality |
+
+**User ID Masking**:
+- Raw format: `user_123456`
+- Masked format: `user_***456`
+- Rationale: Prevents full user ID exposure in logs while preserving traceability for debugging
+
+**Serialization Configuration**:
+- Custom `JsonTelemetryFormatter` extends `logging.Formatter`
+- Outputs compact JSON via `json.dumps(log_payload, default=str)`
+- Attaches to `logging.StreamHandler` for stdout streaming
+- Logger namespace: `com.example.PatientService`
+
+**Middleware Execution Order**:
+1. `CentralizedLoggingMiddleware` runs first to capture raw request metadata
+2. Path sanitization occurs before any downstream middleware or metrics collection
+3. Response logging occurs after all downstream processing completes
+
+### 4.4 RAG Pipeline Logic
 
 **Chunking Strategy**:
 - 512-token windows with 10% overlap (51 tokens)
