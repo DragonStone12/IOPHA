@@ -158,15 +158,15 @@ describe("TimeSelector Component", () => {
   });
 
   it("should show blue filled button for selected time", () => {
-    const fixedDate = new Date(2025, 0, 15);
+    const today = new Date();
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={fixedDate}
+        selectedDate={today}
+        selectedTime="09:00 AM"
       />,
     );
-    cy.get('button[aria-label*="Select"]').first().click();
-    cy.get('button[aria-pressed="true"]').should(
+    cy.get('button[aria-label*="Select"][aria-pressed="true"]').should(
       "have.class",
       "bg-blue-600",
     );
