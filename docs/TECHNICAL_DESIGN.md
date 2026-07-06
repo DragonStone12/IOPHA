@@ -262,6 +262,24 @@ npm run lint
 - pip-audit for dependencies
 - pytest unit tests
 
+### 4.4 Observability & Metrics
+
+**Prometheus Instrumentation**:
+- Library: `prometheus-fastapi-instrumentator`
+- Endpoint: `/metrics`
+- Configuration choices:
+  - `handle_unhandled_paths=False` — prevents cardinality explosion from undefined routes
+  - `should_group_status_codes=True` — groups similar status codes to reduce metric cardinality
+  - `should_ignore_untemplated=True` — ignores metrics for requests that don't match any route
+  - `excluded_handlers=["/metrics"]` — excludes the metrics endpoint from being instrumented to avoid self-reporting
+  - `should_gzip=True` — gzips the payload to reduce network overhead during scraping
+
+**Path Grouping Strategy**:
+Dynamic paths like `/api/providers/{provider_id}/slots` are automatically grouped by FastAPI's routing definitions. The instrumentator normalizes these paths before they reach the metrics exporter, preventing high-cardinality metric series.
+
+**Endpoint Security**:
+The `/metrics` endpoint is strictly internal. It is blocked at the API Gateway / load balancer level from external/public access and accessible only by the internal Prometheus scraper.
+
 ### 6.2 Environment Configuration
 
 **Variables**:
