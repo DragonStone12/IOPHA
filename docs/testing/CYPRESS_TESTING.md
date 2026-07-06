@@ -183,7 +183,7 @@ When("I click the {string} chip", (chipLabel: string) => {
 });
 ```
 
-This ensures Cypress clicks the interactive chip inside the chat area rather than the non-interactive sidebar navigation item. For more information on diagnosing and resolving this issue, see the [Troubleshooting guide](../TROUBLESHOOTING.md#duplicate-text-labels-across-sidebar-and-chat-area).
+This ensures Cypress clicks the interactive chip inside the chat area rather than the non-interactive sidebar navigation item. For more information on diagnosing and resolving this issue, see the [Troubleshooting guide](../../TROUBLESHOOTING.md#duplicate-text-labels-across-sidebar-and-chat-area).
 
 **When to use E2E tests:**
 - Full page layouts and user flows
@@ -682,7 +682,7 @@ cy.contains("04:00 PM").scrollIntoView().should("be.visible");
 
 **Root cause:** The `AppointmentDetails` card uses `sticky top-4`. In a shorter viewport, the sticky container can cause the time element to be considered overlapped/overflowed.
 
-**For more information on diagnosing and resolving this issue**, see the [Troubleshooting guide](../TROUBLESHOOTING.md#cypress-e2e-test-element-clipped-by-overflow-parent).
+**For more information on diagnosing and resolving this issue**, see the [Troubleshooting guide](../../TROUBLESHOOTING.md#cypress-e2e-test-element-clipped-by-overflow-parent).
 
 ---
 
