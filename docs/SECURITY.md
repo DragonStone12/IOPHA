@@ -300,22 +300,6 @@ The booking confirmation form collects Name, Email, and Phone. Security controls
 | Storage Encryption | AES-256 at rest for database and S3 |
 | Integrity Controls | SARIF + ESLint prevents code-level vulnerabilities |
 
-### Prometheus Metrics Endpoint Security
-
-The `/metrics` endpoint exposes internal application state, endpoint names, request patterns, and infrastructure details. It must not be exposed to the public internet or the external API Gateway.
-
-| Control | Implementation |
-|---|---|
-| Network isolation | Block `/metrics` at the API Gateway / load balancer level |
-| Internal access only | Accessible only by the internal Prometheus scraper |
-| Cardinality protection | `handle_unhandled_paths=False` prevents high-cardinality metric explosion |
-| Path grouping | `should_group_status_codes=True` and `should_ignore_untemplated=True` reduce metric cardinality |
-
-**Risks of exposure**:
-- Endpoint enumeration: Attackers can discover internal API routes and naming conventions
-- Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
-- Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
-
 ### Security Audit
 
 The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-severity dependency vulnerabilities block the push until resolved.

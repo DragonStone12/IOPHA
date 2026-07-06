@@ -280,6 +280,22 @@ Dynamic paths like `/api/providers/{provider_id}/slots` are automatically groupe
 **Endpoint Security**:
 The `/metrics` endpoint is strictly internal. It is blocked at the API Gateway / load balancer level from external/public access and accessible only by the internal Prometheus scraper.
 
+#### Prometheus Metrics Endpoint Security
+
+The `/metrics` endpoint exposes internal application state, endpoint names, request patterns, and infrastructure details. It must not be exposed to the public internet or the external API Gateway.
+
+| Control | Implementation |
+|---|---|
+| Network isolation | Block `/metrics` at the API Gateway / load balancer level |
+| Internal access only | Accessible only by the internal Prometheus scraper |
+| Cardinality protection | `handle_unhandled_paths=False` prevents high-cardinality metric explosion |
+| Path grouping | `should_group_status_codes=True` and `should_ignore_untemplated=True` reduce metric cardinality |
+
+**Risks of exposure**:
+- Endpoint enumeration: Attackers can discover internal API routes and naming conventions
+- Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
+- Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
+
 ### 6.2 Environment Configuration
 
 **Variables**:

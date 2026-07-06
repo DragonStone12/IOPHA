@@ -23,15 +23,3 @@ instrumentator.instrument(app).expose(
     include_in_schema=False,
     tags=["iopha_monitoring"],
 )
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
-
-@app.get("/directory")
-def directory():
-    return {"physicians": []}
-
-@app.post("/chat/message")
-def chat_message():
-    return {"message": "Hello from IOPHA"}
