@@ -150,32 +150,3 @@ instrumentator.instrument(app).expose(
     include_in_schema=False,
     tags=["iopha_monitoring"],
 )
-
-# ---------------------------------------------------------------------------
-# 6. Routes
-# ---------------------------------------------------------------------------
-
-@app.get("/health")
-def health_check() -> dict:
-    return {"status": "healthy"}
-
-
-@app.get("/directory")
-def directory() -> dict:
-    return {"physicians": []}
-
-
-@app.post("/chat/message")
-def chat_message() -> dict:
-    return {"message": "Hello from IOPHA"}
-
-
-@app.get("/patients/{patient_id}")
-def get_patient(patient_id: int) -> PatientDTO:
-    return PatientDTO(
-        patient_id=patient_id,
-        name="John Doe",
-        email="john.doe@example.com",
-        phone="555-123-4567",
-        medical_record_number="123-45-6789",
-    )
