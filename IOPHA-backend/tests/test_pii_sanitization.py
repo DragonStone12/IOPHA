@@ -10,6 +10,8 @@ from app.main import (
     PatientDTO,
     PIISanitizationMiddleware,
     PIISanitizerFilter,
+)
+from app.main import (
     app as main_app,
 )
 
