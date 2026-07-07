@@ -51,14 +51,17 @@ try {
     console.log(`Running ${specsToRun.size} changed component test(s):`);
     console.log(specList);
 
-    execSync(
-      `npx cypress run --component --spec "${specList}"`,
-      { cwd: FRONTEND_DIR, stdio: "inherit" },
-    );
+    execSync(`npx cypress run --component --headless --spec "${specList}"`, {
+      cwd: FRONTEND_DIR,
+      stdio: "inherit",
+    });
   }
 
-  console.log("\nRunning E2E tests...");
-  execSync("npm run test:e2e", { cwd: FRONTEND_DIR, stdio: "inherit" });
+  console.log("\nRunning E2E tests (headless, mirroring CI)...");
+  execSync(
+    "npx start-server-and-test dev http://localhost:3000 'npx cypress run --e2e --headless'",
+    { cwd: FRONTEND_DIR, stdio: "inherit" },
+  );
 } catch (error) {
   process.exit(1);
 }

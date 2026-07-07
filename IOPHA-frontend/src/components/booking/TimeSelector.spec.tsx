@@ -145,10 +145,7 @@ describe("TimeSelector Component", () => {
         onTimeSelect={cy.stub().as("timeSelectCallback")}
       />,
     );
-    cy.get("button[aria-label*='Select']")
-      .filter(":visible")
-      .first()
-      .click();
+    cy.get("button[aria-label*='Select']").filter(":visible").first().click();
     cy.get("@timeSelectCallback").should("have.been.called");
   });
 

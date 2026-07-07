@@ -273,7 +273,10 @@ export function TimeSelector({
                 </p>
                 <p className="text-base font-semibold text-foreground">
                   {internalSelectedDate && internalSelectedTime
-                    ? `${format(internalSelectedDate, "EEEE, MMMM d, yyyy")} at ${internalSelectedTime}`
+                    ? `${format(
+                        internalSelectedDate,
+                        "EEEE, MMMM d, yyyy",
+                      )} at ${internalSelectedTime}`
                     : ""}
                 </p>
               </div>

@@ -291,7 +291,7 @@ Cypress.Commands.add("mount", mount);
 **Component mount HTML** (`cypress/support/component-index.html`):
 
 ```html
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -685,7 +685,7 @@ from package node_modules/cypress
 If you see an error about `component-index.html` not found, create `cypress/support/component-index.html`:
 
 ```html
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
