@@ -569,6 +569,8 @@ The following hardening practices prevent a related but distinct class of flakes
 
 **Snapshot threshold significance:** `SNAPSHOT_TEST_THRESHOLD` was lowered from `0.5` (50% pixel tolerance — too loose to catch real regressions) to `0.02` in `cypress.config.ts`. At `0.02`, snapshot baselines must exactly reflect the current deterministic rendering. Baselines live in `cypress-visual-screenshots/baseline/` and are **gitignored (environment-specific)** — they are regenerated locally / in CI, not committed. After any change to a component's rendered output, regenerate the baselines (delete the stale PNGs and re-run the component specs) or the snapshot tests will fail at the strict threshold.
 
+**Avoiding flaky snapshot failures:** (1) Every `cy.compareSnapshot` call needs a **unique `name`** — two tests sharing a name overwrite the same baseline PNG and then diff against each other (e.g. one capturing a transient validation-error border the other didn't). (2) **Snapshot only a settled state** — assert transient UI (validation errors, spinners) has resolved before `cy.compareSnapshot`. (3) Keep component renders **deterministic** (no `Math.random()` / `new Date()`). (4) Because baselines are gitignored and font rendering differs per machine, **regenerate baselines per environment** after render changes; a too-low threshold only trades coverage for sensitivity to sub-pixel / font differences — fix the determinism, don't loosen the threshold. See [Cypress Test Stability Best Practices](../docs/CYPRESS_TESTING.md#best-practices-test-stability).
+
 **Affected files:**
 
 - `IOPHA-frontend/src/components/booking/TimeSelector.tsx` (`generateMockSlots`)

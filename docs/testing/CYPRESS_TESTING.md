@@ -808,6 +808,13 @@ Wrap snapshot capture in a conditional check so a missing optional element ("No 
 
 **Snapshot threshold significance:** `SNAPSHOT_TEST_THRESHOLD` is `0.02` (meaningful visual-regression coverage, down from the previous `0.5` = 50% pixel tolerance, which was too loose to catch real changes). At `0.02`, baselines must exactly reflect the current render. They are gitignored and environment-specific (under `cypress-visual-screenshots/baseline/`), so they are regenerated locally / in CI rather than committed. Whenever a component's rendered output changes, regenerate the baselines (delete the stale PNGs and re-run the component specs) or the snapshot tests will fail at the strict threshold.
 
+**How to avoid flaky snapshot failures:**
+
+- **Use a unique `name` for every `cy.compareSnapshot` call.** Two different tests that share the same snapshot `name` overwrite the same baseline PNG, so each run compares against the _other_ test's state and fails with a pixel diff (e.g. a transient validation-error border that one test captured but the other did not). This is the most common cause of "Image difference greater than threshold" errors — give each snapshot a distinct name.
+- **Snapshot only a settled state.** Assert that any transient UI (validation errors, spinners, async font loads) has resolved _before_ calling `cy.compareSnapshot`. Capture without waiting and the rendered pixels vary run-to-run. Mirror the pattern used elsewhere: `cy.contains("This field is required").should("not.exist")` before the snapshot.
+- **Keep component renders deterministic.** No `Math.random()` / `new Date()` in the component under test (see the stability checklist), so the snapshot is reproducible across runs.
+- **Regenerate baselines per environment.** Baselines are gitignored and font rendering differs between machines, so a baseline generated on one machine will not exactly match another. If you pull changes that alter a component's output, regenerate the baselines locally (or they will fail at `0.02`). A too-low threshold trades coverage for sensitivity to sub-pixel / font differences — keep components deterministic and wait for a stable state rather than loosening the threshold.
+
 ```typescript
 cy.get("body").then(($body) => {
   if ($body.find("button[aria-label*='Select']").length === 0) {

@@ -381,8 +381,9 @@ describe("ConfirmationForm Component", () => {
     cy.get("#patient-name").type("John Doe");
     cy.get("#patient-email").type("john@example.com");
     cy.get("#patient-phone").type("1234567890");
+    cy.contains("This field is required").should("not.exist");
     cy.compareSnapshot({
-      name: "confirmation-form-corrected-from-errors",
+      name: "confirmation-form-corrected-state",
       testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
     });
   });

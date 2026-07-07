@@ -40,6 +40,13 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
 
+# Tests are not part of the shipped type surface, and CI installs only the
+# runtime requirements before running mypy (no pytest). Don't fail on
+# third-party test-only imports (e.g. pytest) that aren't installed there.
+[[tool.mypy.overrides]]
+module = ["tests.*", "test_*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
