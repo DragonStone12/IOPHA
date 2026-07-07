@@ -1,12 +1,9 @@
 import logging
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI, Request
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.main import PIISanitizerFilter, PIISanitizationMiddleware, PatientDTO
-
+from app.main import PatientDTO, PIISanitizationMiddleware, PIISanitizerFilter
 
 # ---------------------------------------------------------------------------
 # PIISanitizerFilter tests
@@ -17,8 +14,13 @@ class TestPIISanitizerFilter:
     def test_scrubs_email_in_message(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Contact admin@example.com for help", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Contact admin@example.com for help",
+            args=(),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         assert "[EMAIL_REDACTED]" in record.msg
@@ -27,8 +29,13 @@ class TestPIISanitizerFilter:
     def test_scrubs_phone_in_message(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Call 555-123-4567 now", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Call 555-123-4567 now",
+            args=(),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         assert "[PHONE_REDACTED]" in record.msg
@@ -36,8 +43,13 @@ class TestPIISanitizerFilter:
     def test_scrubs_ssn_in_message(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="SSN: 123-45-6789", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="SSN: 123-45-6789",
+            args=(),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         assert "[SSN_REDACTED]" in record.msg
@@ -45,8 +57,13 @@ class TestPIISanitizerFilter:
     def test_scrubs_tuple_args(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="User %s logged in", args=("admin@example.com",), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="User %s logged in",
+            args=("admin@example.com",),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         sanitized = record.msg % record.args
@@ -56,7 +73,10 @@ class TestPIISanitizerFilter:
     def test_scrubs_dict_args(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
             msg="User %(email)s logged in",
             args={"email": "admin@example.com", "id": 1},
             exc_info=None,
@@ -69,8 +89,13 @@ class TestPIISanitizerFilter:
     def test_scrubs_extra_dict(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Request processed", args=(), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Request processed",
+            args=(),
+            exc_info=None,
         )
         record.extra = {"email": "admin@example.com", "phone": "555-123-4567"}
         assert filt.filter(record) is True
@@ -80,8 +105,13 @@ class TestPIISanitizerFilter:
     def test_non_string_args_untouched(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="Count %d", args=(42,), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Count %d",
+            args=(42,),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         assert record.args == (42,)
@@ -89,9 +119,13 @@ class TestPIISanitizerFilter:
     def test_multiple_pii_types_in_message(self):
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
             msg="Contact admin@example.com or 555-123-4567, SSN: 123-45-6789",
-            args=(), exc_info=None
+            args=(),
+            exc_info=None,
         )
         assert filt.filter(record) is True
         assert "[EMAIL_REDACTED]" in record.msg
@@ -137,6 +171,7 @@ class TestPIISanitizationMiddleware:
     @pytest.fixture
     def client(self, app):
         from fastapi.testclient import TestClient
+
         return TestClient(app)
 
     def test_path_normalization_patients(self, client):

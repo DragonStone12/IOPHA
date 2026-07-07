@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import Optional
 
 from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -10,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # ---------------------------------------------------------------------------
 # 1. Pydantic DTOs with PII field serialization
 # ---------------------------------------------------------------------------
+
 
 class PatientDTO(BaseModel):
     patient_id: int
@@ -34,6 +34,7 @@ class ChatMessageDTO(BaseModel):
 # 2. Logging filter for PII/PHI redaction
 # ---------------------------------------------------------------------------
 
+
 class PIISanitizerFilter(logging.Filter):
     """
     Industry standard global safety net.
@@ -43,7 +44,10 @@ class PIISanitizerFilter(logging.Filter):
     def __init__(self) -> None:
         super().__init__()
         self.patterns = [
-            (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"), "[EMAIL_REDACTED]"),
+            (
+                re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
+                "[EMAIL_REDACTED]",
+            ),
             (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
             (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
         ]
@@ -99,6 +103,7 @@ app = FastAPI(title="IOPHA Backend API")
 # ---------------------------------------------------------------------------
 # 4. PII Sanitization Middleware (must be registered BEFORE logging/metrics)
 # ---------------------------------------------------------------------------
+
 
 class PIISanitizationMiddleware(BaseHTTPMiddleware):
     """
