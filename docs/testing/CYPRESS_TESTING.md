@@ -837,6 +837,22 @@ cy.get("body").then(($body) => {
 - [ ] Conditional UI is guarded before `cy.compareSnapshot()`
 - [ ] Snapshot baselines are regenerated after any component render change (`SNAPSHOT_TEST_THRESHOLD` is `0.02`, so stale baselines fail)
 
+**Mandatory baseline regeneration when `SNAPSHOT_TEST_THRESHOLD` changes**
+
+`SNAPSHOT_TEST_THRESHOLD` is set in `cypress.config.ts` (`env.SNAPSHOT_TEST_THRESHOLD`). Because snapshot baselines are **gitignored** (`cypress-visual-screenshots/baseline/`), they are never committed and are regenerated per environment. Changing the threshold changes what counts as a pass, so baselines produced at the old tolerance are no longer valid:
+
+- **Lowering** the threshold (e.g. `0.5` → `0.02`) makes previously-accepted pixel drift fail. Any baseline generated at the looser tolerance must be regenerated at the stricter one, or runs will report diffs that are just the old tolerance leaking through.
+- **Raising** the threshold loosens what passes and silently drops regression coverage until you intentionally re-baseline.
+
+**This step is mandatory and must happen in the same PR that changes the threshold:**
+
+1. Delete the existing baselines: `rm -f cypress-visual-screenshots/baseline/*.png`
+2. Regenerate them against the current deterministic render: `npm run cy:update-snapshots` (runs `cypress run --env updateSnapshots=true`, rewriting every baseline).
+3. Run the component suite once to confirm `0 failing` at the new threshold: `npx cypress run --component`
+4. State in the PR description that baselines were regenerated because the threshold changed.
+
+Do **not** assume CI will regenerate them safely: in headless CI, minor rendering differences (anti-aliasing, font sub-pixel rounding, headless-vs-local Chrome) can make a locally generated baseline differ slightly from a CI-generated one. Regenerate deliberately and validate locally before merging, otherwise you will see spurious "Image difference greater than threshold" failures that are not real regressions.
+
 ---
 
 ## Quick Reference Card
