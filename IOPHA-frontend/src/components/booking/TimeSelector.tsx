@@ -35,7 +35,7 @@ const generateMockSlots = (date: Date): TimeSlot[] => {
       id: `${format(date, "yyyy-MM-dd")}-${timeStr}`,
       time: timeStr,
       label: timeStr,
-      available: Math.random() > 0.3,
+      available: (i + 1) % 3 !== 0,
     });
     if (i < 7) {
       const halfHour = `${displayHour.toString().padStart(2, "0")}:30 ${ampm}`;
@@ -43,7 +43,7 @@ const generateMockSlots = (date: Date): TimeSlot[] => {
         id: `${format(date, "yyyy-MM-dd")}-${halfHour}`,
         time: halfHour,
         label: halfHour,
-        available: Math.random() > 0.3,
+        available: (i + 2) % 3 !== 0,
       });
     }
   }

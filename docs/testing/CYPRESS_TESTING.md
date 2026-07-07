@@ -721,7 +721,9 @@ cy.contains("04:00 PM").scrollIntoView().should("be.visible");
 
 ## Best Practices: Test Stability
 
-Flaky component tests (e.g., `TimeSelector.spec.tsx`) almost always trace back to three culprits: **dynamic/unstable dates**, **loose CSS assertions**, and **fragile DOM querying in calendar grids**. Follow these practices to harden your tests. For the full root-cause breakdown, see the [Troubleshooting guide for Cypress Component Test Flakiness](../TROUBLESHOOTING.md#cypress-component-test-flakiness).
+The most common cause of flaky component tests — including the historical `TimeSelector.spec.tsx` flake — is **non-deterministic mock/test data**: a component that uses `Math.random()` to decide which elements render, so a test that queries a specific value (e.g. a time-slot label) intermittently finds nothing. Always make mock data deterministic (derive values from a fixed seed/index) and assert against elements that are actually rendered, not a specific randomly-available value.
+
+The three practices below are still recommended hardening (and are already applied to `TimeSelector.spec.tsx`), but they prevent a related, distinct class of flakes rather than the mock-data one. For the full root-cause breakdown, see the [Troubleshooting guide for Cypress Component Test Flakiness](../TROUBLESHOOTING.md#cypress-component-test-flakiness).
 
 ### 1. Freeze the clock for date-dependent components
 
@@ -804,6 +806,8 @@ cy.get('button[aria-label*="Select"][aria-pressed="true"]').should(
 
 Wrap snapshot capture in a conditional check so a missing optional element ("No appointments available") does not break the run.
 
+**Snapshot threshold significance:** `SNAPSHOT_TEST_THRESHOLD` is `0.02` (meaningful visual-regression coverage, down from the previous `0.5` = 50% pixel tolerance, which was too loose to catch real changes). At `0.02`, baselines must exactly reflect the current render. They are gitignored and environment-specific (under `cypress-visual-screenshots/baseline/`), so they are regenerated locally / in CI rather than committed. Whenever a component's rendered output changes, regenerate the baselines (delete the stale PNGs and re-run the component specs) or the snapshot tests will fail at the strict threshold.
+
 ```typescript
 cy.get("body").then(($body) => {
   if ($body.find("button[aria-label*='Select']").length === 0) {
@@ -819,9 +823,12 @@ cy.get("body").then(($body) => {
 **Stability checklist:**
 
 - [ ] No live `new Date()` / `Date.now()` passed to components — use a frozen baseline + `cy.clock()`
+- [ ] Mock/test data is deterministic — no `Math.random()` in components under test; derive values from a fixed seed/index
+- [ ] Tests assert against elements that are actually rendered, not a specific randomly-available value
 - [ ] Calendar/grid queries include `.filter(":visible")`
 - [ ] Assertions use attributes/classes, not `have.css` pixel values
 - [ ] Conditional UI is guarded before `cy.compareSnapshot()`
+- [ ] Snapshot baselines are regenerated after any component render change (`SNAPSHOT_TEST_THRESHOLD` is `0.02`, so stale baselines fail)
 
 ---
 

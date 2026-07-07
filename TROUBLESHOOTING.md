@@ -555,21 +555,25 @@ npx cypress run --component --spec "src/components/NutritionResponse/NutritionRe
 
 ## Cypress Component Test Flakiness
 
-Component tests (e.g., `TimeSelector.spec.tsx`) intermittently fail with no code changes — buttons like `button[aria-label*='Select']` vanish, `.first()` clicks a non-interactive cell, or `have.css` assertions break on sub-pixel values. The flake centers on three culprits common in Cypress component testing: **dynamic/unstable dates**, **loose CSS assertions**, and **fragile DOM querying in the calendar grid**.
+Component tests (e.g., `TimeSelector.spec.tsx`) intermittently fail with no code changes — a button with a specific label (e.g. `"09:00 AM"`) is sometimes absent, so `cy.contains("button", "09:00 AM")` times out. The root cause is **non-deterministic mock data in the component under test**, not dates, calendar queries, or computed CSS.
 
-**Root causes & fixes:**
+**Root cause & fix:**
 
-1. **Dynamic Date Race Condition** — Passing `new Date()` directly into the component means a midnight rollover or timezone shift can make the UI render "no slots available", so `button[aria-label*='Select']` never appears. **Fix:** Freeze the clock with `cy.clock()` using a static baseline date (`new Date(2026, 5, 26)`) in `beforeEach`/`afterEach`, and pass that same `BASELINE_DATE` as `selectedDate` to the component.
+1. **Non-deterministic mock data (the actual cause)** — `TimeSelector.generateMockSlots` used `Math.random() > 0.3` to set each slot's `available` flag, and the component renders only `slots.filter((s) => s.available)`. ~30% of runs the specific slot the test queries (`"09:00 AM"`) is randomly filtered out, so its button never renders. **Fix:** make slot availability deterministic by deriving it from the slot index (e.g. `available: (i + 1) % 3 !== 0`) so rendering is reproducible. Tests should also avoid asserting on a specific randomly-available label — interact with a slot that is actually rendered (the `button[aria-label*='Select']` pattern) instead.
 
-2. **Fragile Calendar Querying** — Long chains like `cy.get("td[data-day]").not("[data-outside]").not("[data-disabled]").find("button").first().click()` depend on the calendar engine's exact render order and can hit a non-interactive cell when a month starts on a weekend or has clipping boundaries. **Fix:** Add `.filter(":visible")` before `.first()` and explicitly assert the callback fired.
+The following hardening practices prevent a related but distinct class of flakes. They are still recommended and are already applied to `TimeSelector.spec.tsx`, but they were **not** the cause of this flake:
 
-3. **Computed CSS Flakiness** — `cy.get('td[data-selected="true"] button').should("have.css", "border-width", "2px")` reads computed styles that vary by headless mode, viewport scaling, or sub-pixel rounding (e.g., `1.998px`/`2.001px`). **Fix:** Assert on DOM state / class names instead of computed pixels — e.g., `cy.get('td[data-selected="true"]').should("exist")` or `.should("have.class", "bg-blue-600")`.
+2. **Freeze the clock** — use `cy.clock()` with a static `BASELINE_DATE` so date-dependent rendering is stable across runs/timezones.
+3. **Query only `:visible` elements** — add `.filter(":visible")` before `.first()` on calendar/grid chains to avoid clicking non-interactive cells.
+4. **Assert DOM state, not computed CSS** — prefer `.should("have.class", ...)` / `.should("exist")` over `have.css` pixel values, which vary by headless mode and sub-pixel rounding.
 
-**Solution summary:** Freeze the clock, query only `:visible` interactive elements, and validate state via DOM attributes/classes rather than computed CSS. For the hardened test pattern and a full do/don't list, see [Cypress Test Stability Best Practices](../docs/CYPRESS_TESTING.md#best-practices-test-stability).
+**Snapshot threshold significance:** `SNAPSHOT_TEST_THRESHOLD` was lowered from `0.5` (50% pixel tolerance — too loose to catch real regressions) to `0.02` in `cypress.config.ts`. At `0.02`, snapshot baselines must exactly reflect the current deterministic rendering. Baselines live in `cypress-visual-screenshots/baseline/` and are **gitignored (environment-specific)** — they are regenerated locally / in CI, not committed. After any change to a component's rendered output, regenerate the baselines (delete the stale PNGs and re-run the component specs) or the snapshot tests will fail at the strict threshold.
 
 **Affected files:**
 
-- `IOPHA-frontend/src/components/TimeSelector/TimeSelector.spec.tsx`
+- `IOPHA-frontend/src/components/booking/TimeSelector.tsx` (`generateMockSlots`)
+- `IOPHA-frontend/src/components/booking/TimeSelector.spec.tsx`
+- `IOPHA-frontend/cypress.config.ts` (`SNAPSHOT_TEST_THRESHOLD`)
 
 ## Logging & Performance
 
