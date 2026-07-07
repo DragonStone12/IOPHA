@@ -1,7 +1,9 @@
 import logging
+from typing import Any
 
 import pytest
 from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
 
 from app.main import PatientDTO, PIISanitizationMiddleware, PIISanitizerFilter
 
@@ -11,7 +13,7 @@ from app.main import PatientDTO, PIISanitizationMiddleware, PIISanitizerFilter
 
 
 class TestPIISanitizerFilter:
-    def test_scrubs_email_in_message(self):
+    def test_scrubs_email_in_message(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -26,7 +28,7 @@ class TestPIISanitizerFilter:
         assert "[EMAIL_REDACTED]" in record.msg
         assert "admin@example.com" not in record.msg
 
-    def test_scrubs_phone_in_message(self):
+    def test_scrubs_phone_in_message(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -40,7 +42,7 @@ class TestPIISanitizerFilter:
         assert filt.filter(record) is True
         assert "[PHONE_REDACTED]" in record.msg
 
-    def test_scrubs_ssn_in_message(self):
+    def test_scrubs_ssn_in_message(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -54,7 +56,7 @@ class TestPIISanitizerFilter:
         assert filt.filter(record) is True
         assert "[SSN_REDACTED]" in record.msg
 
-    def test_scrubs_tuple_args(self):
+    def test_scrubs_tuple_args(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -70,7 +72,7 @@ class TestPIISanitizerFilter:
         assert "[EMAIL_REDACTED]" in sanitized
         assert "admin@example.com" not in sanitized
 
-    def test_scrubs_dict_args(self):
+    def test_scrubs_dict_args(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -86,7 +88,7 @@ class TestPIISanitizerFilter:
         assert "[EMAIL_REDACTED]" in sanitized
         assert "admin@example.com" not in sanitized
 
-    def test_scrubs_extra_dict(self):
+    def test_scrubs_extra_dict(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -99,10 +101,11 @@ class TestPIISanitizerFilter:
         )
         record.extra = {"email": "admin@example.com", "phone": "555-123-4567"}
         assert filt.filter(record) is True
+        assert hasattr(record, "extra")
         assert record.extra["email"] == "[EMAIL_REDACTED]"
         assert record.extra["phone"] == "[PHONE_REDACTED]"
 
-    def test_non_string_args_untouched(self):
+    def test_non_string_args_untouched(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -116,7 +119,7 @@ class TestPIISanitizerFilter:
         assert filt.filter(record) is True
         assert record.args == (42,)
 
-    def test_multiple_pii_types_in_message(self):
+    def test_multiple_pii_types_in_message(self) -> None:
         filt = PIISanitizerFilter()
         record = logging.LogRecord(
             name="test",
@@ -140,12 +143,12 @@ class TestPIISanitizerFilter:
 
 class TestPIISanitizationMiddleware:
     @pytest.fixture
-    def app(self):
+    def app(self) -> FastAPI:
         app = FastAPI()
         app.add_middleware(PIISanitizationMiddleware)
 
         @app.get("/patients/{patient_id}")
-        def get_patient(patient_id: int, request: Request):
+        def get_patient(patient_id: int, request: Request) -> dict[str, Any]:
             return {
                 "patient_id": patient_id,
                 "sanitized_path": request.state.sanitized_path,
@@ -153,14 +156,14 @@ class TestPIISanitizationMiddleware:
             }
 
         @app.get("/directory")
-        def directory(request: Request):
+        def directory(request: Request) -> dict[str, Any]:
             return {
                 "sanitized_path": request.state.sanitized_path,
                 "sanitized_query": dict(request.state.sanitized_query),
             }
 
         @app.get("/providers/{provider_id}")
-        def get_provider(provider_id: int, request: Request):
+        def get_provider(provider_id: int, request: Request) -> dict[str, Any]:
             return {
                 "provider_id": provider_id,
                 "sanitized_path": request.state.sanitized_path,
@@ -169,37 +172,35 @@ class TestPIISanitizationMiddleware:
         return app
 
     @pytest.fixture
-    def client(self, app):
-        from fastapi.testclient import TestClient
-
+    def client(self, app: FastAPI) -> TestClient:
         return TestClient(app)
 
-    def test_path_normalization_patients(self, client):
+    def test_path_normalization_patients(self, client: TestClient) -> None:
         response = client.get("/patients/12345")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/patients/:id"
 
-    def test_path_normalization_providers(self, client):
+    def test_path_normalization_providers(self, client: TestClient) -> None:
         response = client.get("/providers/999")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/providers/:id"
 
-    def test_plain_paths_unchanged(self, client):
+    def test_plain_paths_unchanged(self, client: TestClient) -> None:
         response = client.get("/directory")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/directory"
 
-    def test_sensitive_query_redacted(self, client):
+    def test_sensitive_query_redacted(self, client: TestClient) -> None:
         response = client.get("/directory?email=test@example.com&phone=555-123-4567")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_query"]["email"] == "[REDACTED]"
         assert data["sanitized_query"]["phone"] == "[REDACTED]"
 
-    def test_non_sensitive_query_preserved(self, client):
+    def test_non_sensitive_query_preserved(self, client: TestClient) -> None:
         response = client.get("/directory?specialty=cardiology")
         assert response.status_code == 200
         data = response.json()
@@ -212,7 +213,7 @@ class TestPIISanitizationMiddleware:
 
 
 class TestPatientDTO:
-    def test_email_redacted_on_serialization(self):
+    def test_email_redacted_on_serialization(self) -> None:
         dto = PatientDTO(
             patient_id=1,
             name="John Doe",
@@ -224,7 +225,7 @@ class TestPatientDTO:
         assert "[REDACTED]" in json_str
         assert "john.doe@example.com" not in json_str
 
-    def test_phone_redacted_on_serialization(self):
+    def test_phone_redacted_on_serialization(self) -> None:
         dto = PatientDTO(
             patient_id=1,
             name="John Doe",
@@ -236,7 +237,7 @@ class TestPatientDTO:
         assert "[REDACTED]" in json_str
         assert "555-123-4567" not in json_str
 
-    def test_medical_record_number_redacted(self):
+    def test_medical_record_number_redacted(self) -> None:
         dto = PatientDTO(
             patient_id=1,
             name="John Doe",
@@ -248,7 +249,7 @@ class TestPatientDTO:
         assert "[REDACTED]" in json_str
         assert "123-45-6789" not in json_str
 
-    def test_non_pii_fields_preserved(self):
+    def test_non_pii_fields_preserved(self) -> None:
         dto = PatientDTO(
             patient_id=1,
             name="John Doe",

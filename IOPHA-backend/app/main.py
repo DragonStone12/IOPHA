@@ -1,10 +1,13 @@
 import logging
 import re
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, field_serializer
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 # ---------------------------------------------------------------------------
 # 1. Pydantic DTOs with PII field serialization
@@ -52,38 +55,39 @@ class PIISanitizerFilter(logging.Filter):
             (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
         ]
 
+    def _scrub_text(self, text: str) -> str:
+        """Apply every PII pattern to a single string."""
+        for pattern, replacement in self.patterns:
+            text = pattern.sub(replacement, text)
+        return text
+
+    def _scrub_args(self, args: Any) -> Any:
+        """Redact PII from logging args, preserving dict/tuple shape."""
+        if isinstance(args, dict):
+            return {
+                key: self._scrub_text(value) if isinstance(value, str) else value
+                for key, value in args.items()
+            }
+        if isinstance(args, tuple):
+            return tuple(
+                self._scrub_text(arg) if isinstance(arg, str) else arg for arg in args
+            )
+        return args
+
     def filter(self, record: logging.LogRecord) -> bool:
-        # 1. Scrub the main log message string
         if isinstance(record.msg, str):
-            for pattern, replacement in self.patterns:
-                record.msg = pattern.sub(replacement, record.msg)
+            record.msg = self._scrub_text(record.msg)
 
-        # 2. Scrub string arguments (handle tuple immutability)
         if record.args:
-            if isinstance(record.args, dict):
-                for key, value in record.args.items():
-                    if isinstance(value, str):
-                        sanitized = value
-                        for pattern, replacement in self.patterns:
-                            sanitized = pattern.sub(replacement, sanitized)
-                        record.args[key] = sanitized
-            elif isinstance(record.args, tuple):
-                sanitized_args = []
-                for arg in record.args:
-                    if isinstance(arg, str):
-                        for pattern, replacement in self.patterns:
-                            arg = pattern.sub(replacement, arg)
-                    sanitized_args.append(arg)
-                record.args = tuple(sanitized_args)
+            record.args = self._scrub_args(record.args)
 
-        # 3. Scrub the 'extra' dictionary (structured JSON logging context)
-        if hasattr(record, "extra") and record.extra:
-            for key, value in record.extra.items():
-                if isinstance(value, str):
-                    sanitized = value
-                    for pattern, replacement in self.patterns:
-                        sanitized = pattern.sub(replacement, sanitized)
-                    record.extra[key] = sanitized
+        extra = getattr(record, "extra", None)
+        if extra:
+            sanitized = {
+                key: self._scrub_text(value) if isinstance(value, str) else value
+                for key, value in extra.items()
+            }
+            record.extra = sanitized
 
         return True
 
@@ -111,7 +115,11 @@ class PIISanitizationMiddleware(BaseHTTPMiddleware):
     Must be registered before logging and metrics middleware.
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         # 1. Sanitize URL Path
         sanitized_path = re.sub(r"/patients/\d+", "/patients/:id", request.url.path)
         sanitized_path = re.sub(r"/providers/\d+", "/providers/:id", sanitized_path)
