@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -51,10 +51,11 @@ try {
     console.log(`Running ${specsToRun.size} changed component test(s):`);
     console.log(specList);
 
-    execSync(`npx cypress run --component --headless --spec "${specList}"`, {
-      cwd: FRONTEND_DIR,
-      stdio: "inherit",
-    });
+    execFileSync(
+      "npx",
+      ["cypress", "run", "--component", "--headless", "--spec", specList],
+      { cwd: FRONTEND_DIR, stdio: "inherit" },
+    );
   }
 
   console.log("\nRunning E2E tests (headless, mirroring CI)...");
