@@ -288,6 +288,8 @@ Cypress.Commands.add("mount", mount);
 
 > **Important:** Cypress 13+ consolidated React mounting into `cypress/react`. Do NOT use `cypress/react18` — it does not exist in Cypress 15 and will cause module resolution errors.
 
+> **Do NOT globally stub `Math.random`** in this support file. A global `cy.stub(win.Math, "random")` affects every component test, hides bugs in components that rely on randomness, and causes snapshot mismatches between local and CI environments. If a specific test needs deterministic random values, stub `Math.random` locally inside that test's `it` block.
+
 **Component mount HTML** (`cypress/support/component-index.html`):
 
 ```html
@@ -779,7 +781,30 @@ cy.get("td[data-day]")
   .click();
 ```
 
-### 3. Assert DOM state, not computed CSS
+### Use Attribute-Scoped Selectors for Unambiguous Targeting
+
+When the same text label appears in multiple components (e.g., a chip label in both `RiskProfileSidebar` and `ChatArea`), `cy.contains("button", "text")` matches the **first** element in DOM order, which may be the wrong component. Prefer attribute-scoped selectors that uniquely identify the target element.
+
+```typescript
+// ❌ Fragile — matches any button containing "09:00 AM" in DOM order
+cy.contains("button", "09:00 AM").should("have.class", "bg-blue-600");
+
+// ✅ Robust — scoped to the specific button via aria-label
+cy.get('button[aria-label="Select 09:00 AM"]').should(
+  "have.class",
+  "bg-blue-600",
+);
+
+// ❌ Fragile — matches any chip with this text, including sidebar navigation
+cy.contains("Find a doctor").click();
+
+// ✅ Robust — scoped to the chat area
+cy.get("main").contains("Find a doctor").click();
+```
+
+This applies to both component tests (`cy.mount()`) and E2E tests (`cy.visit()`). When a component renders duplicate labels across regions, always scope the selector to the correct container or use a unique attribute.
+
+### Assert DOM state, not computed CSS
 
 `have.css` reads computed styles that vary by headless mode, viewport scaling, and sub-pixel rounding (e.g., `2px` computes as `1.998px`). Prefer DOM attributes and class names.
 
@@ -836,6 +861,8 @@ cy.get("body").then(($body) => {
 - [ ] Assertions use attributes/classes, not `have.css` pixel values
 - [ ] Conditional UI is guarded before `cy.compareSnapshot()`
 - [ ] Snapshot baselines are regenerated after any component render change (`SNAPSHOT_TEST_THRESHOLD` is `0.02`, so stale baselines fail)
+- [ ] No global `Math.random` stub in `cypress/support/component.ts` — stub locally per test if needed
+- [ ] Use attribute-scoped selectors (e.g. `button[aria-label*='Select']`) instead of text-based selectors when the same text may appear in multiple components
 
 **Mandatory baseline regeneration when `SNAPSHOT_TEST_THRESHOLD` changes**
 
@@ -871,3 +898,4 @@ Do **not** assume CI will regenerate them safely: in headless CI, minor renderin
 | Test component variants & states with snapshots                                                             | Skip testing hover/disabled/loading states                                |
 | Use `cy.compareSnapshot("name-state")` for variants                                                         | Use vague snapshot names like `"button-1"`                                |
 | Use `cy.contains("text").scrollIntoView().should("be.visible")` for elements near the bottom of a component | Assume elements are visible without scrolling in headless component tests |
+| Stub `Math.random` locally per `it` block                                                                   | Globally stub `Math.random` in `cypress/support/component.ts`            |

@@ -269,7 +269,7 @@ Applying `@field_serializer` to internal domain models would mask data needed fo
 
 **Backend Linting & Type Checking**:
 
-- **Ruff**: Fast Rust-based linter with Pyflakes (F), Pycodestyle (E/W), Bandit Security (S), Bugbear (B), and Pylint Refactoring (PLR) rules
+- **Ruff**: Fast Rust-based linter with Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), and Pylint Refactoring (PLR) rules
 - **Mypy**: Static type checker with strict mode enabled (disallow_untyped_defs, warn_return_any, etc.)
 - Configuration in `IOPHA-backend/pyproject.toml`
 
@@ -403,6 +403,8 @@ The project uses [Husky](https://typicode.github.io/husky/) to enforce code qual
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `.husky/pre-commit` | Backend: `ruff check --fix` + `ruff format` on staged Python files, then a **verifying** `ruff check` / `ruff format --check` that blocks the commit on any remaining issue. Frontend: `npx lint-staged`. |
 | `.husky/pre-push`   | `npm run test:changed` (frontend) and a `ruff check` / `ruff format --check` gate over `IOPHA-backend/` (mirrors CI).                                                     |
+
+**Fail-fast (`set -e`)**: Both `.husky/pre-commit` and `.husky/pre-push` start with `set -e`, so any gate that errors — including the frontend `npm run test:changed` suite in `pre-push` — aborts the commit/push immediately. This prevents a failing check from being silently bypassed and keeps local hooks aligned with the "mirrors CI" intent. The shared `resolve_ruff()` logic lives in `.husky/resolve-ruff.sh`, sourced by both hooks, so ruff-resolution cannot drift between them.
 
 **Rules Enabled (Ruff)**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR) — see `IOPHA-backend/pyproject.toml` and `docs/security/RUFF_MYPY_LINTING.md`.
 

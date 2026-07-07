@@ -566,6 +566,9 @@ The following hardening practices prevent a related but distinct class of flakes
 2. **Freeze the clock** — use `cy.clock()` with a static `BASELINE_DATE` so date-dependent rendering is stable across runs/timezones.
 3. **Query only `:visible` elements** — add `.filter(":visible")` before `.first()` on calendar/grid chains to avoid clicking non-interactive cells.
 4. **Assert DOM state, not computed CSS** — prefer `.should("have.class", ...)` / `.should("exist")` over `have.css` pixel values, which vary by headless mode and sub-pixel rounding.
+5. **Use attribute-scoped selectors** — `cy.contains("button", "09:00 AM")` is less specific than `button[aria-label*="Select"]` because it matches the first button in DOM order, which may belong to a different component. Always scope selectors to the target element using stable attributes like `aria-label`.
+
+**Global `Math.random` stub removed:** The global `cy.stub(win.Math, "random").returns(0.4)` in `cypress/support/component.ts` was removed because it masked the non-deterministic mock data bug and affected every component test. If a specific test needs deterministic random values, stub `Math.random` locally inside that test's `it` block instead.
 
 **Snapshot threshold significance:** `SNAPSHOT_TEST_THRESHOLD` was lowered from `0.5` (50% pixel tolerance — too loose to catch real regressions) to `0.02` in `cypress.config.ts`. At `0.02`, snapshot baselines must exactly reflect the current deterministic rendering. Baselines live in `cypress-visual-screenshots/baseline/` and are **gitignored (environment-specific)** — they are regenerated locally / in CI, not committed. After any change to a component's rendered output, regenerate the baselines (delete the stale PNGs and re-run the component specs) or the snapshot tests will fail at the strict threshold.
 

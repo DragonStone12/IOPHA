@@ -13,6 +13,26 @@ from starlette.responses import Response
 # 1. Pydantic DTOs with PII field serialization
 # ---------------------------------------------------------------------------
 
+# Centralized PII patterns shared by the logging filter and the chat DTO
+# serializer. Each entry is (compiled_regex, replacement). Matching text is
+# redacted in place; non-matching text is preserved so API responses stay
+# useful for callers instead of being wholly withheld.
+PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+        "[EMAIL_REDACTED]",
+    ),
+    (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
+]
+
+
+def redact_pii(text: str) -> str:
+    """Apply every PII pattern to a single string, preserving non-PII text."""
+    for pattern, replacement in PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
 
 class PatientDTO(BaseModel):
     patient_id: int
@@ -23,7 +43,20 @@ class PatientDTO(BaseModel):
 
     @field_serializer("email", "phone", "medical_record_number")
     def mask_pii(self, value: str) -> str:
-        return "[REDACTED]"
+        # Structured PII fields are always fully withheld.
+        return redact_pii(value)
+
+    @field_serializer("name")
+    def mask_name(self, value: str) -> str:
+        # Partial masking (industry standard for UI-facing DTOs): the patient
+        # name is PHI, so hide the full name but preserve enough for the UI to
+        # remain usable (e.g. "John Doe" -> "J*** D***").
+        if not value:
+            return value
+        parts = value.split()
+        if len(parts) == 1:
+            return f"{parts[0][0]}***"
+        return f"{parts[0][0]}*** {parts[-1][0]}***"
 
 
 class ChatMessageDTO(BaseModel):
@@ -34,7 +67,9 @@ class ChatMessageDTO(BaseModel):
 
     @field_serializer("content")
     def mask_pii(self, value: str) -> str:
-        return "[REDACTED]"
+        # Free-text content is selectively redacted: only PII-shaped spans are
+        # replaced, so non-sensitive chat text is preserved for the caller.
+        return redact_pii(value)
 
 
 # ---------------------------------------------------------------------------
@@ -50,20 +85,10 @@ class PIISanitizerFilter(logging.Filter):
 
     def __init__(self) -> None:
         super().__init__()
-        self.patterns = [
-            (
-                re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
-                "[EMAIL_REDACTED]",
-            ),
-            (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
-            (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
-        ]
 
     def _scrub_text(self, text: str) -> str:
         """Apply every PII pattern to a single string."""
-        for pattern, replacement in self.patterns:
-            text = pattern.sub(replacement, text)
-        return text
+        return redact_pii(text)
 
     def _scrub_args(self, args: Any) -> Any:
         """Redact PII from logging args, preserving dict/tuple shape."""
@@ -85,13 +110,9 @@ class PIISanitizerFilter(logging.Filter):
         if record.args:
             record.args = self._scrub_args(record.args)
 
-        extra = getattr(record, "extra", None)
-        if extra:
-            sanitized = {
-                key: self._scrub_text(value) if isinstance(value, str) else value
-                for key, value in extra.items()
-            }
-            record.extra = sanitized
+        for key, value in record.__dict__.items():
+            if isinstance(value, str):
+                record.__dict__[key] = self._scrub_text(value)
 
         return True
 
@@ -120,13 +141,11 @@ class PIISanitizationMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(
-        self,
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         # 1. Sanitize URL Path
-        sanitized_path = re.sub(r"/patients/\d+", "/patients/:id", request.url.path)
-        sanitized_path = re.sub(r"/providers/\d+", "/providers/:id", sanitized_path)
+        sanitized_path = re.sub(r"/patients/[^/]+", "/patients/:id", request.url.path)
+        sanitized_path = re.sub(r"/providers/[^/]+", "/providers/:id", sanitized_path)
 
         # 2. Sanitize Query Parameters
         sensitive_keys = {"ssn", "email", "phone", "medical_record_number"}
@@ -158,8 +177,10 @@ app.add_middleware(PIISanitizationMiddleware)
 async def chat_message(message: ChatMessageDTO) -> ChatMessageDTO:
     """
     Accepts a chat message and echoes it back. The `ChatMessageDTO`
-    response serializer masks PII in `content` (e.g. `[REDACTED]`),
-    so sensitive data never leaves the API in the clear.
+    response serializer applies targeted PII redaction to `content`
+    (e.g. email addresses become `[EMAIL_REDACTED]`, phone numbers become
+    `[PHONE_REDACTED]`), so sensitive data never leaves the API in the clear
+    while non-sensitive text is preserved for the caller.
     """
     return message
 

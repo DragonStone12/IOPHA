@@ -165,7 +165,10 @@ describe("TimeSelector Component", () => {
         selectedTime="09:00 AM"
       />,
     );
-    cy.contains("button", "09:00 AM").should("have.class", "bg-blue-600");
+    cy.get('button[aria-label="Select 09:00 AM"]').should(
+      "have.class",
+      "bg-blue-600",
+    );
   });
 
   it("should render with visual snapshot - initial state", () => {

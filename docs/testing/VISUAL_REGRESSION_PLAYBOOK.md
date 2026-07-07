@@ -91,6 +91,8 @@ cy.get(".user-name").invoke("text", "Test User");
 //   cy.mockApi({ apiPath: "/api/", mocksFolder: "mocks", cache: true });
 ```
 
+> **Do NOT globally stub `Math.random` in `cypress/support/component.ts`.** A global stub affects every component test, hides bugs in components that rely on randomness, and causes visual snapshots to pass locally but fail in CI. If a specific snapshot test needs deterministic random values, stub `Math.random` locally inside that test's `it` block.
+
 ---
 
 ## 3. Wait for All Visual Elements Before Snapshot
@@ -592,6 +594,7 @@ git commit -m "fix: sidebar overflow clipping bug - Updated visual baseline"
 | Mock dynamic content via `cy-mockapi` | Test with live unpredictable data             |
 | Use `--env updateSnapshots=true`      | Use `UPDATE_SNAPSHOTS=true` (wrong env var)   |
 | Use 1440x900 viewport                 | Use small viewports that cause clipping       |
+| Stub `Math.random` locally per test   | Globally stub `Math.random` in support file   |
 
 ---
 

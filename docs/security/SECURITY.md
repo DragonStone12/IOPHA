@@ -351,18 +351,42 @@ The IOPHA backend implements a defense-in-depth sanitization strategy across thr
 
 `PIISanitizationMiddleware` is registered **before** logging and metrics middleware in the FastAPI app initialization. It:
 
-- Normalizes dynamic URL paths using optimized regex (e.g., `/patients/12345` → `/patients/:id`)
+- Normalizes dynamic URL paths using robust regex (e.g., `/patients/12345`, `/patients/123e4567-e89b-12d3-a456-426614174000`, or `/providers/dr-emily-chen` → `/patients/:id`, `/providers/:id`)
 - Redacts sensitive query parameters (`ssn`, `email`, `phone`, `medical_record_number`)
 - Attaches sanitized values to `request.state` for downstream middleware access
+
+**Path sanitization regex pattern:**
+
+```python
+# CORRECT — matches any non-empty path segment (numeric IDs, UUIDs, slugs)
+re.sub(r"/patients/[^/]+", "/patients/:id", request.url.path)
+
+# WRONG — \d+ only matches numeric IDs; UUIDs, slugs, and alphanumeric IDs leak into logs
+re.sub(r"/patients/\d+", "/patients/:id", request.url.path)
+```
+
+**Why `[^/]+` instead of `\d+`:** URL path segments can be numeric IDs, UUIDs (`123e4567-e89b-12d3-a456-426614174000`), slugs (`dr-emily-chen`), or alphanumeric tokens. Using `\d+` silently skips non-numeric identifiers, exposing them in CloudWatch logs and Prometheus metrics. `[^/]+` matches any sequence of non-slash characters, ensuring all ID formats are redacted. Over-sanitizing a known subpath (e.g., `/patients/search` → `/patients/:id`) is acceptable because the priority is preventing PHI leakage, not preserving exact route taxonomy in logs.
 
 ### Logging Framework Filter
 
 `PIISanitizerFilter` is a Python standard `logging.Filter` attached to the root logger. It:
 
 - Intercepts all log records before JSON serialization
-- Regex patterns redact PII from `record.msg`, `record.args`, and `record.extra`
+- Regex patterns redact PII from `record.msg`, `record.args`, and any string values in `record.__dict__`
 - Handles `record.args` tuple immutability by reconstructing and reassigning the tuple
 - Uses optimized regex to prevent catastrophic backtracking in the async event loop
+
+**Important — Python `logging.extra` semantics:** The `extra` dict passed to `logger.info("msg", extra={...})` is **merged into `record.__dict__`** by the logging framework, not stored as `record.extra`. The filter therefore iterates `record.__dict__` to catch merged `extra` fields. Tests must simulate this behavior by assigning directly to `record.__dict__`, not `record.extra`.
+
+```python
+# CORRECT — simulates real Python logging behavior
+record.__dict__["email"] = "admin@example.com"
+record.__dict__["phone"] = "555-123-4567"
+
+# WRONG — record.extra is never set by the logging framework;
+# this tests a code path that does not execute in production.
+record.extra = {"email": "admin@example.com", "phone": "555-123-4567"}
+```
 
 **Regex Patterns**:
 
@@ -402,6 +426,17 @@ External-facing Pydantic response models use `@field_serializer` to automaticall
 | `git config core.hooksPath`               | Confirm hooks resolve to `.husky`                        |
 | Kilo Code Reviewer dashboard              | AI PR reviews, focus areas, PR gate threshold            |
 | Kilo Security Agent dashboard             | Dependabot alerts triage, SLA tracking, auto-remediation |
+
+**Backend Testing Pattern — Python `logging.extra`:**
+
+```python
+# CORRECT: simulate how Python logging actually merges extra into record.__dict__
+record.__dict__["email"] = "admin@example.com"
+
+# WRONG: record.extra is never set by the logging framework;
+# setting it directly tests a code path that does not execute in production.
+record.extra = {"email": "admin@example.com"}
+```
 
 **Related Documentation:**
 

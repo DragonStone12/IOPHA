@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { execSync, execFileSync } = require("child_process");
+const { execFileSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 
@@ -8,7 +8,7 @@ const MONO_ROOT = path.join(__dirname, "..");
 const FRONTEND_DIR = path.join(MONO_ROOT, "IOPHA-frontend");
 
 try {
-  const changedFiles = execSync("git diff --name-only main...HEAD", {
+  const changedFiles = execFileSync("git", ["diff", "--name-only", "main...HEAD"], {
     encoding: "utf-8",
     cwd: MONO_ROOT,
   })
@@ -59,8 +59,9 @@ try {
   }
 
   console.log("\nRunning E2E tests (headless, mirroring CI)...");
-  execSync(
-    "npx start-server-and-test dev http://localhost:3000 'npx cypress run --e2e --headless'",
+  execFileSync(
+    "npx",
+    ["start-server-and-test", "dev", "http://localhost:3000", "npx cypress run --e2e --headless"],
     { cwd: FRONTEND_DIR, stdio: "inherit" },
   );
 } catch (error) {

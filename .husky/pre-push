@@ -1,23 +1,16 @@
+#!/usr/bin/env sh
+
+# Fail fast: any gate that errors (frontend tests, ruff, mypy) aborts the push
+# instead of silently letting a failure through. Mirrors .husky/pre-commit.
+set -e
+
 npm run test:changed
 
 # Guard: ensure the Python backend passes ruff before pushing (mirrors CI).
 cd "$(git rev-parse --show-toplevel)"
 
-resolve_ruff() {
-  if command -v ruff >/dev/null 2>&1; then
-    echo "ruff"
-    return 0
-  fi
-  if [ -x venv/bin/ruff ]; then
-    echo "venv/bin/ruff"
-    return 0
-  fi
-  if command -v python3 >/dev/null 2>&1 && python3 -m ruff --version >/dev/null 2>&1; then
-    echo "python3 -m ruff"
-    return 0
-  fi
-  return 1
-}
+# Shared ruff-resolution helper (single source of truth for both hooks).
+. "$(git rev-parse --show-toplevel)/.husky/resolve-ruff.sh"
 
 if ! RUFF=$(resolve_ruff); then
   echo "husky/pre-push: 'ruff' not found on PATH or in ./venv."

@@ -107,11 +107,13 @@ class TestPIISanitizerFilter:
             args=(),
             exc_info=None,
         )
-        record.extra = {"email": "admin@example.com", "phone": "555-123-4567"}
+        # Python logging merges `extra` kwargs into record.__dict__, not record.extra.
+        # Setting record.extra directly would test a code path that never executes.
+        record.__dict__["email"] = "admin@example.com"
+        record.__dict__["phone"] = "555-123-4567"
         assert filt.filter(record) is True
-        assert hasattr(record, "extra")
-        assert record.extra["email"] == "[EMAIL_REDACTED]"
-        assert record.extra["phone"] == "[PHONE_REDACTED]"
+        assert record.__dict__["email"] == "[EMAIL_REDACTED]"
+        assert record.__dict__["phone"] == "[PHONE_REDACTED]"
 
     def test_non_string_args_untouched(self) -> None:
         filt = PIISanitizerFilter()
@@ -156,7 +158,7 @@ class TestPIISanitizationMiddleware:
         app.add_middleware(PIISanitizationMiddleware)
 
         @app.get("/patients/{patient_id}")
-        def get_patient(patient_id: int, request: Request) -> dict[str, Any]:
+        def get_patient(patient_id: str, request: Request) -> dict[str, Any]:
             return {
                 "patient_id": patient_id,
                 "sanitized_path": request.state.sanitized_path,
@@ -171,7 +173,7 @@ class TestPIISanitizationMiddleware:
             }
 
         @app.get("/providers/{provider_id}")
-        def get_provider(provider_id: int, request: Request) -> dict[str, Any]:
+        def get_provider(provider_id: str, request: Request) -> dict[str, Any]:
             return {
                 "provider_id": provider_id,
                 "sanitized_path": request.state.sanitized_path,
@@ -189,8 +191,20 @@ class TestPIISanitizationMiddleware:
         data = response.json()
         assert data["sanitized_path"] == "/patients/:id"
 
+    def test_path_normalization_patients_uuid(self, client: TestClient) -> None:
+        response = client.get("/patients/123e4567-e89b-12d3-a456-426614174000")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sanitized_path"] == "/patients/:id"
+
     def test_path_normalization_providers(self, client: TestClient) -> None:
         response = client.get("/providers/999")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sanitized_path"] == "/providers/:id"
+
+    def test_path_normalization_providers_slug(self, client: TestClient) -> None:
+        response = client.get("/providers/dr-emily-chen")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/providers/:id"
@@ -230,7 +244,7 @@ class TestPatientDTO:
             medical_record_number="123-45-6789",
         )
         json_str = dto.model_dump_json()
-        assert "[REDACTED]" in json_str
+        assert "[EMAIL_REDACTED]" in json_str
         assert "john.doe@example.com" not in json_str
 
     def test_phone_redacted_on_serialization(self) -> None:
@@ -242,7 +256,7 @@ class TestPatientDTO:
             medical_record_number="123-45-6789",
         )
         json_str = dto.model_dump_json()
-        assert "[REDACTED]" in json_str
+        assert "[PHONE_REDACTED]" in json_str
         assert "555-123-4567" not in json_str
 
     def test_medical_record_number_redacted(self) -> None:
@@ -254,8 +268,39 @@ class TestPatientDTO:
             medical_record_number="123-45-6789",
         )
         json_str = dto.model_dump_json()
-        assert "[REDACTED]" in json_str
+        assert "[SSN_REDACTED]" in json_str
         assert "123-45-6789" not in json_str
+
+    def test_name_partially_masked(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="John Doe",
+            email="john.doe@example.com",
+            phone="555-123-4567",
+            medical_record_number="123-45-6789",
+        )
+        assert dto.model_dump()["name"] == "J*** D***"
+        assert "John" not in dto.model_dump()["name"]
+
+    def test_single_name_partially_masked(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="Madonna",
+            email="john.doe@example.com",
+            phone="555-123-4567",
+            medical_record_number="123-45-6789",
+        )
+        assert dto.model_dump()["name"] == "M***"
+
+    def test_empty_name_preserved(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="",
+            email="john.doe@example.com",
+            phone="555-123-4567",
+            medical_record_number="123-45-6789",
+        )
+        assert dto.model_dump()["name"] == ""
 
     def test_non_pii_fields_preserved(self) -> None:
         dto = PatientDTO(
@@ -267,7 +312,8 @@ class TestPatientDTO:
         )
         data = dto.model_dump()
         assert data["patient_id"] == 1
-        assert data["name"] == "John Doe"
+        # Patient name is PHI: partially masked for UI usability, not cleartext.
+        assert data["name"] == "J*** D***"
 
 
 class TestChatMessageDTO:
@@ -279,7 +325,8 @@ class TestChatMessageDTO:
             timestamp="2026-07-07T00:00:00Z",
         )
         json_str = dto.model_dump_json()
-        assert "[REDACTED]" in json_str
+        # Update to match the specific redaction tag
+        assert "[EMAIL_REDACTED]" in json_str
         assert "john.doe@example.com" not in json_str
 
     def test_non_pii_fields_preserved(self) -> None:
@@ -292,7 +339,8 @@ class TestChatMessageDTO:
         data = dto.model_dump()
         assert data["message_id"] == "msg-1"
         assert data["user_id"] == 42
-        assert data["content"] == "[REDACTED]"
+        # The content should now be preserved, not redacted
+        assert data["content"] == "hello world"
 
 
 class TestChatMessageEndpoint:
@@ -309,7 +357,8 @@ class TestChatMessageEndpoint:
         data = response.json()
         assert data["message_id"] == "msg-2"
         assert data["user_id"] == 7
-        assert data["content"] == "[REDACTED]"
+        # The non-PII part of the message should be echoed back
+        assert data["content"] == "Call me at [PHONE_REDACTED]"
         assert "555-123-4567" not in data["content"]
 
     def test_message_requires_body(self) -> None:
