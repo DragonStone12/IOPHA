@@ -46,6 +46,25 @@ All security findings are surfaced in GitHub Code Scanning via SARIF reports.
 
 The frontend uses ESLint as its primary static analysis tool. Beyond baseline code style and TypeScript type-checking, a dedicated set of plugins scans for security vulnerabilities, unstable patterns, and logic bugs before code reaches production.
 
+### Backend Static Analysis
+
+The backend uses Ruff and Mypy for static analysis:
+
+| Tool | Rules | Purpose |
+|---|---|---|
+| Ruff | E, F, I, N, W, S, B, PLR | Linting (pycodestyle, pyflakes, isort, pydocstyle, bandit security, bugbear, refactoring) |
+| Mypy | Strict mode | Static type checking with warning flags |
+
+**Ruff Security Rules (S)**: Bandit-compatible security checks including:
+- S101: `assert` used for runtime guarantees (bypassed in tests)
+- S105: Hardcoded password strings (ignored)
+- S106: Hardcoded password function arguments (ignored)
+- S107: Hardcoded password method call (ignored)
+
+**Bugbear Rules (B)**: Catch common bugs and design problems in Python code.
+
+**Pylint Refactoring Rules (PLR)**: Code complexity and maintainability checks.
+
 ### Threat Coverage
 
 | Threat Category | What It Catches |
@@ -290,6 +309,21 @@ The booking confirmation form collects Name, Email, and Phone. Security controls
 
 ## Compliance & Regulatory
 
+### Pull Request Gating Policies
+
+All pull requests to `main` branch must pass the following quality gates:
+
+| Gate | Tool | CI Status |
+|---|---|---|
+| Ruff Linting | `ruff check` | Required - auto-fix on pre-commit |
+| Ruff Formatting | `ruff format --check` | Required - auto-fix on pre-commit |
+| Mypy Type Checking | `mypy` | Required - strict mode |
+| Bandit Security | `bandit` | Warning (medium+ severity) |
+| pip-audit | `pip-audit` | Required - high severity block |
+| ESLint | Frontend lint | Required |
+
+**Pre-Commit Enforcement**: The pre-commit configuration runs ruff, ruff-format, and mypy on all staged Python files. Commits failing these checks are rejected. Never bypass with `--no-verify`.
+
 ### HIPAA Alignment
 
 | Control | Implementation |
@@ -356,13 +390,19 @@ External-facing Pydantic response models use `@field_serializer` to automaticall
 | `npm run test:e2e` | Start dev server + run all E2E tests |
 | `npm run cy:update-snapshots` | Update visual regression baselines |
 | `npm audit --omit=dev --audit-level=high` | Audit dependencies for high-severity issues |
+| `ruff check IOPHA-backend/` | Fast Python linting (Pyflakes, Pycodestyle, Security) |
+| `ruff format --check IOPHA-backend/` | Code formatting check |
+| `mypy IOPHA-backend/` | Static type checking |
+| `pre-commit install` | Install git pre-commit hooks |
+| `pre-commit run --all-files` | Run all hooks on entire codebase |
 | Kilo Code Reviewer dashboard | AI PR reviews, focus areas, PR gate threshold |
 | Kilo Security Agent dashboard | Dependabot alerts triage, SLA tracking, auto-remediation |
 
 **Related Documentation:**
 - [ESLint Security & Bug Detection](ESLINT_SECURITY_BUG_DETECTION.md)
+- [Ruff & Mypy Linting Rules](RUFF_MYPY_LINTING.md)
 - [SARIF Justification](security/SARIF_JUSTIFICATION.md)
-- [Architecture](ARCHITECTURE.md)
-- [Cypress Testing Guide](CYPRESS_TESTING.md)
+- [Architecture](../infra/ARCHITECTURE.md)
+- [Cypress Testing Guide](../testing/CYPRESS_TESTING.md)
 - [Kilo Code Reviews Documentation](https://kilo.ai/docs/automate/code-reviews/overview)
 - [Kilo Security Agent Documentation](https://kilo.ai/docs/deploy-secure/security-reviews)

@@ -242,7 +242,12 @@ Applying `@field_serializer` to internal domain models would mask data needed fo
 
 ### 5.6 Code Quality & Linting
 
-**For more information, read the security document.** ([docs/SECURITY.md](SECURITY.md))
+**Backend Linting & Type Checking**:
+- **Ruff**: Fast Rust-based linter with Pyflakes (F), Pycodestyle (E/W), Bandit Security (S), Bugbear (B), and Pylint Refactoring (PLR) rules
+- **Mypy**: Static type checker with strict mode enabled (disallow_untyped_defs, warn_return_any, etc.)
+- Configuration in `IOPHA-backend/pyproject.toml`
+
+**For more information, read the security document.** ([docs/security/SECURITY.md](security/SECURITY.md))
 
 **ESLint Configuration**:
 - Version: ESLint 9.x (flat config format)
@@ -283,9 +288,45 @@ npm run lint
 **Note**: ESLint 9.x uses flat config format (`eslint.config.js`). The deprecated `.eslintrc.cjs` and `.eslintignore` files have been removed. The lint script no longer uses the `--ext` flag (removed in ESLint 9.x).
 
 **ci-backend.yml**:
+- Ruff linting (Pyflakes, Pycodestyle, Security, Bugbear, Refactoring)
+- Ruff formatting check
+- Mypy static type checking
 - Bandit SAST scanning
 - pip-audit for dependencies
-- pytest unit tests
+
+### 4.4 Observability & Metrics
+
+**Prometheus Instrumentation**:
+- Library: `prometheus-fastapi-instrumentator`
+- Endpoint: `/metrics`
+- Configuration choices:
+  - `handle_unhandled_paths=False` — prevents cardinality explosion from undefined routes
+  - `should_group_status_codes=True` — groups similar status codes to reduce metric cardinality
+  - `should_ignore_untemplated=True` — ignores metrics for requests that don't match any route
+  - `excluded_handlers=["/metrics"]` — excludes the metrics endpoint from being instrumented to avoid self-reporting
+  - `should_gzip=True` — gzips the payload to reduce network overhead during scraping
+
+**Path Grouping Strategy**:
+Dynamic paths like `/api/providers/{provider_id}/slots` are automatically grouped by FastAPI's routing definitions. The instrumentator normalizes these paths before they reach the metrics exporter, preventing high-cardinality metric series.
+
+**Endpoint Security**:
+The `/metrics` endpoint is strictly internal. It is blocked at the API Gateway / load balancer level from external/public access and accessible only by the internal Prometheus scraper.
+
+#### Prometheus Metrics Endpoint Security
+
+The `/metrics` endpoint exposes internal application state, endpoint names, request patterns, and infrastructure details. It must not be exposed to the public internet or the external API Gateway.
+
+| Control | Implementation |
+|---|---|
+| Network isolation | Block `/metrics` at the API Gateway / load balancer level |
+| Internal access only | Accessible only by the internal Prometheus scraper |
+| Cardinality protection | `handle_unhandled_paths=False` prevents high-cardinality metric explosion |
+| Path grouping | `should_group_status_codes=True` and `should_ignore_untemplated=True` reduce metric cardinality |
+
+**Risks of exposure**:
+- Endpoint enumeration: Attackers can discover internal API routes and naming conventions
+- Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
+- Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
 
 ### 6.2 Environment Configuration
 
@@ -315,7 +356,30 @@ cd IOPHA-frontend && npm install && npm run dev
 
 # Backend development (requires main.py in app/)
 cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
+
+# Install pre-commit hooks (required for local quality enforcement)
+pip install pre-commit && pre-commit install
 ```
+
+#### Pre-Commit Hook Configuration
+
+The project uses pre-commit to enforce code quality before commits reach CI:
+
+| Hook | Tool | Purpose |
+|---|---|---|
+| `ruff` | Ruff | Lint with auto-fix on staged files |
+| `ruff-format` | Ruff | Code formatting (Black-compatible) |
+| `mypy` | Mypy | Static type checking |
+| `bandit` | Bandit | Security scanning for Python |
+| `pip-audit` | pip-audit | Dependency vulnerability audit |
+| `frontend-eslint` | ESLint | Frontend linting |
+| `prettier` | Prettier | Frontend formatting |
+
+**Rules Enabled**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR)
+
+**Pre-Commit Enforcement Rule**: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI.
+
+**Incremental Linting**: Run `python scripts/lint-changed.py` to lint only changed Python files instead of the entire codebase.
 
 ## 7. Decision Points (Pending)
 

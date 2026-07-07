@@ -1,1 +1,19 @@
+#!/usr/bin/env sh
+
+# 1. Run frontend lint-staged
 cd IOPHA-frontend && npx lint-staged
+cd "$(git rev-parse --show-toplevel)"
+
+# 2. Get staged backend Python files
+BACKEND_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '^IOPHA-backend/' || true)
+
+if [ -n "$BACKEND_STAGED" ]; then
+  echo "Running Ruff check with auto-fix..."
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff check --fix
+
+  echo "Running Ruff format..."
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff format
+
+  echo "Re-staging auto-fixed files..."
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 git add
+fi

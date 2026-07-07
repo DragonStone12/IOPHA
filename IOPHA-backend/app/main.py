@@ -140,6 +140,10 @@ app.add_middleware(PIISanitizationMiddleware)
 # 5. Prometheus Metrics Instrumentation
 # ---------------------------------------------------------------------------
 
+# Initialize the instrumentator
+# should_group_status_codes=True: group status codes (reduces cardinality)
+# should_ignore_untemplated=True: ignore routes with no template
+# should_group_untemplated=True: group untemplated paths
 instrumentator = Instrumentator(
     should_group_status_codes=True,
     should_ignore_untemplated=True,
@@ -148,6 +152,7 @@ instrumentator = Instrumentator(
     excluded_handlers=["/metrics"],
 )
 
+# Instrument the app and expose the /metrics endpoint
 instrumentator.instrument(app).expose(
     app,
     endpoint="/metrics",
