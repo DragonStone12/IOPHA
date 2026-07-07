@@ -1,23 +1,26 @@
 # Cypress Testing Guide
+
 **For IOPHA Frontend (Cypress 15 + React 18 + Vite + Tailwind CSS v4)**
 
 ## Table of Contents
 
-| # | Section | Description |
-|---|---------|-------------|
-| 1 | [Overview](#overview) | Tech stack and scope |
-| 2 | [E2E vs Component Tests](#testing-strategy-e2e-vs-component-tests) | When to use each testing approach |
-| 3 | [Component Testing Guide](#cypress-component-testing-guide) | Setup, mounting, props, variants, best practices |
-| 4 | [TDD Workflow](#mandatory-tdd-workflow-for-component-tests) | Mandatory test-driven development cycle |
-| 5 | [Component vs Integration](#component-level-vs-integration-testing) | Scope and use-case guidance |
-| 6 | [Troubleshooting](#troubleshooting) | Common Cypress errors and fixes |
-| 7 | [Quick Reference](#quick-reference-card) | Do/Don't cheat sheet |
+| #   | Section                                                             | Description                                                                               |
+| --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | [Overview](#overview)                                               | Tech stack and scope                                                                      |
+| 2   | [E2E vs Component Tests](#testing-strategy-e2e-vs-component-tests)  | When to use each testing approach                                                         |
+| 3   | [Component Testing Guide](#cypress-component-testing-guide)         | Setup, mounting, props, variants, best practices                                          |
+| 4   | [TDD Workflow](#mandatory-tdd-workflow-for-component-tests)         | Mandatory test-driven development cycle                                                   |
+| 5   | [Component vs Integration](#component-level-vs-integration-testing) | Scope and use-case guidance                                                               |
+| 6   | [Troubleshooting](#troubleshooting)                                 | Common Cypress errors and fixes                                                           |
+| 7   | [Best Practices: Test Stability](#best-practices-test-stability)    | Avoiding flaky component tests (frozen dates, visible-only queries, DOM-state assertions) |
+| 8   | [Quick Reference](#quick-reference-card)                            | Do/Don't cheat sheet                                                                      |
 
 ## Overview
 
 This guide covers all Cypress testing for the IOPHA frontend: E2E tests with Cucumber BDD, component tests, and the mandatory TDD workflow. Visual regression testing is documented separately in `VISUAL_REGRESSION_PLAYBOOK.md`.
 
 **Tech stack:**
+
 - Cypress 15 (E2E + Component Testing via `cy.mount`)
 - `@badeball/cypress-cucumber-preprocessor` — BDD `.feature` files for E2E
 - `@swimlane/cy-mockapi` — API response mocking
@@ -33,6 +36,7 @@ This guide covers all Cypress testing for the IOPHA frontend: E2E tests with Cuc
 E2E tests use **Gherkin syntax** (`.feature` files) located in `cypress/e2e/Tests/`. These tests visit the actual application and verify user flows end-to-end.
 
 **File structure:**
+
 ```
 cypress/e2e/
 └── Tests/
@@ -50,6 +54,7 @@ All E2E tests use Gherkin syntax in `.feature` files. Step definitions are in `c
 **Naming convention:** Each `.feature` file MUST have a corresponding `.steps.ts` file with a matching base name. For example, `nutrition-tips.feature` maps to `nutrition-tips.steps.ts`. Step definitions for one feature MUST NOT be placed in another feature's step definition file.
 
 **Gherkin feature file example** (`cypress/e2e/Tests/app.feature`):
+
 ```gherkin
 Feature: Landing Page
   Scenario: User views the landing page
@@ -59,6 +64,7 @@ Feature: Landing Page
 ```
 
 **Step definitions** (`cypress/support/step_definitions/app.steps.ts`):
+
 ```typescript
 import { Given, When, Then } from "@badeball/cypress-cucumber-preprocessor";
 
@@ -168,6 +174,7 @@ Then(
 The CI runs tests against the **PR merge commit** (your branch + main). If your branch defines a step that also exists in main, the merge creates duplicates. Local tests only run against your branch in isolation, so they pass. The `cy:check-steps` script catches duplicates within your branch, but cannot predict merge conflicts with main.
 
 **To avoid merge conflicts:**
+
 - Before creating a new step, check if it already exists in `app.steps.ts` or other step files
 - When in doubt, use `grep -r "step text" cypress/support/step_definitions/` to search for existing definitions
 - When starting a new feature's step file, do NOT copy another feature's step file — start with an empty file and only add steps unique to that feature
@@ -177,6 +184,7 @@ The CI runs tests against the **PR merge commit** (your branch + main). If your 
 When clicking interactive elements (chips, buttons, links) in E2E step definitions, always scope the selector to the correct container. The IOPHA landing page renders duplicate text labels in both the sidebar (`RiskProfileSidebar`) and the chat area (`ChatArea`). Using a bare `cy.contains(label).click()` will match the **first** element in DOM order — which is the sidebar's static navigation item with no click handler — causing the intended action to silently fail.
 
 **Correct pattern** — scope to the chat area (`<main>`):
+
 ```typescript
 When("I click the {string} chip", (chipLabel: string) => {
   cy.get("main").contains(chipLabel).click();
@@ -186,6 +194,7 @@ When("I click the {string} chip", (chipLabel: string) => {
 This ensures Cypress clicks the interactive chip inside the chat area rather than the non-interactive sidebar navigation item. For more information on diagnosing and resolving this issue, see the [Troubleshooting guide](../TROUBLESHOOTING.md#duplicate-text-labels-across-sidebar-and-chat-area).
 
 **When to use E2E tests:**
+
 - Full page layouts and user flows
 - Multi-component interactions
 - End-to-end user journeys
@@ -195,6 +204,7 @@ This ensures Cypress clicks the interactive chip inside the chat area rather tha
 Component tests use **Cypress Component Testing** with `cy.mount()` to test components in isolation. Test files use `.spec.tsx` extension and live alongside components in `src/components/`.
 
 **File structure:**
+
 ```
 src/components/
 ├── LandingPage/
@@ -209,6 +219,7 @@ src/components/
 ```
 
 **Component test example** (`src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx`):
+
 ```typescript
 import { RiskProfileSidebar } from "./RiskProfileSidebar";
 
@@ -233,6 +244,7 @@ describe("RiskProfileSidebar Component", () => {
 ```
 
 **When to use component tests:**
+
 - Discrete UI states (hover, active, disabled)
 - Isolated component validation
 - Props and event handling
@@ -258,6 +270,7 @@ component: {
 ```
 
 **Support file** (`cypress/support/component.ts`):
+
 ```typescript
 import { mount } from "cypress/react";
 import "../../src/index.css";
@@ -276,6 +289,7 @@ Cypress.Commands.add("mount", mount);
 > **Important:** Cypress 13+ consolidated React mounting into `cypress/react`. Do NOT use `cypress/react18` — it does not exist in Cypress 15 and will cause module resolution errors.
 
 **Component mount HTML** (`cypress/support/component-index.html`):
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -307,12 +321,14 @@ npx cypress open --component
 ### Mounting Components
 
 **Basic mount:**
+
 ```typescript
 cy.mount(<Button>Click me</Button>);
 cy.get("button").should("be.visible");
 ```
 
 **Mount with props:**
+
 ```typescript
 cy.mount(
   <Card
@@ -325,6 +341,7 @@ cy.contains("Welcome").should("be.visible");
 ```
 
 **Mount with providers/context:**
+
 ```typescript
 cy.mount(
   <QueryProvider>
@@ -336,6 +353,7 @@ cy.mount(
 ### Testing Props and Events
 
 **Testing props:**
+
 ```typescript
 it("renders different risk levels", () => {
   cy.mount(<RiskProfileSidebar riskScore={85} />);
@@ -347,6 +365,7 @@ it("renders different risk levels", () => {
 ```
 
 **Testing callbacks with stubs:**
+
 ```typescript
 it("fires onTopicSelect callback when chip is clicked", () => {
   const callback = cy.stub().as("topicSelect");
@@ -361,6 +380,7 @@ it("fires onTopicSelect callback when chip is clicked", () => {
 Test how a component looks and behaves in different states (e.g., hover, disabled, loading, error). Use visual snapshots to capture each variant for regression testing.
 
 **Testing button states:**
+
 ```typescript
 describe("Button variants", () => {
   it("renders default state", () => {
@@ -390,6 +410,7 @@ describe("Button variants", () => {
 ```
 
 **Testing card variants:**
+
 ```typescript
 describe("Card variants", () => {
   it("renders default card", () => {
@@ -406,7 +427,7 @@ describe("Card variants", () => {
   it("renders with different sizes", () => {
     cy.mount(<Card title="Small" size="sm" />);
     cy.compareSnapshot("card-small");
-    
+
     cy.mount(<Card title="Large" size="lg" />);
     cy.compareSnapshot("card-large");
   });
@@ -414,6 +435,7 @@ describe("Card variants", () => {
 ```
 
 **Testing modal states:**
+
 ```typescript
 describe("Modal states", () => {
   it("renders closed modal", () => {
@@ -431,6 +453,7 @@ describe("Modal states", () => {
 ```
 
 **Why test variants with snapshots:**
+
 - Catches unintended visual changes across component states
 - Documents expected appearance for each state
 - Prevents regressions when refactoring component styles
@@ -439,6 +462,7 @@ describe("Modal states", () => {
 ### Stubbing Dependencies
 
 **Stubbing HTTP requests:**
+
 ```typescript
 cy.intercept("GET", "/api/users", {
   statusCode: 200,
@@ -453,6 +477,7 @@ cy.contains("Alice").should("be.visible");
 ### Best Practices
 
 **Test organization:**
+
 ```typescript
 describe("LoginForm", () => {
   describe("validation", () => {
@@ -468,6 +493,7 @@ describe("LoginForm", () => {
 ```
 
 **Keep tests independent:**
+
 ```typescript
 beforeEach(() => {
   // Reset state before each test
@@ -476,6 +502,7 @@ beforeEach(() => {
 ```
 
 **Use semantic selectors:**
+
 ```typescript
 // Good - stable selectors
 cy.contains("Sleep & recovery").should("be.visible");
@@ -558,6 +585,7 @@ it("should render exactly 3 numbered dietary adjustment cards", () => {
 **Step 6: Run — it fails. Implement. Run — it passes. Repeat.**
 
 Continue this cycle for every piece of functionality:
+
 - Tip card rendering
 - Physician card rendering
 - Follow-up chip rendering
@@ -592,11 +620,13 @@ Continue this cycle for every piece of functionality:
 ## Component-Level vs Integration Testing
 
 **Use component tests** (Cypress Component Testing via `cy.mount`) for:
+
 - Discrete UI states: Button hover, Card layout, Form validation
 - Isolated validation without full page context
 - Faster feedback during development
 
 Component test files use `.spec.tsx` extension and live alongside components:
+
 ```typescript
 // src/components/RiskProfileSidebar/RiskProfileSidebar.spec.tsx
 import { RiskProfileSidebar } from './RiskProfileSidebar';
@@ -616,6 +646,7 @@ describe('RiskProfileSidebar', () => {
 ```
 
 **Use E2E tests** (Cucumber `.feature` files + `.cy.ts` specs) for:
+
 - Full page layouts
 - Multi-component interactions
 - End-to-end user flows
@@ -630,7 +661,9 @@ describe('RiskProfileSidebar', () => {
 
 ```typescript
 // WRONG: cy.contains() looks for visible text nodes
-cy.contains("Ask about nutrition, exercise, finding a doctor...").should("be.visible");
+cy.contains("Ask about nutrition, exercise, finding a doctor...").should(
+  "be.visible",
+);
 
 // CORRECT: Check the placeholder attribute
 cy.get('input[placeholder*="Ask about nutrition"]').should("be.visible");
@@ -686,19 +719,125 @@ cy.contains("04:00 PM").scrollIntoView().should("be.visible");
 
 ---
 
+## Best Practices: Test Stability
+
+Flaky component tests (e.g., `TimeSelector.spec.tsx`) almost always trace back to three culprits: **dynamic/unstable dates**, **loose CSS assertions**, and **fragile DOM querying in calendar grids**. Follow these practices to harden your tests. For the full root-cause breakdown, see the [Troubleshooting guide for Cypress Component Test Flakiness](../TROUBLESHOOTING.md#cypress-component-test-flakiness).
+
+### 1. Freeze the clock for date-dependent components
+
+Never pass a live `new Date()` into a time/date component. A midnight rollover or timezone shift can make the UI render "no slots available", so selectors like `button[aria-label*='Select']` vanish entirely.
+
+```typescript
+// ✅ Define a static baseline and freeze the clock
+const BASELINE_DATE = new Date(2026, 5, 26); // Friday, June 26, 2026
+
+describe("TimeSelector", () => {
+  beforeEach(() => {
+    cy.clock(BASELINE_DATE.getTime(), ["Date"]);
+  });
+  afterEach(() => {
+    cy.clock().then((clock) => clock.restore());
+  });
+
+  it("should fire onTimeSelect when a time slot is clicked", () => {
+    const callback = cy.stub().as("timeSelectCallback");
+    cy.mount(
+      <TimeSelector
+        physician={MOCK_PHYSICIAN}
+        selectedDate={BASELINE_DATE}   // pass the frozen baseline
+        onTimeSelect={callback}
+      />,
+    );
+    cy.get("button[aria-label*='Select']").filter(":visible").first().click();
+    cy.get("@timeSelectCallback").should("have.been.called");
+  });
+});
+```
+
+### 2. Query only visible, interactive elements
+
+Long calendar chains that rely on render order (`.first()`) can hit a non-interactive cell when a month starts on a weekend or has clipping boundaries. Always filter to visible elements before selecting.
+
+```typescript
+// ❌ Fragile — depends on exact render order
+cy.get("td[data-day]")
+  .not("[data-outside]")
+  .not("[data-disabled]")
+  .find("button")
+  .first()
+  .click();
+
+// ✅ Robust — only visible, interactive buttons
+cy.get("td[data-day]")
+  .not("[data-outside]")
+  .not("[data-disabled]")
+  .find("button")
+  .filter(":visible")
+  .first()
+  .click();
+```
+
+### 3. Assert DOM state, not computed CSS
+
+`have.css` reads computed styles that vary by headless mode, viewport scaling, and sub-pixel rounding (e.g., `2px` computes as `1.998px`). Prefer DOM attributes and class names.
+
+```typescript
+// ❌ Flaky — computed pixel value
+cy.get('td[data-selected="true"] button').should(
+  "have.css",
+  "border-width",
+  "2px",
+);
+
+// ✅ Stable — DOM state
+cy.get('td[data-selected="true"]').should("exist");
+cy.get('td[data-selected="true"] button').should("be.visible");
+
+// ✅ Stable — class-based state
+cy.get('button[aria-label*="Select"][aria-pressed="true"]').should(
+  "have.class",
+  "bg-blue-600",
+);
+```
+
+### 4. Guard snapshot tests against conditional content
+
+Wrap snapshot capture in a conditional check so a missing optional element ("No appointments available") does not break the run.
+
+```typescript
+cy.get("body").then(($body) => {
+  if ($body.find("button[aria-label*='Select']").length === 0) {
+    cy.contains("No appointments available for this date").should("be.visible");
+    cy.compareSnapshot({
+      name: "time-selector-no-slots",
+      testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
+    });
+  }
+});
+```
+
+**Stability checklist:**
+
+- [ ] No live `new Date()` / `Date.now()` passed to components — use a frozen baseline + `cy.clock()`
+- [ ] Calendar/grid queries include `.filter(":visible")`
+- [ ] Assertions use attributes/classes, not `have.css` pixel values
+- [ ] Conditional UI is guarded before `cy.compareSnapshot()`
+
+---
+
 ## Quick Reference Card
 
-| **Do** | **Don't** |
-|--------|-----------|
-| Use `.spec.tsx` for component tests | Use `.cy.tsx` (wrong extension) |
-| Use `cy.mount()` for component tests | Use `cy.visit()` for component tests |
-| Write tests BEFORE component code | Write component code first, tests after |
-| Let each new test FAIL before implementing | Skip the failing step |
-| Use semantic selectors (`aside`, `main`, class names) | Rely on `data-testid` (not used in this project) |
-| Use `cy.get('input[placeholder*="..."]')` | Use `cy.contains()` for placeholder text |
-| Import from `cypress/react` | Import from `cypress/react18` |
-| Keep tests independent with `beforeEach` | Share state between tests |
-| Use `cy.stub().as("name")` for callbacks | Test callbacks by checking DOM only |
-| Test component variants & states with snapshots | Skip testing hover/disabled/loading states |
-| Use `cy.compareSnapshot("name-state")` for variants | Use vague snapshot names like `"button-1"` |
+| **Do**                                                                                                      | **Don't**                                                                 |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Use `.spec.tsx` for component tests                                                                         | Use `.cy.tsx` (wrong extension)                                           |
+| Use `cy.mount()` for component tests                                                                        | Use `cy.visit()` for component tests                                      |
+| Write tests BEFORE component code                                                                           | Write component code first, tests after                                   |
+| Let each new test FAIL before implementing                                                                  | Skip the failing step                                                     |
+| Use semantic selectors (`aside`, `main`, class names)                                                       | Rely on `data-testid` (not used in this project)                          |
+| Use `cy.get('input[placeholder*="..."]')`                                                                   | Use `cy.contains()` for placeholder text                                  |
+| Import from `cypress/react`                                                                                 | Import from `cypress/react18`                                             |
+| Keep tests independent with `beforeEach`                                                                    | Share state between tests                                                 |
+| Use `cy.stub().as("name")` for callbacks                                                                    | Test callbacks by checking DOM only                                       |
+| Test component variants & states with snapshots                                                             | Skip testing hover/disabled/loading states                                |
+| Use `cy.compareSnapshot("name-state")` for variants                                                         | Use vague snapshot names like `"button-1"`                                |
 | Use `cy.contains("text").scrollIntoView().should("be.visible")` for elements near the bottom of a component | Assume elements are visible without scrolling in headless component tests |
