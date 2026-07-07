@@ -11,3 +11,7 @@ declare global {
 }
 
 Cypress.Commands.add("mount", mount);
+
+Cypress.on("window:before:load", (win) => {
+  cy.stub(win.Math, "random").returns(0.4);
+});

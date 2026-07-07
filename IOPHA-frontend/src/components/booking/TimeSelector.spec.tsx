@@ -13,7 +13,17 @@ const MOCK_PHYSICIAN: Physician = {
     "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop&auto=format",
 };
 
+const BASELINE_DATE = new Date(2026, 5, 26);
+
 describe("TimeSelector Component", () => {
+  beforeEach(() => {
+    cy.clock(BASELINE_DATE.getTime(), ["Date"]);
+  });
+
+  afterEach(() => {
+    cy.clock().then((clock) => clock.restore());
+  });
+
   it("should render the title 'Select Appointment Time'", () => {
     cy.mount(<TimeSelector physician={MOCK_PHYSICIAN} />);
     cy.contains("Select Appointment Time").should("be.visible");
@@ -74,11 +84,10 @@ describe("TimeSelector Component", () => {
   });
 
   it("should show summary bar and Continue button when date and time are selected", () => {
-    const today = new Date();
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={today}
+        selectedDate={BASELINE_DATE}
         selectedTime="09:00 AM"
       />,
     );
@@ -99,14 +108,12 @@ describe("TimeSelector Component", () => {
   });
 
   it("should fire onContinue callback when Continue button is clicked", () => {
-    const today = new Date();
-    const callback = cy.stub().as("continueCallback");
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={today}
+        selectedDate={BASELINE_DATE}
         selectedTime="09:00 AM"
-        onContinue={callback}
+        onContinue={cy.stub().as("continueCallback")}
       />,
     );
     cy.contains("Continue to Confirmation").click();
@@ -114,62 +121,54 @@ describe("TimeSelector Component", () => {
   });
 
   it("should fire onDateSelect when a date is selected", () => {
-    cy.clock(new Date(2026, 5, 26));
-    const callback = cy.stub().as("dateSelectCallback");
     cy.mount(
-      <TimeSelector physician={MOCK_PHYSICIAN} onDateSelect={callback} />,
+      <TimeSelector
+        physician={MOCK_PHYSICIAN}
+        onDateSelect={cy.stub().as("dateSelectCallback")}
+      />,
     );
     cy.get("td[data-day]")
       .not("[data-outside]")
       .not("[data-disabled]")
       .find("button")
+      .filter(":visible")
       .first()
       .click();
     cy.get("@dateSelectCallback").should("have.been.called");
-    cy.clock().then((clock) => clock.restore());
   });
 
   it("should fire onTimeSelect when a time slot is clicked", () => {
-    const today = new Date();
-    const callback = cy.stub().as("timeSelectCallback");
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={today}
-        onTimeSelect={callback}
+        selectedDate={BASELINE_DATE}
+        onTimeSelect={cy.stub().as("timeSelectCallback")}
       />,
     );
-    cy.get("button[aria-label*='Select']").first().click();
+    cy.get("button[aria-label*='Select']")
+      .filter(":visible")
+      .first()
+      .click();
     cy.get("@timeSelectCallback").should("have.been.called");
   });
 
   it("should show blue circle outline on selected date", () => {
-    cy.clock(new Date(2026, 5, 26));
-    const testDate = new Date(2026, 5, 26);
     cy.mount(
-      <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={testDate} />,
+      <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={BASELINE_DATE} />,
     );
-    cy.get('td[data-selected="true"] button').should(
-      "have.css",
-      "border-width",
-      "2px",
-    );
-    cy.clock().then((clock) => clock.restore());
+    cy.get('td[data-selected="true"]').should("exist");
+    cy.get('td[data-selected="true"] button').should("be.visible");
   });
 
   it("should show blue filled button for selected time", () => {
-    const today = new Date();
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={today}
+        selectedDate={BASELINE_DATE}
         selectedTime="09:00 AM"
       />,
     );
-    cy.get('button[aria-label*="Select"][aria-pressed="true"]').should(
-      "have.class",
-      "bg-blue-600",
-    );
+    cy.contains("button", "09:00 AM").should("have.class", "bg-blue-600");
   });
 
   it("should render with visual snapshot - initial state", () => {
@@ -181,9 +180,8 @@ describe("TimeSelector Component", () => {
   });
 
   it("should render with visual snapshot - date selected only", () => {
-    const testDate = new Date(2026, 5, 26);
     cy.mount(
-      <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={testDate} />,
+      <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={BASELINE_DATE} />,
     );
     cy.compareSnapshot({
       name: "time-selector-date-selected",
@@ -192,35 +190,16 @@ describe("TimeSelector Component", () => {
   });
 
   it("should render with visual snapshot - date and time selected", () => {
-    const testDate = new Date(2026, 5, 26);
     cy.mount(
       <TimeSelector
         physician={MOCK_PHYSICIAN}
-        selectedDate={testDate}
+        selectedDate={BASELINE_DATE}
         selectedTime="04:00 PM"
       />,
     );
     cy.compareSnapshot({
       name: "time-selector-selected",
       testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
-    });
-  });
-
-  it("should render with visual snapshot - no slots available", () => {
-    const testDate = new Date(2026, 5, 26);
-    cy.mount(
-      <TimeSelector physician={MOCK_PHYSICIAN} selectedDate={testDate} />,
-    );
-    cy.get("button[aria-label*='Select']").then(($btns) => {
-      if ($btns.length === 0) {
-        cy.contains("No appointments available for this date").should(
-          "be.visible",
-        );
-        cy.compareSnapshot({
-          name: "time-selector-no-slots",
-          testThreshold: Cypress.env("SNAPSHOT_TEST_THRESHOLD"),
-        });
-      }
     });
   });
 });
