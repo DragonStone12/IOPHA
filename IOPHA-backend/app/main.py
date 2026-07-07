@@ -32,6 +32,10 @@ class ChatMessageDTO(BaseModel):
     content: str
     timestamp: str
 
+    @field_serializer("content")
+    def mask_pii(self, value: str) -> str:
+        return "[REDACTED]"
+
 
 # ---------------------------------------------------------------------------
 # 2. Logging filter for PII/PHI redaction
@@ -143,6 +147,22 @@ class PIISanitizationMiddleware(BaseHTTPMiddleware):
 
 # Register middleware BEFORE logging and metrics middleware
 app.add_middleware(PIISanitizationMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# 4b. Chat endpoint (centralized PII serialization via ChatMessageDTO)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/chat/message", response_model=ChatMessageDTO, tags=["chat"])
+async def chat_message(message: ChatMessageDTO) -> ChatMessageDTO:
+    """
+    Accepts a chat message and echoes it back. The `ChatMessageDTO`
+    response serializer masks PII in `content` (e.g. `[REDACTED]`),
+    so sensitive data never leaves the API in the clear.
+    """
+    return message
+
 
 # ---------------------------------------------------------------------------
 # 5. Prometheus Metrics Instrumentation

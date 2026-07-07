@@ -5,7 +5,13 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from app.main import PatientDTO, PIISanitizationMiddleware, PIISanitizerFilter
+from app.main import (
+    ChatMessageDTO,
+    PatientDTO,
+    PIISanitizationMiddleware,
+    PIISanitizerFilter,
+    app as main_app,
+)
 
 # ---------------------------------------------------------------------------
 # PIISanitizerFilter tests
@@ -260,3 +266,51 @@ class TestPatientDTO:
         data = dto.model_dump()
         assert data["patient_id"] == 1
         assert data["name"] == "John Doe"
+
+
+class TestChatMessageDTO:
+    def test_content_redacted_on_serialization(self) -> None:
+        dto = ChatMessageDTO(
+            message_id="msg-1",
+            user_id=42,
+            content="My email is john.doe@example.com",
+            timestamp="2026-07-07T00:00:00Z",
+        )
+        json_str = dto.model_dump_json()
+        assert "[REDACTED]" in json_str
+        assert "john.doe@example.com" not in json_str
+
+    def test_non_pii_fields_preserved(self) -> None:
+        dto = ChatMessageDTO(
+            message_id="msg-1",
+            user_id=42,
+            content="hello world",
+            timestamp="2026-07-07T00:00:00Z",
+        )
+        data = dto.model_dump()
+        assert data["message_id"] == "msg-1"
+        assert data["user_id"] == 42
+        assert data["content"] == "[REDACTED]"
+
+
+class TestChatMessageEndpoint:
+    def test_message_echoes_with_redacted_content(self) -> None:
+        client = TestClient(main_app)
+        payload = {
+            "message_id": "msg-2",
+            "user_id": 7,
+            "content": "Call me at 555-123-4567",
+            "timestamp": "2026-07-07T00:00:00Z",
+        }
+        response = client.post("/chat/message", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message_id"] == "msg-2"
+        assert data["user_id"] == 7
+        assert data["content"] == "[REDACTED]"
+        assert "555-123-4567" not in data["content"]
+
+    def test_message_requires_body(self) -> None:
+        client = TestClient(main_app)
+        response = client.post("/chat/message", json={})
+        assert response.status_code == 422
