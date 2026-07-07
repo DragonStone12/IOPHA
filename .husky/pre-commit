@@ -33,26 +33,30 @@ cd "$(git rev-parse --show-toplevel)"
 BACKEND_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '^IOPHA-backend/' || true)
 
 if [ -n "$BACKEND_STAGED" ]; then
-  if ! RUFF=$(resolve_ruff); then
-    echo "husky/pre-commit: 'ruff' not found on PATH or in ./venv."
-    echo "Install it (e.g. 'pip install ruff') and retry, or use 'git commit --no-verify' only if you know why."
-    exit 1
+  PYTHON_STAGED=$(printf '%s\n' "$BACKEND_STAGED" | grep -E '\.py$' || true)
+
+  if [ -n "$PYTHON_STAGED" ]; then
+    if ! RUFF=$(resolve_ruff); then
+      echo "husky/pre-commit: 'ruff' not found on PATH or in ./venv."
+      echo "Install it (e.g. 'pip install ruff') and retry, or use 'git commit --no-verify' only if you know why."
+      exit 1
+    fi
+
+    echo "Running Ruff check with auto-fix..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check --fix
+
+    echo "Running Ruff format..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format
+
+    echo "Re-staging auto-fixed files..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 git add
+
+    echo "Verifying Ruff check passes (blocking)..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check
+
+    echo "Verifying Ruff format passes (blocking)..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format --check
   fi
-
-  echo "Running Ruff check with auto-fix..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check --fix
-
-  echo "Running Ruff format..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format
-
-  echo "Re-staging auto-fixed files..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 git add
-
-  echo "Verifying Ruff check passes (blocking)..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check
-
-  echo "Verifying Ruff format passes (blocking)..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format --check
 fi
 
 echo "husky/pre-commit: backend checks passed."

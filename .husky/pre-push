@@ -26,3 +26,28 @@ if ! RUFF=$(resolve_ruff); then
 fi
 
 $RUFF check IOPHA-backend/ && $RUFF format --check IOPHA-backend/
+
+# Guard: ensure the Python backend passes mypy before pushing (mirrors CI).
+resolve_mypy() {
+  if command -v mypy >/dev/null 2>&1; then
+    echo "mypy"
+    return 0
+  fi
+  if [ -x venv/bin/mypy ]; then
+    echo "venv/bin/mypy"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 -m mypy --version >/dev/null 2>&1; then
+    echo "python3 -m mypy"
+    return 0
+  fi
+  return 1
+}
+
+if MYPY=$(resolve_mypy); then
+  echo "Running mypy..."
+  $MYPY IOPHA-backend/ || exit 1
+else
+  echo "Warning: 'mypy' not found on PATH or in ./venv. Skipping mypy check."
+  echo "Install it (e.g. 'pip install mypy') to enable local type checking."
+fi
