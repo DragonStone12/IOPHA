@@ -48,7 +48,7 @@ class PIISanitizerFilter(logging.Filter):
         super().__init__()
         self.patterns = [
             (
-                re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
+                re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
                 "[EMAIL_REDACTED]",
             ),
             (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
