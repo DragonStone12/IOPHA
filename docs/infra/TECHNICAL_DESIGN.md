@@ -391,25 +391,22 @@ cd IOPHA-frontend && npm install && npm run dev
 # Backend development (requires main.py in app/)
 cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
 
-# Install pre-commit hooks (required for local quality enforcement)
-pip install pre-commit && pre-commit install
+# Install git hooks (Husky) — runs automatically via the "prepare" script on `npm install`
+npm install
 ```
 
-#### Pre-Commit Hook Configuration
+#### Git Hook Configuration (Husky)
 
-The project uses pre-commit to enforce code quality before commits reach CI:
+The project uses [Husky](https://typicode.github.io/husky/) to enforce code quality before commits reach CI. Hook scripts live in `.husky/`:
 
-| Hook              | Tool      | Purpose                            |
-| ----------------- | --------- | ---------------------------------- |
-| `ruff`            | Ruff      | Lint with auto-fix on staged files |
-| `ruff-format`     | Ruff      | Code formatting (Black-compatible) |
-| `mypy`            | Mypy      | Static type checking               |
-| `bandit`          | Bandit    | Security scanning for Python       |
-| `pip-audit`       | pip-audit | Dependency vulnerability audit     |
-| `frontend-eslint` | ESLint    | Frontend linting                   |
-| `prettier`        | Prettier  | Frontend formatting                |
+| Hook                | What it runs                                                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.husky/pre-commit` | Backend: `ruff check --fix` + `ruff format` on staged Python files, then a **verifying** `ruff check` / `ruff format --check` that blocks the commit on any remaining issue. Frontend: `npx lint-staged`. |
+| `.husky/pre-push`   | `npm run test:changed` (frontend) and a `ruff check` / `ruff format --check` gate over `IOPHA-backend/` (mirrors CI).                                                     |
 
-**Rules Enabled**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR)
+**Rules Enabled (Ruff)**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR) — see `IOPHA-backend/pyproject.toml` and `docs/security/RUFF_MYPY_LINTING.md`.
+
+> **Note:** `mypy` and `bandit` are enforced in CI (`ci-backend.yml`), not in the pre-commit hook, to keep commits fast.
 
 **Pre-Commit Enforcement Rule**: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI.
 

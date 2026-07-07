@@ -2,4 +2,27 @@ npm run test:changed
 
 # Guard: ensure the Python backend passes ruff before pushing (mirrors CI).
 cd "$(git rev-parse --show-toplevel)"
-ruff check IOPHA-backend/ && ruff format --check IOPHA-backend/
+
+resolve_ruff() {
+  if command -v ruff >/dev/null 2>&1; then
+    echo "ruff"
+    return 0
+  fi
+  if [ -x venv/bin/ruff ]; then
+    echo "venv/bin/ruff"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 -m ruff --version >/dev/null 2>&1; then
+    echo "python3 -m ruff"
+    return 0
+  fi
+  return 1
+}
+
+if ! RUFF=$(resolve_ruff); then
+  echo "husky/pre-push: 'ruff' not found on PATH or in ./venv."
+  echo "Install it (e.g. 'pip install ruff') and retry, or use 'git push --no-verify' only if you know why."
+  exit 1
+fi
+
+$RUFF check IOPHA-backend/ && $RUFF format --check IOPHA-backend/

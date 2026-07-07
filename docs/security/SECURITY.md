@@ -327,7 +327,7 @@ All pull requests to `main` branch must pass the following quality gates:
 | pip-audit          | `pip-audit`           | Required - high severity block    |
 | ESLint             | Frontend lint         | Required                          |
 
-**Pre-Commit Enforcement**: The pre-commit configuration runs ruff, ruff-format, and mypy on all staged Python files. Commits failing these checks are rejected. Never bypass with `--no-verify`.
+**Pre-Commit Enforcement**: The Husky pre-commit hook (`.husky/pre-commit`) runs `ruff check --fix` + `ruff format` on staged Python files, then a verifying `ruff check` / `ruff format --check` that rejects the commit if any issue remains. `mypy` is enforced in CI, not pre-commit. Never bypass with `--no-verify`.
 
 ### HIPAA Alignment
 
@@ -398,8 +398,8 @@ External-facing Pydantic response models use `@field_serializer` to automaticall
 | `ruff check IOPHA-backend/`               | Fast Python linting (Pyflakes, Pycodestyle, Security)    |
 | `ruff format --check IOPHA-backend/`      | Code formatting check                                    |
 | `mypy IOPHA-backend/`                     | Static type checking                                     |
-| `pre-commit install`                      | Install git pre-commit hooks                             |
-| `pre-commit run --all-files`              | Run all hooks on entire codebase                         |
+| `npm install`                             | Install deps and set up Husky git hooks (via `prepare`)  |
+| `git config core.hooksPath`               | Confirm hooks resolve to `.husky`                        |
 | Kilo Code Reviewer dashboard              | AI PR reviews, focus areas, PR gate threshold            |
 | Kilo Security Agent dashboard             | Dependabot alerts triage, SLA tracking, auto-remediation |
 

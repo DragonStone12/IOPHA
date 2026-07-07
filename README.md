@@ -33,6 +33,15 @@ cd IOPHA-frontend && npm install && npm run dev
 cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
 ```
 
+### Local quality gates (Git hooks)
+
+This repo uses [Husky](https://typicode.github.io/husky/) for Git hooks (configured via `core.hooksPath = .husky`). After cloning, run `npm install` once so the `prepare` script installs the hooks.
+
+- **Backend**: the pre-commit hook runs `ruff` (auto-fix + verify) on staged Python files in `IOPHA-backend/`. `ruff` must be available on your `PATH` (e.g. `pip install ruff`, or it is resolved from a `venv`/via `python3 -m ruff`). If it is missing the hook fails loudly rather than committing broken code.
+- **Frontend**: the pre-commit hook runs `npx lint-staged`.
+
+Never bypass hooks with `--no-verify`. `mypy` and `bandit` are enforced in CI, not locally.
+
 ## Quick Start
 
 | Command                  | Description                             |

@@ -15,7 +15,7 @@
 
 ## Overview
 
-The IOPHA backend uses Ruff and Mypy as primary static analysis tools. Ruff provides fast linting with multiple rule sets including security checks, while Mypy enforces strict type safety. These checks run via pre-commit hooks before commits reach CI and on every pull request via GitHub Actions.
+The IOPHA backend uses Ruff and Mypy as primary static analysis tools. Ruff provides fast linting with multiple rule sets including security checks, while Mypy enforces strict type safety. These checks run via Husky pre-commit hooks before commits reach CI and on every pull request via GitHub Actions.
 
 ### What This Guards Against
 
@@ -194,28 +194,16 @@ The following type stubs are installed to provide type hints for third-party lib
 
 ## CI Integration
 
-### Pre-Commit Hooks
+### Pre-Commit Hooks (Husky)
 
-The `.pre-commit-config.yaml` runs Ruff and Mypy on all staged Python files:
+Local enforcement is handled by Husky. The hook scripts live in `.husky/`:
 
-```yaml
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.4.0
-  hooks:
-    - id: ruff
-      args: [--fix]
-      files: ^IOPHA-backend/
-    - id: ruff-format
-      files: ^IOPHA-backend/
+- `.husky/pre-commit` — For staged `IOPHA-backend/` Python files it runs `ruff check --fix` and `ruff format`, re-stages the result, then runs a **verifying** `ruff check` and `ruff format --check` that blocks the commit if anything remains. The frontend equivalent is `npx lint-staged`.
+- `.husky/pre-push` — Mirrors CI: `npm run test:changed` (frontend) plus `ruff check IOPHA-backend/` and `ruff format --check IOPHA-backend/`.
 
-- repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.9.0
-  hooks:
-    - id: mypy
-      additional_dependencies: [types-requests, types-setuptools]
-      args: [--config-file=IOPHA-backend/pyproject.toml]
-      files: ^IOPHA-backend/
-```
+`ruff` is resolved defensively by the hook (`command -v ruff` → `venv/bin/ruff` → `python3 -m ruff`) so the gate works whether ruff is global or inside a virtualenv. If ruff cannot be found, the hook fails loudly instead of silently committing.
+
+> **Note:** `mypy` and `bandit` run in CI (`ci-backend.yml`), not in the pre-commit hook, to keep commits fast.
 
 ### GitHub Actions
 

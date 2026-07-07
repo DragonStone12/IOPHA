@@ -1,19 +1,58 @@
 #!/usr/bin/env sh
 
-# 1. Run frontend lint-staged
+# Fail fast: any command that errors (including the verify gates below) aborts
+# the commit instead of silently letting a lint violation through.
+set -e
+
+# ---------------------------------------------------------------------------
+# Resolve a working `ruff` invocation. It may be installed globally, inside a
+# Python virtualenv, or runnable as a module. Without this the hook used to
+# silently no-op when ruff was not on PATH.
+# ---------------------------------------------------------------------------
+resolve_ruff() {
+  if command -v ruff >/dev/null 2>&1; then
+    echo "ruff"
+    return 0
+  fi
+  if [ -x venv/bin/ruff ]; then
+    echo "venv/bin/ruff"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 -m ruff --version >/dev/null 2>&1; then
+    echo "python3 -m ruff"
+    return 0
+  fi
+  return 1
+}
+
+# 1. Frontend lint-staged (block the commit if frontend lint fails).
 cd IOPHA-frontend && npx lint-staged
 cd "$(git rev-parse --show-toplevel)"
 
-# 2. Get staged backend Python files
+# 2. Get staged backend Python files.
 BACKEND_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '^IOPHA-backend/' || true)
 
 if [ -n "$BACKEND_STAGED" ]; then
+  if ! RUFF=$(resolve_ruff); then
+    echo "husky/pre-commit: 'ruff' not found on PATH or in ./venv."
+    echo "Install it (e.g. 'pip install ruff') and retry, or use 'git commit --no-verify' only if you know why."
+    exit 1
+  fi
+
   echo "Running Ruff check with auto-fix..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff check --fix
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check --fix
 
   echo "Running Ruff format..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff format
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format
 
   echo "Re-staging auto-fixed files..."
   echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 git add
+
+  echo "Verifying Ruff check passes (blocking)..."
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check
+
+  echo "Verifying Ruff format passes (blocking)..."
+  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format --check
 fi
+
+echo "husky/pre-commit: backend checks passed."
