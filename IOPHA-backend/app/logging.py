@@ -141,10 +141,7 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
 
         duration_ms = int((time.time() - start_time) * 1000)
         response_size = response.headers.get("content-length", "0")
-        if isinstance(response_size, str) and response_size.isdigit():
-            response_size = int(response_size)
-        else:
-            response_size = 0
+        response_size = int(response_size) if response_size.isdigit() else 0
 
         self.logger.info(
             "request.complete",
