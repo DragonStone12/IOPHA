@@ -143,6 +143,7 @@ log_handler.setFormatter(JsonTelemetryFormatter())
 logger = logging.getLogger("iopha.backend")
 logger.setLevel(logging.INFO)
 logger.addHandler(log_handler)
+logger.propagate = False
 
 app = FastAPI(title="IOPHA Backend API")
 
