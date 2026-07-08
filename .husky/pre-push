@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# Fail fast: any gate that errors (frontend tests, ruff, mypy) aborts the push
+# Fail fast: any gate that errors (frontend tests, ruff, mypy, bandit) aborts the push
 # instead of silently letting a failure through. Mirrors .husky/pre-commit.
 set -e
 
@@ -41,6 +41,33 @@ if MYPY=$(resolve_mypy); then
   echo "Running mypy..."
   $MYPY IOPHA-backend/ || exit 1
 else
-  echo "Warning: 'mypy' not found on PATH or in ./venv. Skipping mypy check."
-  echo "Install it (e.g. 'pip install mypy') to enable local type checking."
+  echo "husky/pre-push: 'mypy' not found on PATH or in ./venv."
+  echo "Install it (e.g. 'pip install mypy') and retry, or use 'git push --no-verify' only if you know why."
+  exit 1
+fi
+
+# Guard: ensure the Python backend passes bandit before pushing (mirrors CI).
+resolve_bandit() {
+  if command -v bandit >/dev/null 2>&1; then
+    echo "bandit"
+    return 0
+  fi
+  if [ -x venv/bin/bandit ]; then
+    echo "venv/bin/bandit"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 -m bandit --version >/dev/null 2>&1; then
+    echo "python3 -m bandit"
+    return 0
+  fi
+  return 1
+}
+
+if BANDIT=$(resolve_bandit); then
+  echo "Running bandit..."
+  $BANDIT -r IOPHA-backend/ -c IOPHA-backend/pyproject.toml --severity-level medium || exit 1
+else
+  echo "husky/pre-push: 'bandit' not found on PATH or in ./venv."
+  echo "Install it (e.g. 'pip install bandit') and retry, or use 'git push --no-verify' only if you know why."
+  exit 1
 fi

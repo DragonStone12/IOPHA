@@ -199,11 +199,9 @@ The following type stubs are installed to provide type hints for third-party lib
 Local enforcement is handled by Husky. The hook scripts live in `.husky/`:
 
 - `.husky/pre-commit` — For staged `IOPHA-backend/` Python files it runs `ruff check --fix` and `ruff format`, re-stages the result, then runs a **verifying** `ruff check` and `ruff format --check` that blocks the commit if anything remains. The frontend equivalent is `npx lint-staged`.
-- `.husky/pre-push` — Mirrors CI: `npm run test:changed` (frontend) plus `ruff check IOPHA-backend/` and `ruff format --check IOPHA-backend/`.
+- `.husky/pre-push` — Mirrors CI: `npm run test:changed` (frontend) plus `ruff check IOPHA-backend/`, `ruff format --check IOPHA-backend/`, `mypy IOPHA-backend/`, and `bandit -r IOPHA-backend/ -c pyproject.toml --severity-level medium`.
 
-`ruff` is resolved defensively by the hook (`command -v ruff` → `venv/bin/ruff` → `python3 -m ruff`) so the gate works whether ruff is global or inside a virtualenv. If ruff cannot be found, the hook fails loudly instead of silently committing.
-
-> **Note:** `mypy` and `bandit` run in CI (`ci-backend.yml`), not in the pre-commit hook, to keep commits fast.
+`ruff`, `mypy`, and `bandit` are resolved defensively by the hook (`command -v <tool>` → `venv/bin/<tool>` → `python3 -m <tool>`) so the gates work whether the tool is global or inside a virtualenv. If any of these tools cannot be found, the hook fails loudly instead of silently committing.
 
 ### GitHub Actions
 

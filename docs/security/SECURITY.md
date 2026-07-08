@@ -327,7 +327,7 @@ All pull requests to `main` branch must pass the following quality gates:
 | pip-audit          | `pip-audit`           | Required - high severity block    |
 | ESLint             | Frontend lint         | Required                          |
 
-**Pre-Commit Enforcement**: The Husky pre-commit hook (`.husky/pre-commit`) runs `ruff check --fix` + `ruff format` on staged Python files, then a verifying `ruff check` / `ruff format --check` that rejects the commit if any issue remains. `mypy` is enforced in CI, not pre-commit. Never bypass with `--no-verify`.
+**Pre-Commit Enforcement**: The Husky pre-commit hook (`.husky/pre-commit`) runs `ruff check --fix` + `ruff format` on staged Python files, then a verifying `ruff check` / `ruff format --check` that rejects the commit if any issue remains. The Husky pre-push hook (`.husky/pre-push`) runs `mypy` and `bandit` against the entire `IOPHA-backend/` tree, mirroring CI. Never bypass with `--no-verify`.
 
 ### HIPAA Alignment
 
