@@ -1,5 +1,5 @@
 npm run test:changed
 
-# Guard: ensure the Python backend passes ruff before pushing (mirrors CI).
+# Guard: ensure the Python backend passes ruff and mypy before pushing (mirrors CI).
 cd "$(git rev-parse --show-toplevel)"
-./IOPHA-backend/venv/bin/ruff check IOPHA-backend/ && ./IOPHA-backend/venv/bin/ruff format --check IOPHA-backend/
+./IOPHA-backend/venv/bin/ruff check IOPHA-backend/ && ./IOPHA-backend/venv/bin/ruff format --check IOPHA-backend/ && ./IOPHA-backend/venv/bin/mypy IOPHA-backend/ --config-file IOPHA-backend/pyproject.toml
