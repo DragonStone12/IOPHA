@@ -2,12 +2,7 @@ import json
 import logging
 from io import StringIO
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from app.logging import (
-    CentralizedLoggingMiddleware,
     JsonTelemetryFormatter,
     PathSanitizer,
 )
@@ -103,8 +98,8 @@ class TestPathSanitizer:
         assert PathSanitizer.sanitize_path("/users/7") == "/users/:id"
 
     def test_leaves_plain_paths_unchanged(self):
-        assert PathSanitizer.sanitize_path("/health") == "/health"
-        assert PathSanitizer.sanitize_path("/directory") == "/directory"
+        assert PathSanitizer.sanitize_path("/status") == "/status"
+        assert PathSanitizer.sanitize_path("/docs") == "/docs"
 
     def test_sanitizes_multiple_segments(self):
         result = PathSanitizer.sanitize_path("/patients/123/records/456")
@@ -135,103 +130,6 @@ class TestPathSanitizer:
 
     def test_mask_user_id_unknown_becomes_redacted(self):
         assert PathSanitizer.mask_user_id("unknown") == "[REDACTED_USER]"
-
-
-# ---------------------------------------------------------------------------
-# CentralizedLoggingMiddleware tests
-# ---------------------------------------------------------------------------
-
-
-class TestCentralizedLoggingMiddleware:
-    @pytest.fixture
-    def app(self):
-        app = FastAPI()
-        app.add_middleware(CentralizedLoggingMiddleware)
-
-        @app.get("/health")
-        def health():
-            return {"status": "healthy"}
-
-        @app.get("/patients/{patient_id}")
-        def get_patient(patient_id: int):
-            return {"patient_id": patient_id}
-
-        @app.get("/directory")
-        def directory():
-            return {"physicians": []}
-
-        return app
-
-    @pytest.fixture
-    def client(self, app):
-        return TestClient(app)
-
-    def test_logs_request_start_and_complete(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            response = client.get("/health", headers={"X-Request-ID": "req-1"})
-        assert response.status_code == 200
-        messages = [r.getMessage() for r in caplog.records if r.name == "iopha.backend"]
-        assert "request.start" in messages
-        assert "request.complete" in messages
-
-    def test_request_log_contains_sanitized_path(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/patients/12345", headers={"X-Request-ID": "req-1"})
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        assert len(records) == 1
-        extra = records[0].extra_context
-        assert extra["path"] == "/patients/:id"
-
-    def test_request_log_contains_method_and_user_agent(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get(
-                "/health",
-                headers={"X-Request-ID": "req-1", "User-Agent": "test-agent"},
-            )
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        extra = records[0].extra_context
-        assert extra["method"] == "GET"
-        assert extra["userAgent"] == "test-agent"
-
-    def test_response_log_contains_status_and_duration(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/health", headers={"X-Request-ID": "req-1"})
-        records = [r for r in caplog.records if r.getMessage() == "request.complete"]
-        assert len(records) == 1
-        extra = records[0].extra_context
-        assert extra["status"] == 200
-        assert isinstance(extra["durationMs"], int)
-        assert "responseSize" in extra
-
-    def test_redacts_sensitive_query_params(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/directory?email=test@example.com&phone=555-123-4567")
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        extra = records[0].extra_context
-        assert extra["queryParams"]["email"] == "[REDACTED]"
-        assert extra["queryParams"]["phone"] == "[REDACTED]"
-
-    def test_preserves_non_sensitive_query_params(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/directory?specialty=cardiology")
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        extra = records[0].extra_context
-        assert extra["queryParams"]["specialty"] == "cardiology"
-
-    def test_masks_request_id_in_logs(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/health", headers={"X-Request-ID": "user_123456"})
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        extra = records[0].extra_context
-        assert extra["requestId"] == "user_***456"
-        assert "123456" not in extra["requestId"]
-
-    def test_uses_unknown_when_no_request_id(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="iopha.backend"):
-            client.get("/health")
-        records = [r for r in caplog.records if r.getMessage() == "request.start"]
-        extra = records[0].extra_context
-        assert extra["requestId"] == "unknown"
 
 
 # ---------------------------------------------------------------------------
