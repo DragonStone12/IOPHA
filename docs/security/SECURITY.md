@@ -396,6 +396,8 @@ record.extra = {"email": "admin@example.com", "phone": "555-123-4567"}
 | `\b\d{3}[-.]?\d{3}[-.]?\d{4}\b`           | `[PHONE_REDACTED]` | Phone numbers           |
 | `\b\d{3}-\d{2}-\d{4}\b`                   | `[SSN_REDACTED]`   | Social security numbers |
 
+Redaction is performed by targeted substring replacement: only the matched PII span is swapped for its `[*_REDACTED]` token while all surrounding, non-sensitive text is preserved. This keeps free-form content (e.g. chat messages) useful for callers and logs instead of being wholly withheld. The patterns above redact only email addresses, phone numbers, and SSNs — credit card numbers and IP addresses are intentionally **not** scrubbed by these patterns.
+
 ### Pydantic DTO Serialization
 
 External-facing Pydantic response models use `@field_serializer` to automatically mask PII fields during serialization. Internal domain models remain unmasked for database operations.

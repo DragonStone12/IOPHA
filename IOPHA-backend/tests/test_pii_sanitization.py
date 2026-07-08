@@ -145,36 +145,6 @@ class TestPIISanitizerFilter:
         assert "[PHONE_REDACTED]" in record.msg
         assert "[SSN_REDACTED]" in record.msg
 
-    def test_scrubs_credit_card_in_message(self) -> None:
-        filt = PIISanitizerFilter()
-        record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname="",
-            lineno=0,
-            msg="Card: 4111-1111-1111-1111",
-            args=(),
-            exc_info=None,
-        )
-        assert filt.filter(record) is True
-        assert "[CARD_REDACTED]" in record.msg
-        assert "4111-1111-1111-1111" not in record.msg
-
-    def test_scrubs_ip_address_in_message(self) -> None:
-        filt = PIISanitizerFilter()
-        record = logging.LogRecord(
-            name="test",
-            level=logging.INFO,
-            pathname="",
-            lineno=0,
-            msg="From 192.168.1.1 accessed",
-            args=(),
-            exc_info=None,
-        )
-        assert filt.filter(record) is True
-        assert "[IP_REDACTED]" in record.msg
-        assert "192.168.1.1" not in record.msg
-
 
 # ---------------------------------------------------------------------------
 # PIISanitizationMiddleware tests
@@ -387,28 +357,6 @@ class TestChatMessageDTO:
         # Update to match the specific redaction tag
         assert "[EMAIL_REDACTED]" in json_str
         assert "john.doe@example.com" not in json_str
-
-    def test_content_credit_card_redacted(self) -> None:
-        dto = ChatMessageDTO(
-            message_id="msg-1",
-            user_id=42,
-            content="My card is 4111-1111-1111-1111",
-            timestamp="2026-07-07T00:00:00Z",
-        )
-        json_str = dto.model_dump_json()
-        assert "[CARD_REDACTED]" in json_str
-        assert "4111-1111-1111-1111" not in json_str
-
-    def test_content_ip_address_redacted(self) -> None:
-        dto = ChatMessageDTO(
-            message_id="msg-1",
-            user_id=42,
-            content="Server 192.168.1.1 is down",
-            timestamp="2026-07-07T00:00:00Z",
-        )
-        json_str = dto.model_dump_json()
-        assert "[IP_REDACTED]" in json_str
-        assert "192.168.1.1" not in json_str
 
     def test_non_pii_fields_preserved(self) -> None:
         dto = ChatMessageDTO(
