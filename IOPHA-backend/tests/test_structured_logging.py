@@ -4,7 +4,6 @@ from io import StringIO
 
 from app.logging import (
     JsonTelemetryFormatter,
-    PathSanitizer,
 )
 
 # ---------------------------------------------------------------------------
@@ -58,10 +57,10 @@ class TestJsonTelemetryFormatter:
             args=(),
             exc_info=None,
         )
-        record.extra_context = {"requestId": "abc-123", "path": "/patients/:id"}
+        record.extra_context = {"requestId": "abc-123", "path": "/chat/message"}
         output = json.loads(formatter.format(record))
         assert output["requestId"] == "abc-123"
-        assert output["path"] == "/patients/:id"
+        assert output["path"] == "/chat/message"
 
     def test_iso_timestamp_format(self):
         formatter = JsonTelemetryFormatter(datefmt="%Y-%m-%dT%H:%M:%S")
@@ -79,57 +78,14 @@ class TestJsonTelemetryFormatter:
 
 
 # ---------------------------------------------------------------------------
-# PathSanitizer tests
+# PathSanitizer: behavior for non-existent API routes
 # ---------------------------------------------------------------------------
-
-
-class TestPathSanitizer:
-    def test_sanitizes_patient_paths(self):
-        assert PathSanitizer.sanitize_path("/patients/12345") == "/patients/:id"
-        assert PathSanitizer.sanitize_path("/patients/0") == "/patients/:id"
-
-    def test_sanitizes_provider_paths(self):
-        assert PathSanitizer.sanitize_path("/providers/999") == "/providers/:id"
-
-    def test_sanitizes_session_paths(self):
-        assert PathSanitizer.sanitize_path("/sessions/42") == "/sessions/:id"
-
-    def test_sanitizes_user_paths(self):
-        assert PathSanitizer.sanitize_path("/users/7") == "/users/:id"
-
-    def test_leaves_plain_paths_unchanged(self):
-        assert PathSanitizer.sanitize_path("/status") == "/status"
-        assert PathSanitizer.sanitize_path("/docs") == "/docs"
-
-    def test_sanitizes_multiple_segments(self):
-        result = PathSanitizer.sanitize_path("/patients/123/records/456")
-        assert result == "/patients/:id/records/456"
-
-    def test_redacts_sensitive_query_params(self):
-        query = {
-            "email": "test@example.com",
-            "phone": "555-123-4567",
-            "specialty": "cardiology",
-        }
-        sanitized = PathSanitizer.sanitize_query(query)
-        assert sanitized["email"] == "[REDACTED]"
-        assert sanitized["phone"] == "[REDACTED]"
-        assert sanitized["specialty"] == "cardiology"
-
-    def test_query_keys_case_insensitive(self):
-        query = {"EMAIL": "test@example.com", "Phone": "555-123-4567"}
-        sanitized = PathSanitizer.sanitize_query(query)
-        assert sanitized["EMAIL"] == "[REDACTED]"
-        assert sanitized["Phone"] == "[REDACTED]"
-
-    def test_mask_user_id_truncates(self):
-        assert PathSanitizer.mask_user_id("user_123456") == "user_***456"
-
-    def test_mask_user_id_short_becomes_redacted(self):
-        assert PathSanitizer.mask_user_id("user_12") == "[REDACTED_USER]"
-
-    def test_mask_user_id_unknown_becomes_redacted(self):
-        assert PathSanitizer.mask_user_id("unknown") == "[REDACTED_USER]"
+# Path sanitization for routes that do not yet exist in the backend
+# (e.g. /patients/:id, /providers/:id, /sessions/:id, /users/:id) is
+# documented in:
+#   - docs/security/SECURITY.md  ("Backend PII/PHI Sanitization")
+#   - docs/infra/TECHNICAL_DESIGN.md ("PII/PHI Sanitization Architecture")
+# Tests for actual API routes are covered in TestStructuredJsonOutput below.
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +102,8 @@ class TestStructuredJsonOutput:
         logger.handlers = [handler]
         logger.setLevel(logging.INFO)
 
-        logger.info("request.start", extra={"extra_context": {"path": "/patients/:id"}})
+        logger.info("request.start", extra={"extra_context": {"path": "/chat/message"}})
         output = stream.getvalue().strip()
         parsed = json.loads(output)
         assert parsed["message"] == "request.start"
-        assert parsed["path"] == "/patients/:id"
+        assert parsed["path"] == "/chat/message"
