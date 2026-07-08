@@ -259,7 +259,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 
 **Middleware Execution Order**:
 1. `PIISanitizationMiddleware` runs outermost to normalize paths and redact sensitive query parameters before any logging occurs.
-2. `CentralizedLoggingMiddleware` captures raw request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes.
+2. `CentralizedLoggingMiddleware` captures PII-sanitized request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes.
 3. Path sanitization occurs before metrics collection.
 
 ### 4.5 RAG Pipeline Logic
