@@ -100,19 +100,7 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
         raw_path = request.url.path
         sanitized_path = PathSanitizer.sanitize_path(raw_path)
 
-        sensitive_query_keys = {
-            "ssn",
-            "email",
-            "phone",
-            "medical_record_number",
-            "mrn",
-            "dob",
-            "date_of_birth",
-        }
-        query_params = dict(request.query_params)
-        for key in query_params:
-            if key.lower() in sensitive_query_keys:
-                query_params[key] = "[REDACTED]"
+        query_params = PathSanitizer.sanitize_query(dict(request.query_params))
 
         masked_user = (
             PathSanitizer.mask_user_id(request_id)
