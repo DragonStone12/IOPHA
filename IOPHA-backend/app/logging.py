@@ -21,7 +21,7 @@ class JsonTelemetryFormatter(logging.Formatter):
     `datefmt`, satisfying the contract documented in TECHNICAL_DESIGN.md.
     """
 
-    ISO_8601_DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
+    ISO_8601_DATEFMT = "%Y-%m-%dT%H:%M:%S%:z"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.setdefault("datefmt", self.ISO_8601_DATEFMT)
