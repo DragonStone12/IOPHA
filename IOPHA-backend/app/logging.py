@@ -46,7 +46,7 @@ class JsonTelemetryFormatter(logging.Formatter):
 
         return json.dumps(log_payload, default=str)
 
-    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:  # noqa: N802
         datefmt = datefmt or self.ISO_8601_DATEFMT
         return datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(datefmt)
 
@@ -141,7 +141,10 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
 
         duration_ms = int((time.time() - start_time) * 1000)
         response_size = response.headers.get("content-length", "0")
-        response_size = int(response_size) if isinstance(response_size, str) and response_size.isdigit() else 0
+        if isinstance(response_size, str) and response_size.isdigit():
+            response_size = int(response_size)
+        else:
+            response_size = 0
 
         self.logger.info(
             "request.complete",
