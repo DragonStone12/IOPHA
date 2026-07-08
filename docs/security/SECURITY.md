@@ -338,6 +338,35 @@ All pull requests to `main` branch must pass the following quality gates:
 
 The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-severity dependency vulnerabilities block the push until resolved.
 
+## Testing Security Guardrails
+
+### Test Mock Isolation
+
+- **No live data stubs**: Test mocks must not contain real patient records, user credentials, or production API keys
+- **No auth configuration leakage**: Test fixtures must not embed live JWT secrets, OAuth tokens, or database credentials
+- **Dependency overrides only**: Use FastAPI `app.dependency_overrides` to inject test doubles; never patch environment variables or global modules
+
+### Data Classification in Tests
+
+| Test Data Type | Allowable | Guardrail |
+|---|---|---|
+| Synthetic PII | Yes | Generated via factory functions, not copied from production |
+| Live PHI | No | Never import production database dumps into test fixtures |
+| Real credentials | No | Use dummy values (`test@example.com`, `+1-555-000-0000`) |
+| Production URLs | No | Override with `http://test` or mock transports |
+
+### Lifecycle & Cleanup
+
+- Reset `app.dependency_overrides` between tests via fixture teardown
+- Transaction-scoped database fixtures roll back all changes per test
+- Test artifacts (screenshots, logs) auto-excluded from version control
+
+### CI Enforcement
+
+- Backend tests run in isolated CI containers with no access to production networks
+- Pre-commit hooks verify no hardcoded secrets in test files
+- Dependency audit scans test-only packages for known vulnerabilities
+
 ## Quick Reference
 
 | Command | Purpose |

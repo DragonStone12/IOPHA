@@ -215,7 +215,45 @@ Strategy:
 - Tool: Locust
 - Target: 100 concurrent users, <2s p95 latency
 
-### 5.6 Code Quality & Linting
+### 5.6 Testing Infrastructure
+
+**Test Dependencies**:
+- **pytest**: Test runner with plugin ecosystem
+- **pytest-asyncio**: Async test support with `asyncio_mode = "auto"`
+- **httpx**: HTTP client for TestClient transport
+- Configuration in `IOPHA-backend/requirements.txt` and `IOPHA-backend/pyproject.toml`
+
+**Pytest Configuration**:
+- `testpaths = ["tests"]`
+- `python_files = ["test_*.py"]`
+- `asyncio_mode = "auto"` for automatic async loop handling
+
+**Test Layout**:
+```
+/IOPHA-backend/tests/
+├── conftest.py              # Global fixtures: TestClient, dependency overrides
+├── helpers/
+│   ├── __init__.py
+│   └── dependency_overrides.py  # Centralized override utilities
+├── test_*.py                # Unit and integration tests
+```
+
+**Core Fixtures** (`conftest.py`):
+- `client`: In-memory FastAPI `TestClient` wrapping the production `app`
+- Dependency override helpers to intercept database sessions and external services during test runtime
+
+**Mock Assignment Practices**:
+- Use FastAPI `app.dependency_overrides` to replace production dependencies with test doubles
+- Prefer dependency injection over patching module-level state
+- Keep mock schemas minimal and free of live data stubs or authentication configurations
+- Reset `app.dependency_overrides` between tests to prevent state leakage
+
+**Asset Lifecycle Patterns**:
+- Database transactions: roll back per test via transaction-scoped fixtures
+- External services: override via dependency injection, not network mocking
+- Test data: factory-generated, deterministic, and isolated per test case
+
+### 5.7 Code Quality & Linting
 
 **Backend Linting & Type Checking**:
 - **Ruff**: Fast Rust-based linter with Pyflakes (F), Pycodestyle (E/W), Bandit Security (S), Bugbear (B), and Pylint Refactoring (PLR) rules
