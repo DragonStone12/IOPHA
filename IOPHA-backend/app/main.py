@@ -44,8 +44,14 @@ class PatientDTO(BaseModel):
 
     @field_serializer("email", "phone", "medical_record_number")
     def mask_pii(self, value: str) -> str:
-        # Structured PII fields are always fully withheld.
-        return redact_pii(value)
+        # Structured PII fields are fully withheld unless the value already
+        # matches a known safe redaction pattern. Non-matching values (e.g.
+        # "MRN-A123456", "+1 (555) 123-4567") are replaced with "[REDACTED]"
+        # to avoid leaking PHI that would otherwise pass through untouched.
+        redacted = redact_pii(value)
+        if redacted != value:
+            return redacted
+        return "[REDACTED]"
 
     @field_serializer("name")
     def mask_name(self, value: str) -> str:

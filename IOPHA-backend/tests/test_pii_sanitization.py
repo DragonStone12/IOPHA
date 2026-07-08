@@ -360,6 +360,44 @@ class TestPatientDTO:
         # Patient name is PHI: partially masked for UI usability, not cleartext.
         assert data["name"] == "J*** D***"
 
+    def test_unstructured_mrn_fully_withheld(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="John Doe",
+            email="john.doe@example.com",
+            phone="MRN-A123456",
+            medical_record_number="MRN-A123456",
+        )
+        json_str = dto.model_dump_json()
+        assert '"medical_record_number":"[REDACTED]"' in json_str
+        assert "MRN-A123456" not in json_str
+        assert '"phone":"[REDACTED]"' in json_str
+        assert "MRN-A123456" not in json_str
+
+    def test_unstructured_phone_fully_withheld(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="John Doe",
+            email="john.doe@example.com",
+            phone="+1 (555) 123-4567",
+            medical_record_number="123-45-6789",
+        )
+        json_str = dto.model_dump_json()
+        assert '"phone":"[REDACTED]"' in json_str
+        assert "+1 (555) 123-4567" not in json_str
+
+    def test_already_redacted_email_fully_withheld(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="John Doe",
+            email="[EMAIL_REDACTED]",
+            phone="555-123-4567",
+            medical_record_number="123-45-6789",
+        )
+        json_str = dto.model_dump_json()
+        assert '"email":"[REDACTED]"' in json_str
+        assert "[EMAIL_REDACTED]" not in json_str
+
 
 class TestChatMessageDTO:
     def test_content_redacted_on_serialization(self) -> None:
