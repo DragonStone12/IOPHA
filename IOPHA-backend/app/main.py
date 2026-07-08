@@ -140,7 +140,7 @@ root_logger.addFilter(pii_filter)
 # shippers can ingest them unchanged (CloudWatch / Elasticsearch).
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(JsonTelemetryFormatter())
-logger = logging.getLogger("com.example.PatientService")
+logger = logging.getLogger("iopha.backend")
 logger.setLevel(logging.INFO)
 logger.addHandler(log_handler)
 

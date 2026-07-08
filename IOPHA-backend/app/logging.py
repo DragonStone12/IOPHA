@@ -87,7 +87,7 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: Any, logger: logging.Logger | None = None) -> None:
         super().__init__(app)
-        self.logger = logger or logging.getLogger("com.example.PatientService")
+        self.logger = logger or logging.getLogger("iopha.backend")
 
     async def dispatch(self, request: Request, call_next: Any) -> Response:
         start_time = time.time()

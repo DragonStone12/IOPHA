@@ -36,7 +36,7 @@ class TestJsonTelemetryFormatter:
     def test_includes_required_fields(self):
         formatter = JsonTelemetryFormatter()
         record = logging.LogRecord(
-            name="com.example.PatientService",
+            name="iopha.backend",
             level=logging.INFO,
             pathname="",
             lineno=0,
@@ -50,7 +50,7 @@ class TestJsonTelemetryFormatter:
         assert "logger" in output
         assert "message" in output
         assert output["level"] == "INFO"
-        assert output["logger"] == "com.example.PatientService"
+        assert output["logger"] == "iopha.backend"
 
     def test_includes_extra_context(self):
         formatter = JsonTelemetryFormatter()
@@ -167,19 +167,15 @@ class TestCentralizedLoggingMiddleware:
         return TestClient(app)
 
     def test_logs_request_start_and_complete(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             response = client.get("/health", headers={"X-Request-ID": "req-1"})
         assert response.status_code == 200
-        messages = [
-            r.getMessage()
-            for r in caplog.records
-            if r.name == "com.example.PatientService"
-        ]
+        messages = [r.getMessage() for r in caplog.records if r.name == "iopha.backend"]
         assert "request.start" in messages
         assert "request.complete" in messages
 
     def test_request_log_contains_sanitized_path(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/patients/12345", headers={"X-Request-ID": "req-1"})
         records = [r for r in caplog.records if r.getMessage() == "request.start"]
         assert len(records) == 1
@@ -187,7 +183,7 @@ class TestCentralizedLoggingMiddleware:
         assert extra["path"] == "/patients/:id"
 
     def test_request_log_contains_method_and_user_agent(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get(
                 "/health",
                 headers={"X-Request-ID": "req-1", "User-Agent": "test-agent"},
@@ -198,7 +194,7 @@ class TestCentralizedLoggingMiddleware:
         assert extra["userAgent"] == "test-agent"
 
     def test_response_log_contains_status_and_duration(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/health", headers={"X-Request-ID": "req-1"})
         records = [r for r in caplog.records if r.getMessage() == "request.complete"]
         assert len(records) == 1
@@ -208,7 +204,7 @@ class TestCentralizedLoggingMiddleware:
         assert "responseSize" in extra
 
     def test_redacts_sensitive_query_params(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/directory?email=test@example.com&phone=555-123-4567")
         records = [r for r in caplog.records if r.getMessage() == "request.start"]
         extra = records[0].extra_context
@@ -216,14 +212,14 @@ class TestCentralizedLoggingMiddleware:
         assert extra["queryParams"]["phone"] == "[REDACTED]"
 
     def test_preserves_non_sensitive_query_params(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/directory?specialty=cardiology")
         records = [r for r in caplog.records if r.getMessage() == "request.start"]
         extra = records[0].extra_context
         assert extra["queryParams"]["specialty"] == "cardiology"
 
     def test_masks_request_id_in_logs(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/health", headers={"X-Request-ID": "user_123456"})
         records = [r for r in caplog.records if r.getMessage() == "request.start"]
         extra = records[0].extra_context
@@ -231,7 +227,7 @@ class TestCentralizedLoggingMiddleware:
         assert "123456" not in extra["requestId"]
 
     def test_uses_unknown_when_no_request_id(self, client, caplog):
-        with caplog.at_level(logging.INFO, logger="com.example.PatientService"):
+        with caplog.at_level(logging.INFO, logger="iopha.backend"):
             client.get("/health")
         records = [r for r in caplog.records if r.getMessage() == "request.start"]
         extra = records[0].extra_context

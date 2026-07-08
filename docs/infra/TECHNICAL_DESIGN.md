@@ -226,7 +226,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 |---|---|---|
 | `timestamp` | ISO string | Event time in ISO 8601 format |
 | `level` | string | Log severity: `INFO`, `WARNING`, `ERROR` |
-| `logger` | string | Logger namespace (e.g., `com.example.PatientService`) |
+| `logger` | string | Logger namespace (e.g., `iopha.backend`) |
 | `message` | string | Event name (`request.start` or `request.complete`) |
 | `requestId` | string | Tracking identifier, masked if containing user IDs |
 | `method` | string | HTTP method |
@@ -255,7 +255,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 - Custom `JsonTelemetryFormatter` extends `logging.Formatter`
 - Outputs compact JSON via `json.dumps(log_payload, default=str)`
 - Attaches to `logging.StreamHandler` for stdout streaming
-- Logger namespace: `com.example.PatientService`
+- Logger namespace: `iopha.backend`
 
 **Middleware Execution Order**:
 1. `PIISanitizationMiddleware` runs outermost to normalize paths and redact sensitive query parameters before any logging occurs.
