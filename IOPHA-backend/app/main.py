@@ -54,6 +54,8 @@ class PatientDTO(BaseModel):
         if not value:
             return value
         parts = value.split()
+        if not parts:
+            return value
         if len(parts) == 1:
             return f"{parts[0][0]}***"
         return f"{parts[0][0]}*** {parts[-1][0]}***"
