@@ -1,5 +1,6 @@
 import logging
 import re
+import urllib.parse
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -155,7 +156,15 @@ class PIISanitizationMiddleware(BaseHTTPMiddleware):
             else:
                 sanitized_query[key] = value
 
-        # 3. Attach to request.state for downstream middleware
+        # 3. Rewrite request scope so downstream consumers (access log, metrics)
+        #    see sanitized data instead of raw PII/PHI.
+        request.scope["path"] = sanitized_path
+        query_string = urllib.parse.urlencode(sanitized_query).encode("utf-8")
+        request.scope["query_string"] = query_string
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = sanitized_path.encode("utf-8")
+
+        # 4. Attach to request.state for any downstream middleware that reads it
         request.state.sanitized_path = sanitized_path
         request.state.sanitized_query = sanitized_query
 

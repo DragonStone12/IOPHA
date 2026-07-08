@@ -163,6 +163,8 @@ class TestPIISanitizationMiddleware:
                 "patient_id": patient_id,
                 "sanitized_path": request.state.sanitized_path,
                 "sanitized_query": dict(request.state.sanitized_query),
+                "scope_path": request.scope["path"],
+                "scope_query_string": request.scope["query_string"].decode("utf-8"),
             }
 
         @app.get("/directory")
@@ -170,6 +172,8 @@ class TestPIISanitizationMiddleware:
             return {
                 "sanitized_path": request.state.sanitized_path,
                 "sanitized_query": dict(request.state.sanitized_query),
+                "scope_path": request.scope["path"],
+                "scope_query_string": request.scope["query_string"].decode("utf-8"),
             }
 
         @app.get("/providers/{provider_id}")
@@ -177,6 +181,8 @@ class TestPIISanitizationMiddleware:
             return {
                 "provider_id": provider_id,
                 "sanitized_path": request.state.sanitized_path,
+                "scope_path": request.scope["path"],
+                "scope_query_string": request.scope["query_string"].decode("utf-8"),
             }
 
         return app
@@ -190,30 +196,35 @@ class TestPIISanitizationMiddleware:
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/patients/:id"
+        assert data["scope_path"] == "/patients/:id"
 
     def test_path_normalization_patients_uuid(self, client: TestClient) -> None:
         response = client.get("/patients/123e4567-e89b-12d3-a456-426614174000")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/patients/:id"
+        assert data["scope_path"] == "/patients/:id"
 
     def test_path_normalization_providers(self, client: TestClient) -> None:
         response = client.get("/providers/999")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/providers/:id"
+        assert data["scope_path"] == "/providers/:id"
 
     def test_path_normalization_providers_slug(self, client: TestClient) -> None:
         response = client.get("/providers/dr-emily-chen")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/providers/:id"
+        assert data["scope_path"] == "/providers/:id"
 
     def test_plain_paths_unchanged(self, client: TestClient) -> None:
         response = client.get("/directory")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_path"] == "/directory"
+        assert data["scope_path"] == "/directory"
 
     def test_sensitive_query_redacted(self, client: TestClient) -> None:
         response = client.get("/directory?email=test@example.com&phone=555-123-4567")
@@ -221,12 +232,30 @@ class TestPIISanitizationMiddleware:
         data = response.json()
         assert data["sanitized_query"]["email"] == "[REDACTED]"
         assert data["sanitized_query"]["phone"] == "[REDACTED]"
+        assert "email=%5BREDACTED%5D" in data["scope_query_string"]
+        assert "phone=%5BREDACTED%5D" in data["scope_query_string"]
+        assert "test@example.com" not in data["scope_query_string"]
+        assert "555-123-4567" not in data["scope_query_string"]
 
     def test_non_sensitive_query_preserved(self, client: TestClient) -> None:
         response = client.get("/directory?specialty=cardiology")
         assert response.status_code == 200
         data = response.json()
         assert data["sanitized_query"]["specialty"] == "cardiology"
+        assert "specialty=cardiology" in data["scope_query_string"]
+
+    def test_query_string_is_valid_url_encoded_bytes(self, client: TestClient) -> None:
+        response = client.get("/directory?specialty=cardiology&limit=10")
+        assert response.status_code == 200
+        data = response.json()
+        scope_qs = data["scope_query_string"]
+        assert scope_qs == "specialty=cardiology&limit=10"
+
+    def test_raw_path_rebuilt_when_present(self, client: TestClient) -> None:
+        response = client.get("/patients/12345")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["scope_path"] == "/patients/:id"
 
 
 # ---------------------------------------------------------------------------
