@@ -11,7 +11,8 @@
 | 5   | [Kilo AI Code Reviews & Security Agent](#kilo-ai-code-reviews--security-agent)   | AI-powered PR reviews, Dependabot triage, auto-remediation |
 | 6   | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows)                | Booking form, logging, and transport security              |
 | 7   | [Compliance & Regulatory](#compliance--regulatory)                               | HIPAA, TLS, and audit requirements                         |
-| 8   | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 8   | [Structured JSON Logging Compliance](#structured-json-logging-compliance)       | PHI prevention, aggregation security, audit trail         |
+| 9   | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -411,6 +412,38 @@ External-facing Pydantic response models use `@field_serializer` to automaticall
 | Audit Controls (§164.312)        | PII/PHI sanitization in logging ensures no sensitive data reaches CloudWatch             |
 | Transmission Security (§164.312) | Query parameter redaction prevents sensitive data leakage in URLs                        |
 | Integrity Controls               | Path normalization prevents metric cardinality attacks and infrastructure fingerprinting |
+
+## Structured JSON Logging Compliance
+
+### PHI Prevention in Logs
+
+All HTTP request/response logs are emitted as structured JSON through `CentralizedLoggingMiddleware`. The following sanitization boundaries prevent PHI leakage:
+
+| Boundary | Implementation | Purpose |
+|---|---|---|
+| URL path | Regex normalization (`/patients/\d+` → `/patients/:id`) | Prevents cardinality explosion and infrastructure fingerprinting |
+| Query parameters | Redaction of `ssn`, `email`, `phone`, `medical_record_number` | Prevents sensitive data exposure in log aggregators |
+| User identifiers | Masking (`user_123456` → `user_***456`) | Preserves traceability while limiting PII exposure |
+| Response body | Header-only metrics (`content-length`) | Avoids streaming response body extraction which can freeze async middleware |
+
+### Log Aggregation Security
+
+| Control | Implementation |
+|---|---|
+| Output format | Structured JSON via `JsonTelemetryFormatter` for CloudWatch/Elasticsearch |
+| Log destination | stdout only; external log shippers configured at infrastructure level |
+| Sensitive data exclusion | No raw database keys, medical histories, or cleartext credentials in `extra_context` |
+| Performance | Lightweight regex patterns; no body extraction; no blocking I/O in async middleware |
+
+### Audit Trail Requirements
+
+| Requirement | Implementation |
+|---|---|
+| Tracking identifier | `X-Request-ID` header propagated through all log entries |
+| Runtime duration | `durationMs` field recorded for every transaction |
+| Payload size | `responseSize` from `content-length` header |
+| Timestamp | ISO 8601 format for cross-system correlation |
+| Immutable logs | Logs streamed to stdout; tamper-proof once ingested by external shipper |
 
 ## Quick Reference
 

@@ -6,18 +6,15 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
-from pydantic import BaseModel, field_serializer
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-# ---------------------------------------------------------------------------
-# 1. Pydantic DTOs with PII field serialization
-# ---------------------------------------------------------------------------
+from app.logging import CentralizedLoggingMiddleware, JsonTelemetryFormatter
 
-# Centralized PII patterns shared by the logging filter and the chat DTO
-# serializer. Each entry is (compiled_regex, replacement). Matching text is
-# redacted in place; non-matching text is preserved so API responses stay
-# useful for callers instead of being wholly withheld.
+# Centralized PII patterns shared by the logging filter. Each entry is
+# (compiled_regex, replacement). Matching text is redacted in place;
+# non-matching text is preserved so API responses stay useful for callers
+# instead of being wholly withheld.
 PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (
         re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
@@ -35,51 +32,6 @@ def redact_pii(text: str) -> str:
     for pattern, replacement in PII_PATTERNS:
         text = pattern.sub(replacement, text)
     return text
-
-
-class PatientDTO(BaseModel):
-    patient_id: int
-    name: str
-    email: str
-    phone: str
-    medical_record_number: str
-
-    @field_serializer("email", "phone", "medical_record_number")
-    def mask_pii(self, value: str) -> str:
-        # Structured PII fields are fully withheld unless the value already
-        # matches a known safe redaction pattern. Non-matching values (e.g.
-        # "MRN-A123456", "+1 (555) 123-4567") are replaced with "[REDACTED]"
-        # to avoid leaking PHI that would otherwise pass through untouched.
-        redacted = redact_pii(value)
-        if redacted != value:
-            return redacted
-        return "[REDACTED]"
-
-    @field_serializer("name")
-    def mask_name(self, value: str) -> str:
-        # The patient name is PHI, so it must never appear in cleartext in the
-        # serialized response. Each whitespace-separated token is reduced to its
-        # first initial followed by a redaction mask (e.g. "John Doe" -> "J***
-        # D***"), keeping the DTO useful for the UI while hiding the full name.
-        if not value or not value.strip():
-            return value
-        parts = value.split()
-        if not parts:
-            return value
-        return " ".join(f"{part[0]}***" for part in parts)
-
-
-class ChatMessageDTO(BaseModel):
-    message_id: str
-    user_id: int
-    content: str
-    timestamp: str
-
-    @field_serializer("content")
-    def mask_pii(self, value: str) -> str:
-        # Free-text content is selectively redacted: only PII-shaped spans are
-        # replaced, so non-sensitive chat text is preserved for the caller.
-        return redact_pii(value)
 
 
 # ---------------------------------------------------------------------------
@@ -131,13 +83,23 @@ root_logger.addFilter(pii_filter)
 
 
 # ---------------------------------------------------------------------------
-# 3. FastAPI app initialization
+# 3. FastAPI app initialization + structured JSON logging
 # ---------------------------------------------------------------------------
+
+# Emit structured JSON logs through a stdout StreamHandler so external log
+# shippers can ingest them unchanged (CloudWatch / Elasticsearch).
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(JsonTelemetryFormatter())
+logger = logging.getLogger("iopha.backend")
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
+logger.propagate = False
 
 app = FastAPI(title="IOPHA Backend API")
 
+
 # ---------------------------------------------------------------------------
-# 4. PII Sanitization Middleware (must be registered BEFORE logging/metrics)
+# 4. PII Sanitization Middleware (must run BEFORE logging/metrics middleware)
 # ---------------------------------------------------------------------------
 
 
@@ -179,25 +141,10 @@ class PIISanitizationMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Register middleware BEFORE logging and metrics middleware
+# Register middleware: PII sanitization runs outermost (first) so the logging
+# middleware only ever sees sanitized paths/queries.
+app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
 app.add_middleware(PIISanitizationMiddleware)
-
-
-# ---------------------------------------------------------------------------
-# 4b. Chat endpoint (centralized PII serialization via ChatMessageDTO)
-# ---------------------------------------------------------------------------
-
-
-@app.post("/chat/message", response_model=ChatMessageDTO, tags=["chat"])
-async def chat_message(message: ChatMessageDTO) -> ChatMessageDTO:
-    """
-    Accepts a chat message and echoes it back. The `ChatMessageDTO`
-    response serializer applies targeted PII redaction to `content`
-    (e.g. email addresses become `[EMAIL_REDACTED]`, phone numbers become
-    `[PHONE_REDACTED]`), so sensitive data never leaves the API in the clear
-    while non-sensitive text is preserved for the caller.
-    """
-    return message
 
 
 # ---------------------------------------------------------------------------
