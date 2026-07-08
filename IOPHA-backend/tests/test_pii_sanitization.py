@@ -168,9 +168,3 @@ class TestPIISanitizerFilter:
 # ---------------------------------------------------------------------------
 # PIISanitizationMiddleware tests
 # ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# Pydantic DTO serialization tests removed — DTOs no longer exist in app.main.
-# Endpoint tests removed — /chat/message endpoint no longer exists.
-# ---------------------------------------------------------------------------
