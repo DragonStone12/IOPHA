@@ -198,27 +198,7 @@ app.add_middleware(PIISanitizationMiddleware)
 
 
 # ---------------------------------------------------------------------------
-# 5. Routes
-# ---------------------------------------------------------------------------
-
-
-@app.get("/health")
-def health_check() -> dict:
-    return {"status": "healthy"}
-
-
-@app.get("/directory")
-def directory() -> dict:
-    return {"physicians": []}
-
-
-@app.get("/patients/{patient_id}")
-def get_patient(patient_id: int) -> dict:
-    return {"patient_id": patient_id}
-
-
-# ---------------------------------------------------------------------------
-# 5b. Chat endpoint (centralized PII serialization via ChatMessageDTO)
+# 5. Chat endpoint (centralized PII serialization via ChatMessageDTO)
 # ---------------------------------------------------------------------------
 
 

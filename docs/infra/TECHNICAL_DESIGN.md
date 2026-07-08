@@ -7,7 +7,7 @@
 | 1   | [Technology Stack](#1-technology-stack)                       | Frontend, backend, database, and testing technologies  |
 | 2   | [Project Structure](#2-project-structure-monorepo)            | Monorepo directory layout                              |
 | 3   | [Frontend Implementation](#3-frontend-implementation-details) | Styling, logging, state management, performance        |
-| 4   | [Backend Implementation](#4-backend-implementation-details)   | API spec, database schema, RAG pipeline                |
+| 4   | [Backend Implementation](#4-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline |
 | 5   | [Testing Strategy](#5-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
 | 6   | [CI/CD & Deployment](#6-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
 | 7   | [Decision Points](#7-decision-points-pending)                 | Pending architectural decisions                        |
@@ -140,32 +140,7 @@ Strategy:
 
 ## 4. Backend Implementation Details
 
-### 4.1 API Specification
-
-**Authentication**:
-
-- JWT Access tokens (15 min expiration)
-- Refresh tokens (7 days expiration)
-- Stored in httpOnly cookies
-
-**Endpoints**:
-
-| Method | Path           | Description                       | Auth Required |
-| ------ | -------------- | --------------------------------- | ------------- |
-| POST   | /auth/register | User registration                 | No            |
-| POST   | /auth/login    | Login with email/password         | No            |
-| POST   | /auth/refresh  | Refresh access token              | No            |
-| GET    | /chat          | WebSocket for streaming chat      | Yes           |
-| POST   | /chat/message  | Send message endpoint             | Yes           |
-| GET    | /directory     | Physician lookup                  | Yes           |
-| POST   | /ingest        | Trigger manual document ingestion | Admin only    |
-
-**Error Handling**:
-
-- Consistent JSON error format: `{ code, message, details }`
-- RFC 7807 Problem Details for HTTP APIs
-
-### 4.2 Database Schema
+### 4.1 Database Schema
 
 **Tables**:
 
@@ -188,7 +163,7 @@ Strategy:
 - `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small)
 - HNSW or IVFFlat index strategy based on dataset size
 
-### 4.3 PII/PHI Sanitization Architecture
+### 4.2 PII/PHI Sanitization Architecture
 
 A defense-in-depth sanitization strategy is implemented across three layers to prevent accidental PHI exposure in logs, metrics, and API responses.
 
@@ -216,7 +191,7 @@ A defense-in-depth sanitization strategy is implemented across three layers to p
 **Rationale for DTO Separation**:
 Applying `@field_serializer` to internal domain models would mask data needed for database writes and internal business logic. By separating internal models from external DTOs, we ensure serializers only apply at the API boundary.
 
-### 4.4 Structured JSON Logging & Auditing
+### 4.3 Structured JSON Logging & Auditing
 
 The backend emits structured JSON logs for every HTTP transaction, enabling direct ingestion by CloudWatch and Elasticsearch without custom parsers.
 
@@ -262,7 +237,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 2. `CentralizedLoggingMiddleware` captures PII-sanitized request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes.
 3. Path sanitization occurs before metrics collection.
 
-### 4.5 RAG Pipeline Logic
+### 4.4 RAG Pipeline Logic
 
 **Chunking Strategy**:
 
@@ -372,7 +347,7 @@ npm run lint
 - Bandit SAST scanning
 - pip-audit for dependencies
 
-### 4.4 Observability & Metrics
+### 6.2 Observability & Metrics
 
 **Prometheus Instrumentation**:
 
@@ -408,7 +383,7 @@ The `/metrics` endpoint exposes internal application state, endpoint names, requ
 - Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
 - Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
 
-### 6.2 Environment Configuration
+### 6.3 Environment Configuration
 
 **Variables**:
 
@@ -428,7 +403,7 @@ The `/metrics` endpoint exposes internal application state, endpoint names, requ
 | App       | APP_ENV               | No     |
 | App       | CORS_ORIGINS          | No     |
 
-### 6.3 Local Development
+### 6.4 Local Development
 
 ```bash
 # Frontend development
