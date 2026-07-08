@@ -311,6 +311,22 @@ class TestPatientDTO:
         assert dto.model_dump()["name"] == "J*** D***"
         assert "John" not in dto.model_dump()["name"]
 
+    def test_name_masked_in_serialized_output(self) -> None:
+        dto = PatientDTO(
+            patient_id=1,
+            name="John Doe",
+            email="john.doe@example.com",
+            phone="555-123-4567",
+            medical_record_number="123-45-6789",
+        )
+        json_str = dto.model_dump_json()
+        # The full name must never leak in cleartext in the serialized response.
+        assert "John Doe" not in json_str
+        assert "John" not in json_str
+        assert "Doe" not in json_str
+        # The name field must be masked.
+        assert '"name":"J*** D***"' in json_str
+
     def test_single_name_partially_masked(self) -> None:
         dto = PatientDTO(
             patient_id=1,

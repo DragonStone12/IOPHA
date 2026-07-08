@@ -49,17 +49,16 @@ class PatientDTO(BaseModel):
 
     @field_serializer("name")
     def mask_name(self, value: str) -> str:
-        # Partial masking (industry standard for UI-facing DTOs): the patient
-        # name is PHI, so hide the full name but preserve enough for the UI to
-        # remain usable (e.g. "John Doe" -> "J*** D***").
-        if not value:
+        # The patient name is PHI, so it must never appear in cleartext in the
+        # serialized response. Each whitespace-separated token is reduced to its
+        # first initial followed by a redaction mask (e.g. "John Doe" -> "J***
+        # D***"), keeping the DTO useful for the UI while hiding the full name.
+        if not value or not value.strip():
             return value
         parts = value.split()
         if not parts:
             return value
-        if len(parts) == 1:
-            return f"{parts[0][0]}***"
-        return f"{parts[0][0]}*** {parts[-1][0]}***"
+        return " ".join(f"{part[0]}***" for part in parts)
 
 
 class ChatMessageDTO(BaseModel):
