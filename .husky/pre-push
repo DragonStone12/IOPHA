@@ -2,4 +2,4 @@ npm run test:changed
 
 # Guard: ensure the Python backend passes ruff before pushing (mirrors CI).
 cd "$(git rev-parse --show-toplevel)"
-ruff check IOPHA-backend/ && ruff format --check IOPHA-backend/
+./IOPHA-backend/venv/bin/ruff check IOPHA-backend/ && ./IOPHA-backend/venv/bin/ruff format --check IOPHA-backend/
