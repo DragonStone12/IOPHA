@@ -16,7 +16,16 @@ class JsonTelemetryFormatter(logging.Formatter):
     """
     Structured JSON formatter for CloudWatch / Elasticsearch ingestion.
     Emits strict root-level attributes required by the telemetry pipeline.
+
+    The `timestamp` field is emitted in strict ISO 8601 format via an explicit
+    `datefmt`, satisfying the contract documented in TECHNICAL_DESIGN.md.
     """
+
+    ISO_8601_DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("datefmt", self.ISO_8601_DATEFMT)
+        super().__init__(*args, **kwargs)
 
     def format(self, record: logging.LogRecord) -> str:
         log_payload: dict[str, Any] = {
@@ -38,7 +47,8 @@ class JsonTelemetryFormatter(logging.Formatter):
         return json.dumps(log_payload, default=str)
 
     def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
-        return datetime.now(timezone.utc).isoformat()
+        datefmt = datefmt or self.ISO_8601_DATEFMT
+        return datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(datefmt)
 
 
 class PathSanitizer:
