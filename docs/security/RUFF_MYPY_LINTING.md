@@ -228,6 +228,7 @@ The `ci-backend.yml` workflow runs all checks on every push and pull request to 
 | mypy | Mypy | Static type checking |
 | bandit | Bandit | Security scanning with SARIF upload |
 | pip-audit | pip-audit | Dependency vulnerability audit |
+| pytest | pytest | Unit tests with JUnit XML and coverage reports |
 
 ---
 

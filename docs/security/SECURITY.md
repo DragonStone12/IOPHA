@@ -366,6 +366,9 @@ The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-sev
 - Backend tests run in isolated CI containers with no access to production networks
 - Pre-commit hooks verify no hardcoded secrets in test files
 - Dependency audit scans test-only packages for known vulnerabilities
+- Backend pytest job generates JUnit XML and coverage reports (target: 80%)
+- Coverage threshold enforced via `[tool.coverage.report] fail_under = 80` in `pyproject.toml`
+- Test results and coverage artifacts uploaded to GitHub Actions for review
 
 ## Quick Reference
 
@@ -379,6 +382,10 @@ The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-sev
 | `ruff check IOPHA-backend/` | Fast Python linting (Pyflakes, Pycodestyle, Security) |
 | `ruff format --check IOPHA-backend/` | Code formatting check |
 | `mypy IOPHA-backend/` | Static type checking |
+| `pytest tests --cov=app --cov-report=term` | Run tests with coverage (local) |
+| `coverage run -m pytest tests` | Alternative: run coverage via coverage.py |
+| `coverage report` | Show coverage report in terminal |
+| `coverage html` | Generate HTML coverage report |
 | `pre-commit install` | Install git pre-commit hooks |
 | `pre-commit run --all-files` | Run all hooks on entire codebase |
 | Kilo Code Reviewer dashboard | AI PR reviews, focus areas, PR gate threshold |
