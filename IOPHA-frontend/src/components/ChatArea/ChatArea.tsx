@@ -208,7 +208,9 @@ export function ChatArea({
     setConfirmedPatientData(null);
   };
 
-  const greetingMessage = `Welcome, ${userName}. I'm your ${hospitalName} AI assistant. Based on your recently completed health survey, your obesity risk score is ${riskScore}/100 — placing you in the high-risk category. The encouraging news: this is exactly when early intervention is most effective. I can provide personalized, evidence-based guidance right now, and connect you with a ${hospitalName.split(" ")[0]} physician nearby if you'd like a professional consultation. How can I help you today?`;
+  const greetingMessage = `Welcome, ${userName}. I'm your ${hospitalName} AI assistant. Based on your recently completed health survey, your obesity risk score is ${riskScore}/100 — placing you in the high-risk category. The encouraging news: this is exactly when early intervention is most effective. I can provide personalized, evidence-based guidance right now, and connect you with a ${
+    hospitalName.split(" ")[0]
+  } physician nearby if you'd like a professional consultation. How can I help you today?`;
 
   const showChatContent = bookingView === BOOKING_VIEWS.CHAT;
 

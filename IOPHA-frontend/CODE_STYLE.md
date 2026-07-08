@@ -7,7 +7,9 @@ This document defines style rules for the IOPHA frontend. Adhere to these patter
 1. [Component Props: `type` vs `interface`](#1-component-props-type-vs-interface)
 2. [State Objects: Extract String Literals with `as const`](#2-state-objects-extract-string-literals-with-as-const)
 3. [Validation Messages: Extract Repeated Error Strings](#3-validation-messages-extract-repeated-error-strings)
-4. [Quick Reference](#4-quick-reference)
+4. [Tailwind Class Strings: Extract Repeated Utility Classes](#4-tailwind-class-strings-extract-repeated-utility-classes)
+5. [Safe Command Execution (Node `child_process`)](#5-safe-command-execution-node-child_process)
+6. [Quick Reference](#6-quick-reference)
 
 ---
 
@@ -259,13 +261,66 @@ const ERROR_INPUT_CLASSES =
 
 ---
 
-## 5. Quick Reference
+## 5. Safe Command Execution (Node `child_process`)
 
-| Violation                                         | Fix                                                                                      |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Empty `interface Props extends SomeType {}`       | Change to `type Props = SomeType;`                                                       |
-| String literal used 3+ times                      | Extract to `const OBJECT = { KEY: "value" } as const;`                                   |
-| Magic string in `setState` / `if` / `switch`      | Replace with constant property reference                                                 |
-| Duplicated validation message                     | Extract to `const ERROR_MESSAGE = "text";` and reuse                                     |
-| Duplicated Tailwind class string                  | Extract to `const CLASS_NAME = "..."` and reuse                                          |
-| Unused manual union type when derived type exists | Delete the manual type; use `type Name = typeof CONSTANT[keyof typeof CONSTANT]` instead |
+### Rule
+
+Never interpolate variables into a shell command string with `execSync` / `exec`. Always use `execFileSync` (or `spawn` / `execFile`) and pass the command and its arguments as a **separate array**.
+
+### Why
+
+Interpolating variables into a command string runs the command through a shell (`/bin/sh -c`). That is both fragile and dangerous:
+
+1. **Shell injection:** If a variable (a file path, branch name, or any external input) contains shell metacharacters (`;`, `&&`, `$()`, backticks), an attacker can execute arbitrary commands.
+2. **Breaks on spaces / special chars:** A path such as `My Component.spec.tsx` is word-split by the shell, silently breaking the command.
+3. **Quote hell:** Embedded quotes (e.g. `'npx cypress run --e2e'`) are easy to get wrong and are still subject to the above.
+
+Passing an arguments array bypasses the shell entirely. The OS passes each array element as a single, discrete argument, so special characters are handled literally and no shell parsing occurs.
+
+### Implementation
+
+```js
+// INCORRECT — runs through a shell; vulnerable to injection and word-splitting
+execSync(`npx cypress run --component --headless --spec "${specList}"`, {
+  cwd: FRONTEND_DIR,
+  stdio: "inherit",
+});
+
+// CORRECT — no shell; specList reaches Cypress as one argument
+execFileSync(
+  "npx",
+  ["cypress", "run", "--component", "--headless", "--spec", specList],
+  { cwd: FRONTEND_DIR, stdio: "inherit" },
+);
+```
+
+Even a comma-separated value such as `"src/a.spec.ts,src/b.spec.ts"` is safe: as a single array element it reaches the program untouched, and the program parses the comma list itself. The same pattern applies to fixed commands — prefer `execFileSync("git", ["diff", "--name-only", "main...HEAD"], { ... })` over `execSync("git diff ...")`.
+
+### What Triggers This Rule
+
+- Any `execSync(` / `exec(` call whose string contains a `${...}` interpolation.
+- Any command string containing embedded quotes or multiple space-separated subcommands.
+- ESLint surfaces this via `security/detect-child-process`; the Python equivalent is Ruff `S602`/`S604`/`S605`/`S607`.
+
+### Benefits
+
+| Benefit         | Explanation                                         |
+| --------------- | --------------------------------------------------- |
+| Injection-proof | No shell is spawned, so metacharacters are inert    |
+| Robust paths    | Files with spaces/quotes are passed verbatim        |
+| Predictable     | Arguments map 1:1 to `argv`, with no word-splitting |
+| CI green        | Satisfies `security/detect-child-process`           |
+
+---
+
+## 6. Quick Reference
+
+| Violation                                                | Fix                                                                                      |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Empty `interface Props extends SomeType {}`              | Change to `type Props = SomeType;`                                                       |
+| String literal used 3+ times                             | Extract to `const OBJECT = { KEY: "value" } as const;`                                   |
+| Magic string in `setState` / `if` / `switch`             | Replace with constant property reference                                                 |
+| Duplicated validation message                            | Extract to `const ERROR_MESSAGE = "text";` and reuse                                     |
+| Duplicated Tailwind class string                         | Extract to `const CLASS_NAME = "..."` and reuse                                          |
+| Unused manual union type when derived type exists        | Delete the manual type; use `type Name = typeof CONSTANT[keyof typeof CONSTANT]` instead |
+| Variable interpolated into `execSync(...)` / `exec(...)` | Use `execFileSync(cmd, [args...])` with a discrete args array (no shell)                 |

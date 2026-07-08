@@ -1,19 +1,44 @@
 #!/usr/bin/env sh
 
-# 1. Run frontend lint-staged
+# Fail fast: any command that errors (including the verify gates below) aborts
+# the commit instead of silently letting a lint violation through.
+set -e
+
+# Shared ruff-resolution helper (single source of truth for both hooks).
+. "$(git rev-parse --show-toplevel)/.husky/resolve-ruff.sh"
+
+# 1. Frontend lint-staged (block the commit if frontend lint fails).
 cd IOPHA-frontend && npx lint-staged
 cd "$(git rev-parse --show-toplevel)"
 
-# 2. Get staged backend Python files
+# 2. Get staged backend Python files.
 BACKEND_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '^IOPHA-backend/' || true)
 
 if [ -n "$BACKEND_STAGED" ]; then
-  echo "Running Ruff check with auto-fix..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff check --fix
+  PYTHON_STAGED=$(printf '%s\n' "$BACKEND_STAGED" | grep -E '\.py$' || true)
 
-  echo "Running Ruff format..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 ruff format
+  if [ -n "$PYTHON_STAGED" ]; then
+    if ! RUFF=$(resolve_ruff); then
+      echo "husky/pre-commit: 'ruff' not found on PATH or in ./venv."
+      echo "Install it (e.g. 'pip install ruff') and retry, or use 'git commit --no-verify' only if you know why."
+      exit 1
+    fi
 
-  echo "Re-staging auto-fixed files..."
-  echo "$BACKEND_STAGED" | tr '\n' '\0' | xargs -0 git add
+    echo "Running Ruff check with auto-fix..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check --fix
+
+    echo "Running Ruff format..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format
+
+    echo "Re-staging auto-fixed files..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 git add
+
+    echo "Verifying Ruff check passes (blocking)..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF check
+
+    echo "Verifying Ruff format passes (blocking)..."
+    echo "$PYTHON_STAGED" | tr '\n' '\0' | xargs -0 $RUFF format --check
+  fi
 fi
+
+echo "husky/pre-commit: backend checks passed."

@@ -86,6 +86,7 @@ cy.contains("Weight & nutrition tips").click();
 ### Naming Convention
 
 Each `.feature` file in `cypress/e2e/Tests/` must have a corresponding `.steps.ts` file with the same base name:
+
 - `nutrition-tips.feature` → `nutrition-tips.steps.ts`
 - `booking-flow.feature` → `booking-flow.steps.ts`
 
@@ -112,6 +113,7 @@ it("renders the component", () => {
 ### Snapshot Naming
 
 Use `<component-name>-<state>` format:
+
 - `landing-page-default`
 - `sidebar-high-risk`
 - `nutrition-response-default`
@@ -135,7 +137,8 @@ Do not use an empty `interface` that only extends an existing type. Use `type` i
 export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 // VIOLATION
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
 ```
 
 Rule: `@typescript-eslint/no-empty-object-type` — an interface declaring no members is equivalent to its supertype and enables accidental merging.
@@ -188,14 +191,14 @@ const imageUrl = "https://images.unsplash.com/photo-...";
 
 Scan source files for these anti-patterns. Any match is a violation unless accompanied by a narrow inline disable explaining why:
 
-| Pattern | Rule | Severity |
-|---|---|---|
-| `eval(expression)` | `security/detect-eval-with-expression` | error |
-| `child_process.exec`, `spawn`, `execSync` | `security/detect-child-process` | error |
-| `fs.readFile(variablePath)` | `security/detect-non-literal-fs-filename` | warn |
-| `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write` | XSS risk | error |
-| `Math.random()`, `crypto.pseudoRandomBytes` | `security/detect-pseudoRandomBytes` | warn |
-| High-entropy strings matching secret patterns | `no-secrets/no-secrets` | error |
+| Pattern                                                          | Rule                                      | Severity |
+| ---------------------------------------------------------------- | ----------------------------------------- | -------- |
+| `eval(expression)`                                               | `security/detect-eval-with-expression`    | error    |
+| `child_process.exec`, `spawn`, `execSync`                        | `security/detect-child-process`           | error    |
+| `fs.readFile(variablePath)`                                      | `security/detect-non-literal-fs-filename` | warn     |
+| `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write` | XSS risk                                  | error    |
+| `Math.random()`, `crypto.pseudoRandomBytes`                      | `security/detect-pseudoRandomBytes`       | warn     |
+| High-entropy strings matching secret patterns                    | `no-secrets/no-secrets`                   | error    |
 
 ### Promise Handling
 
@@ -235,26 +238,26 @@ Callback events must be verified with `cy.stub().as(...)`. Verifying callbacks b
 
 ### File Checks
 
-| Check | Violation If... |
-|---|---|
-| Component test exists | No `.spec.tsx` file alongside component |
-| Correct test extension | File uses `.cy.tsx` instead of `.spec.tsx` |
-| Correct mount import | Uses `cypress/react18` instead of `cypress/react` |
-| Unique step definitions | Same step text appears in multiple `.steps.ts` files |
-| Feature-to-steps mapping | `.feature` file has no matching `.steps.ts` file |
+| Check                    | Violation If...                                      |
+| ------------------------ | ---------------------------------------------------- |
+| Component test exists    | No `.spec.tsx` file alongside component              |
+| Correct test extension   | File uses `.cy.tsx` instead of `.spec.tsx`           |
+| Correct mount import     | Uses `cypress/react18` instead of `cypress/react`    |
+| Unique step definitions  | Same step text appears in multiple `.steps.ts` files |
+| Feature-to-steps mapping | `.feature` file has no matching `.steps.ts` file     |
 
 ### Code Checks
 
-| Check | Violation If... |
-|---|---|
-| Snapshot present | `cy.mount()` used but no `cy.compareSnapshot()` in the same `it()` |
-| Snapshot after assertions | `cy.compareSnapshot()` appears before `cy.contains()` / `cy.get()` |
-| Snapshot naming | Name is vague (`test1`, `default`, `screenshot`) |
-| Scoped E2E selectors | `cy.contains(label).click()` without `cy.get("main")` scope |
-| Inline disable scope | File-level or block-level `eslint-disable` for security rules |
-| Prohibited patterns | `eval()`, `innerHTML`, `child_process` without narrow inline disable |
-| Promise handling | `.then()` chain without `.catch()` or return |
-| Independent tests | Tests share mutable state without `beforeEach` reset |
-| Callback verification | Callback checked by DOM only, not `cy.stub()` |
-| Duplicate string literals | Same string literal used 3+ times anywhere in a source file (not test files) — extract to a named constant |
+| Check                            | Violation If...                                                                                                              |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Snapshot present                 | `cy.mount()` used but no `cy.compareSnapshot()` in the same `it()`                                                           |
+| Snapshot after assertions        | `cy.compareSnapshot()` appears before `cy.contains()` / `cy.get()`                                                           |
+| Snapshot naming                  | Name is vague (`test1`, `default`, `screenshot`)                                                                             |
+| Scoped E2E selectors             | `cy.contains(label).click()` without `cy.get("main")` scope                                                                  |
+| Inline disable scope             | File-level or block-level `eslint-disable` for security rules                                                                |
+| Prohibited patterns              | `eval()`, `innerHTML`, `child_process` without narrow inline disable                                                         |
+| Promise handling                 | `.then()` chain without `.catch()` or return                                                                                 |
+| Independent tests                | Tests share mutable state without `beforeEach` reset                                                                         |
+| Callback verification            | Callback checked by DOM only, not `cy.stub()`                                                                                |
+| Duplicate string literals        | Same string literal used 3+ times anywhere in a source file (not test files) — extract to a named constant                   |
 | Duplicate Tailwind class strings | Same long Tailwind class string used 3+ times anywhere in a source file — extract to a named constant at the top of the file |

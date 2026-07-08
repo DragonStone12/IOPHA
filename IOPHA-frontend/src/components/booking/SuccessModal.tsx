@@ -35,7 +35,10 @@ export function SuccessModal({
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const formattedDateTime = `${format(selectedDate, "EEEE, MMMM d, yyyy")} at ${selectedTime}`;
+  const formattedDateTime = `${format(
+    selectedDate,
+    "EEEE, MMMM d, yyyy",
+  )} at ${selectedTime}`;
 
   return (
     <div
