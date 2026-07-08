@@ -29,6 +29,12 @@ class JsonTelemetryFormatter(logging.Formatter):
         if hasattr(record, "extra_context"):
             log_payload.update(record.extra_context)
 
+        if record.exc_info:
+            log_payload["exc_info"] = self.formatException(record.exc_info)
+
+        if record.stack_info:
+            log_payload["stack_info"] = self.formatStack(record.stack_info)
+
         return json.dumps(log_payload, default=str)
 
     def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
