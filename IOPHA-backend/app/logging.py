@@ -7,6 +7,9 @@ from typing import Any
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+# Minimum number of trailing digits preserved when masking a user identifier.
+MIN_MASKED_DIGITS = 3
+
 
 class JsonTelemetryFormatter(logging.Formatter):
     """
@@ -71,8 +74,8 @@ class PathSanitizer:
     @classmethod
     def mask_user_id(cls, user_id: str) -> str:
         match = re.match(r"^(.*?)(\d+)$", user_id)
-        if match and len(match.group(2)) > 3:
-            return f"{match.group(1)}***{match.group(2)[-3:]}"
+        if match and len(match.group(2)) > MIN_MASKED_DIGITS:
+            return f"{match.group(1)}***{match.group(2)[-MIN_MASKED_DIGITS:]}"
         return "[REDACTED_USER]"
 
 
@@ -93,13 +96,25 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
         raw_path = request.url.path
         sanitized_path = PathSanitizer.sanitize_path(raw_path)
 
-        sensitive_query_keys = {"ssn", "email", "phone", "medical_record_number", "mrn", "dob", "date_of_birth"}
+        sensitive_query_keys = {
+            "ssn",
+            "email",
+            "phone",
+            "medical_record_number",
+            "mrn",
+            "dob",
+            "date_of_birth",
+        }
         query_params = dict(request.query_params)
         for key in query_params:
             if key.lower() in sensitive_query_keys:
                 query_params[key] = "[REDACTED]"
 
-        masked_user = PathSanitizer.mask_user_id(request_id) if request_id != "unknown" else request_id
+        masked_user = (
+            PathSanitizer.mask_user_id(request_id)
+            if request_id != "unknown"
+            else request_id
+        )
 
         self.logger.info(
             "request.start",

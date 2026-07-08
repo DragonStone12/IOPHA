@@ -11,6 +11,7 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 ### Scope
 
 **In scope:**
+
 - Landing page with Risk Profile sidebar and initial AI greeting.
 - Four primary chat flows: Weight & Nutrition Tips, Find a Doctor, Exercise Guidance, Sleep & Recovery.
 - Structured advice cards (numbered tips) and Physician Recommendation cards.
@@ -19,6 +20,7 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 - Cypress Component Testing and Cucumber BDD tests for all flows.
 
 **Out of scope:**
+
 - User authentication / login flow (assumes pre-authenticated session or guest mode).
 - Payment processing or insurance verification.
 - Telehealth/video visit functionality.
@@ -26,12 +28,14 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 - Multi-language support.
 
 **Prerequisites:**
+
 - IOPHA Resources component library available and documented.
 - Backend API endpoints for RAG responses and physician directory search.
 - Booking API endpoint for slot reservation and confirmation.
 - User context (name, age, location, BMI, risk factors) available via props or global state.
 
 **Depends on:**
+
 - RAG pipeline returning structured JSON responses (not raw text).
 - Physician directory API with real-time availability.
 - Email service for confirmation notifications.
@@ -116,7 +120,7 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 - src/components/chat/ChatInterface.tsx — Modified to handle routing between Chat and Booking views.
 - src/lib/api/iopha.ts — New API client methods for getGuidance, searchProviders, bookAppointment.
 - cypress/e2e/booking-flow.cy.ts — E2E test suite.
-- cypress/component/*.cy.tsx — Component tests for all new UI elements.
+- cypress/component/\*.cy.tsx — Component tests for all new UI elements.
 
 ### Data Flow
 
@@ -167,19 +171,23 @@ The IOPHA Chat & Appointment Booking Flow is a conversational interface that bri
 ### Automated Tests
 
 **Unit Tests:**
+
 - TipCard: Renders correct number badge and title.
 - PhysicianCard: Formats distance/rating correctly.
 - ValidationSchema: Rejects invalid emails/phones.
 
 **Integration Tests:**
+
 - POST /api/bookings: Returns 201 on valid payload; 409 on duplicate slot.
 - GET /api/providers/{id}/slots: Returns sorted time slots.
 
 **E2E Tests (Cypress):**
+
 - booking-flow.cy.ts: Full end-to-end booking scenario.
 - chat-navigation.cy.ts: Switching between tips/doctors/exercise/sleep.
 
 **Component Tests (Cypress):**
+
 - TimeSelector.cy.tsx: Select date → Verify time slots update.
 - ConfirmationForm.cy.tsx: Submit empty → Verify errors appear.
 

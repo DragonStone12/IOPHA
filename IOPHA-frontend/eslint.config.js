@@ -61,9 +61,16 @@ module.exports = [
       "no-secrets/no-secrets": "off",
       "promise/catch-or-return": "off",
       "sonarjs/no-duplicate-string": "off",
+      "@typescript-eslint/no-namespace": "off",
     },
   },
   {
-    ignores: ["node_modules/", "dist/", "cypress/"],
+    files: ["**/*.config.ts", "**/*.config.js", "cypress.config.ts"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    ignores: ["node_modules/", "dist/"],
   },
 ];
