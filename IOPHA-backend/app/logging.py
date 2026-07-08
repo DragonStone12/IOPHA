@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import Request, Response
@@ -29,6 +30,9 @@ class JsonTelemetryFormatter(logging.Formatter):
             log_payload.update(record.extra_context)
 
         return json.dumps(log_payload, default=str)
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        return datetime.now(timezone.utc).isoformat()
 
 
 class PathSanitizer:
