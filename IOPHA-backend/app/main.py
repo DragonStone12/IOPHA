@@ -104,9 +104,6 @@ class PIISanitizerFilter(logging.Filter):
         return args
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if isinstance(record.msg, str):
-            record.msg = self._scrub_text(record.msg)
-
         if record.args:
             record.args = self._scrub_args(record.args)
 
