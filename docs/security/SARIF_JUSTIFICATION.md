@@ -1,4 +1,4 @@
-# SARIF Justification for Security Analysis
+# SARIF for Security Analysis
 
 ## Why SARIF?
 
