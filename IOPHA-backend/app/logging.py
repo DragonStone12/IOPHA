@@ -69,13 +69,11 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
         raw_path = request.url.path
         query_params = dict(request.query_params)
 
-        masked_user = request_id
-
         self.logger.info(
             "request.start",
             extra={
                 "extra_context": {
-                    "requestId": masked_user,
+                    "requestId": request_id,
                     "method": request.method,
                     "path": raw_path,
                     "userAgent": request.headers.get("user-agent", "unknown"),
@@ -94,7 +92,7 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
             "request.complete",
             extra={
                 "extra_context": {
-                    "requestId": masked_user,
+                    "requestId": request_id,
                     "status": response.status_code,
                     "durationMs": duration_ms,
                     "responseSize": response_size,
