@@ -47,6 +47,7 @@ Never bypass hooks with `--no-verify`.
 | Command                  | Description                             |
 | ------------------------ | --------------------------------------- |
 | `npm run dev`            | Start Vite development server           |
+| `uvicorn app.main:app --reload` | Start FastAPI backend with auto-reload |
 | `npm run build`          | Production build                        |
 | `npm run lint`           | Run ESLint with security and bug checks |
 | `npm run test:e2e`       | Run Cypress E2E tests (Cucumber BDD)    |
