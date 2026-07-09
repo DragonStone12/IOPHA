@@ -59,7 +59,7 @@ def _build_openapi() -> dict[str, object]:
     components_schemas.pop("HTTPValidationError", None)
     components_schemas.pop("ValidationError", None)
 
-    for path in schema.get("paths", {}).values():
+    for path_key, path in schema.get("paths", {}).items():
         for operation in path.values():
             if not isinstance(operation, dict):
                 continue
@@ -68,6 +68,17 @@ def _build_openapi() -> dict[str, object]:
                 responses["422"] = {
                     "description": (
                         "Request validation failed (RFC 7807 problem detail)."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                        }
+                    },
+                }
+            if path_key == "/api/providers/{provider_id}" and "get" in path:
+                responses["404"] = {
+                    "description": (
+                        "Provider record not found (ProviderNotFoundException)."
                     ),
                     "content": {
                         "application/json": {
