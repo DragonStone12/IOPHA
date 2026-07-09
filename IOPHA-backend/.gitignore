@@ -25,10 +25,11 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 htmlcov/
-.tox/
-.nox/
 .coverage
 .coverage.*
+.cache
+junit/
+reports/
 .nose2
 .pytest_cache/
 cover/
