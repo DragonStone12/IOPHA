@@ -31,8 +31,8 @@ export default defineConfig({
   component: {
     specPattern: "src/components/**/*.spec.tsx",
     supportFile: "cypress/support/component.ts",
-    viewportWidth: 1280,
-    viewportHeight: 720,
+    viewportWidth: 1440,
+    viewportHeight: 900,
     devServer: {
       framework: "react",
       bundler: "vite",
@@ -45,6 +45,6 @@ export default defineConfig({
   },
   env: {
     VIDEO: false,
-    SNAPSHOT_TEST_THRESHOLD: 0.5,
+    SNAPSHOT_TEST_THRESHOLD: 0.02,
   },
 });
