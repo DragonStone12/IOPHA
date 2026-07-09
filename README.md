@@ -40,7 +40,7 @@ This repo uses [Husky](https://typicode.github.io/husky/) for Git hooks (configu
 - **Backend**: the pre-commit hook runs `ruff` (auto-fix + verify) on staged Python files in `IOPHA-backend/`. `ruff` must be available on your `PATH` (e.g. `pip install ruff`, or it is resolved from a `venv`/via `python3 -m ruff`). If it is missing the hook fails loudly rather than committing broken code.
 - **Frontend**: the pre-commit hook runs `npx lint-staged`.
 
-Never bypass hooks with `--no-verify`. `mypy` and `bandit` are enforced in CI, not locally.
+Never bypass hooks with `--no-verify`.
 
 ## Quick Start
 
