@@ -422,7 +422,7 @@ class ExpiredBookingSessionError(IOPHADomainError):
 
 
 class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
-    """Requested provider/physician record does not exist in the directory."""
+    """The requested provider or physician record was not found in the directory."""
 
     status_code = status.HTTP_404_NOT_FOUND
     link = "provider-not-found-error"
@@ -436,8 +436,8 @@ class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
 
     def safe_detail(self) -> str:
         return (
-            f"No active provider found matching resource identification "
-            f"token '{self.provider_id}'."
+            f"The requested provider '{self.provider_id}' was not found in the "
+            "directory. Verify the provider ID and try again."
         )
 
     def log_context(self) -> dict[str, object]:

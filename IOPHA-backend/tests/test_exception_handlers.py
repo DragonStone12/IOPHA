@@ -75,6 +75,10 @@ def _make_app() -> FastAPI:
             raise ValueError(f"unknown key: {key}")
         raise EXAMPLES[key]
 
+    @app.get("/validate")
+    async def validate(q: int) -> dict[str, int]:
+        return {"q": q}
+
     return app
 
 
@@ -204,3 +208,20 @@ class TestRoutingRegistry:
         assert AttachmentPayloadTooLargeError in DOMAIN_EXCEPTIONS
         assert InvalidViewTransitionError in DOMAIN_EXCEPTIONS
         assert len(DOMAIN_EXCEPTIONS) == len(EXAMPLES)
+
+
+class TestValidationErrorHandler:
+    def test_validation_error_returns_problem_with_help_url(
+        self, client: TestClient
+    ) -> None:
+        response = client.get("/validate?q=not-an-int")
+        assert response.status_code == 422
+        body = response.json()
+        assert body["type"] == "about:blank"
+        assert body["title"] == "Request Validation Error"
+        assert body["status"] == 422
+        assert "help_url" in body
+        assert "request-validation-error" in body["help_url"]
+        assert body["errors"] is not None
+        # Raw user input must never leak into the response body.
+        assert "not-an-int" not in response.text

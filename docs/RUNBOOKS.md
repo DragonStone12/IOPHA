@@ -211,7 +211,7 @@ timeout, but the frontend never notified the user; submit then failed.
 ## Provider Not Found Error
 
 **What happened:** A client requested a physician/provider entity by id
-(`GET /api/v1/providers/{provider_id}`) but the repository returned no matching
+(`GET /api/providers/{provider_id}`) but the repository returned no matching
 record, so the service raised `ProviderNotFoundException`.
 
 **Common causes:**

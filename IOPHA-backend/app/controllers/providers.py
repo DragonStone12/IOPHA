@@ -29,7 +29,7 @@ def get_provider_controller(
     return ProviderController(ProviderService(repository))
 
 
-router = APIRouter(prefix="/api/v1/providers", tags=["providers"])
+router = APIRouter(prefix="/api/providers", tags=["providers"])
 
 
 @router.get("/{provider_id}", response_model=PhysicianSchema)

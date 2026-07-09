@@ -44,7 +44,7 @@ def isolate_database_layer() -> Generator[None, None, None]:
 
 def test_fetch_physician_endpoint_success() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/providers/prov-123")
+        response = client.get("/api/providers/prov-123")
         assert response.status_code == 200
         body = response.json()
         assert body["name"] == "Dr. Emily Chen, MD"
@@ -54,7 +54,7 @@ def test_fetch_physician_endpoint_success() -> None:
 
 def test_structural_identifier_never_leaks() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/providers/prov-123")
+        response = client.get("/api/providers/prov-123")
         body = response.json()
         # The internal persistence key is dropped by the mapping layer.
         assert "db_primary_key" not in body
@@ -62,7 +62,7 @@ def test_structural_identifier_never_leaks() -> None:
 
 def test_response_is_normalized_frontend_contract() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/providers/prov-123")
+        response = client.get("/api/providers/prov-123")
         body = response.json()
         assert set(body.keys()) == {
             "id",
@@ -80,7 +80,7 @@ def test_response_is_normalized_frontend_contract() -> None:
 def test_echoes_supplied_request_id_header() -> None:
     with TestClient(app) as client:
         response = client.get(
-            "/api/v1/providers/prov-123",
+            "/api/providers/prov-123",
             headers={"X-Request-ID": "req-xyz"},
         )
         assert response.headers["X-Request-ID"] == "req-xyz"
@@ -88,14 +88,14 @@ def test_echoes_supplied_request_id_header() -> None:
 
 def test_missing_provider_returns_rfc7807_problem() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/providers/missing")
+        response = client.get("/api/providers/missing")
         assert response.status_code == 404
         body = response.json()
         assert body["type"] == "about:blank"
         assert body["title"] == "Provider Record Absent"
         assert body["status"] == 404
         assert "missing" in body["detail"]
-        assert body["instance"] == "/api/v1/providers/missing"
+        assert body["instance"] == "/api/providers/missing"
         assert body["help_url"].endswith("#provider-not-found-error")
         assert body["help_url"].startswith(
             "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
@@ -104,7 +104,7 @@ def test_missing_provider_returns_rfc7807_problem() -> None:
 
 def test_missing_provider_payload_contains_no_secrets() -> None:
     with TestClient(app) as client:
-        response = client.get("/api/v1/providers/missing")
+        response = client.get("/api/providers/missing")
         for marker in LEAK_MARKERS:
             assert marker not in response.text
 

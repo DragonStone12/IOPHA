@@ -1,19 +1,29 @@
 import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response
 
 from app.exceptions import (
     DOMAIN_EXCEPTIONS,
     GITHUB_RUNBOOK_BASE_URL,
     IOPHADomainError,
 )
+from app.schemas.problem.problem_detail import ProblemDetail
 
 # Logger namespace matches app.main so structured JSON records flow through
 # the same JsonTelemetryFormatter pipeline as the request middleware.
 logger = logging.getLogger("iopha.backend")
 
 INTERNAL_SERVER_ERROR_LINK = "internal-server-error"
+VALIDATION_ERROR_LINK = "request-validation-error"
+HTTP_ERROR_LINK = "http-error"
 
 
 def _help_url(link: str) -> str:
@@ -24,6 +34,48 @@ def _help_url(link: str) -> str:
 def _request_id(request: Request) -> str:
     """Read the correlation id, degrading gracefully when the header is absent."""
     return request.headers.get("X-Request-ID", "unknown")
+
+
+def _sanitized_validation_errors(
+    exc: RequestValidationError,
+) -> list[dict[str, Any]]:
+    """Return field-level validation errors with raw input values stripped.
+
+    ``exc.errors()`` includes the offending ``input`` for each field, which can
+    carry PHI; we drop it (and ``ctx``) so nothing sensitive reaches the
+    client response or logs.
+    """
+    cleaned: list[dict[str, Any]] = []
+    for err in exc.errors():
+        cleaned.append(
+            {
+                "loc": list(err.get("loc", [])),
+                "msg": err.get("msg", ""),
+                "type": err.get("type", ""),
+            }
+        )
+    return cleaned
+
+
+def _problem_response(  # noqa: PLR0913
+    *,
+    request: Request,
+    status_code: int,
+    title: str,
+    detail: str,
+    link: str,
+    errors: list[dict[str, Any]] | None = None,  # noqa: PLR0913
+) -> JSONResponse:
+    payload = ProblemDetail(
+        type="about:blank",
+        title=title,
+        status=status_code,
+        detail=detail,
+        instance=request.url.path,
+        help_url=_help_url(link),
+        errors=errors,
+    )
+    return JSONResponse(status_code=status_code, content=payload.model_dump())
 
 
 def _domain_payload(exc: IOPHADomainError, request: Request) -> dict[str, object]:
@@ -60,6 +112,54 @@ async def _domain_handler(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Project FastAPI input-validation faults into the RFC-7807 problem shape."""
+    logger.warning(
+        "request.validation_error",
+        extra={
+            "extra_context": {
+                "requestId": _request_id(request),
+                "path": request.url.path,
+                "errorCount": len(exc.errors()),
+            }
+        },
+    )
+    return _problem_response(
+        request=request,
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        title="Request Validation Error",
+        detail="The request failed input validation. Inspect 'errors' "
+        "for field-level details.",
+        link=VALIDATION_ERROR_LINK,
+        errors=_sanitized_validation_errors(exc),
+    )
+
+
+async def _http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
+    """Normalize Starlette HTTP exceptions (404/405/...) into the problem shape."""
+    logger.info(
+        "request.http_error",
+        extra={
+            "extra_context": {
+                "requestId": _request_id(request),
+                "path": request.url.path,
+                "status": exc.status_code,
+            }
+        },
+    )
+    return _problem_response(
+        request=request,
+        status_code=exc.status_code,
+        title="HTTP Error",
+        detail=str(exc.detail) if exc.detail else "The server rejected the request.",
+        link=HTTP_ERROR_LINK,
+    )
+
+
 async def _global_unexpected_handler(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all for any unhandled runtime fault.
 
@@ -92,8 +192,31 @@ async def _global_unexpected_handler(request: Request, exc: Exception) -> JSONRe
     )
 
 
+class ProblemAPIRoute(APIRoute):
+    """Route class that funnels ``RequestValidationError`` into ``ProblemDetail``.
+
+    FastAPI normally documents validation faults with the default
+    ``HTTPValidationError`` schema. By catching the error inside the route
+    handler wrapper we both return the real RFC-7807 problem object at runtime
+    and let the OpenAPI document reflect the true error contract.
+    """
+
+    def get_route_handler(self) -> Callable[[StarletteRequest], Awaitable[Response]]:
+        original = super().get_route_handler()
+
+        async def route_handler(request: StarletteRequest) -> Response:
+            try:
+                return await original(request)
+            except RequestValidationError as exc:
+                return _validation_error_handler(request, exc)
+
+        return route_handler
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Register all domain handlers plus the global catch-all on ``app``."""
     for exc_class in DOMAIN_EXCEPTIONS:
         app.add_exception_handler(exc_class, _domain_handler)
+    app.add_exception_handler(RequestValidationError, _validation_error_handler)
+    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)
     app.add_exception_handler(Exception, _global_unexpected_handler)

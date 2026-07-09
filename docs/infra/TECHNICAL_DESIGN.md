@@ -65,7 +65,7 @@ will replace the in-memory default behind the same interface (see §3.1).
 │   │   ├── main.py                # FastAPI entry point — wiring only
 │   │   ├── dependencies.py        # FastAPI dependency factories
 │   │   ├── /controllers           # HTTP route controllers (one per resource)
-│   │   │   └── providers.py       # GET /api/v1/providers/{provider_id}
+│   │   │   └── providers.py       # GET /api/providers/{provider_id}
 │   │   ├── /services              # Business logic / orchestration
 │   │   │   └── provider_service.py
 │   │   ├── /repositories          # Persistence abstractions (ABC + in-memory)
@@ -288,7 +288,7 @@ sequenceDiagram
     participant Svc as ProviderService
     participant Repo as ProviderRepository
 
-    C->>T: GET /api/v1/providers/{id} (X-Request-ID?)
+    C->>T: GET /api/providers/{id} (X-Request-ID?)
     T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
     T->>L: call_next(request)
     L->>L: log request.start (requestId from context)
@@ -404,7 +404,7 @@ directory modules.
 
 ### 3.6.2 Route Contract
 
-- `GET /api/v1/providers/{provider_id}` → `PhysicianSchema` (200) or RFC-7807 problem (404).
+- `GET /api/providers/{provider_id}` → `PhysicianSchema` (200) or RFC-7807 problem (404).
 - The controller resolves a `ProviderController` per request via the
   `get_provider_controller` factory, which wires `get_provider_repository` →
   `ProviderService` → `ProviderController`.
@@ -424,7 +424,7 @@ flowchart LR
     Repo[ProviderRepository.find_by_id] -->|ProviderRecord| Svc[ProviderService.get_physician]
     Svc -->|ProviderNotFoundException| Err[RFC-7807 404]
     Svc -->|map_provider_to_physician| DTO[PhysicianSchema]
-    DTO -->|response_model| API[GET /api/v1/providers/:id]
+    DTO -->|response_model| API[GET /api/providers/:id]
 ```
 
 ### 3.6.4 Transaction Schema Rules
