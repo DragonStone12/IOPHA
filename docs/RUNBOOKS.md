@@ -23,7 +23,7 @@ hyphens, and strips punctuation).
 | Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
 | Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
 | Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
-| Unprocessable Content | 422 | [unprocessable-content](#unprocessable-content) |
+| Unprocessable Entity Error | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -225,7 +225,7 @@ record, so the service raised `ProviderNotFoundException`.
 2. Confirm the provider repository is wired to the correct datasource for the environment.
 3. Return the canonical directory listing so the client can re-select a valid provider.
 
-## Unprocessable Content
+## Unprocessable Entity Error
 
 **What happened:** The client sent a syntactically valid request, but the server
 could not process it because one or more fields failed validation (wrong type,
