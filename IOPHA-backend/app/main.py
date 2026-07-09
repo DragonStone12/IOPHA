@@ -1,26 +1,19 @@
-import logging
-
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.handlers import register_exception_handlers
-from app.logging import CentralizedLoggingMiddleware, JsonTelemetryFormatter
+from app.controllers.providers import router as providers_router
+from app.middleware import RequestTracingMiddleware
+from app.utils.handlers import register_exception_handlers
+from app.utils.logging import CentralizedLoggingMiddleware, configure_logging
 
 app = FastAPI(title="IOPHA Backend API")
 
 register_exception_handlers(app)
 
-
-log_handler = logging.StreamHandler()
-log_handler.setFormatter(JsonTelemetryFormatter())
-logger = logging.getLogger("iopha.backend")
-logger.setLevel(logging.INFO)
-logger.addHandler(log_handler)
-logger.propagate = False
-
-
+logger = configure_logging()
 app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
-
+app.add_middleware(RequestTracingMiddleware)
+app.include_router(providers_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,

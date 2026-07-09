@@ -22,6 +22,7 @@ hyphens, and strips punctuation).
 | Notification Gateway Timeout | 504 | [notification-gateway-timeout](#notification-gateway-timeout) |
 | Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
 | Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
+| Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -206,6 +207,22 @@ timeout, but the frontend never notified the user; submit then failed.
 1. Push hold-expiry notifications to the client before TTL.
 2. Show a countdown and re-acquire the hold on activity.
 3. Return 410 with the released slot id so the user restarts cleanly.
+
+## Provider Not Found Error
+
+**What happened:** A client requested a physician/provider entity by id
+(`GET /api/v1/providers/{provider_id}`) but the repository returned no matching
+record, so the service raised `ProviderNotFoundException`.
+
+**Common causes:**
+- Typo'd or stale provider id in the frontend route / cache.
+- The provider was deactivated or never existed in the directory source.
+- A test or integration hitting the real repository with an un-seeded id.
+
+**Mitigation:**
+1. Verify the `provider_id` passed by the client matches an active directory record.
+2. Confirm the provider repository is wired to the correct datasource for the environment.
+3. Return the canonical directory listing so the client can re-select a valid provider.
 
 ## Internal Server Error
 

@@ -16,13 +16,14 @@ from app.exceptions import (
     NotificationGatewayTimeoutError,
     OutOfOrderMessageDeliveryError,
     OverlappingModifierConflictError,
+    ProviderNotFoundException,
     RaceConditionDoubleBookingError,
     TimeZoneMismatchError,
     UnreadNotificationInconsistencyError,
     UpstreamWebhookFailureError,
     WebSocketConnectionDropError,
 )
-from app.handlers import register_exception_handlers
+from app.utils.handlers import register_exception_handlers
 
 # Substrings that must NEVER appear in a client-facing error response.
 LEAK_MARKERS = (
@@ -49,6 +50,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "notif": NotificationGatewayTimeoutError("pat-11", "sms"),
     "view": InvalidViewTransitionError("confirmation", "time-selection", "prov-12"),
     "expired": ExpiredBookingSessionError("slot-13", "pat-13", 600),
+    "provider": ProviderNotFoundException("prov-1"),
 }
 
 

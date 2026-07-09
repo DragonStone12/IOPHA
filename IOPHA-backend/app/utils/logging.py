@@ -8,14 +8,20 @@ from typing import Any, Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.utils.context import request_id_ctx
+
 
 class JsonTelemetryFormatter(logging.Formatter):
     """
     Structured JSON formatter for CloudWatch / Elasticsearch ingestion.
     Emits strict root-level attributes required by the telemetry pipeline.
 
-    The `timestamp` field is emitted in strict ISO 8601 format via an explicit
-    `datefmt`, satisfying the contract documented in TECHNICAL_DESIGN.md.
+    Every line carries ``requestId``, sourced from the active request
+    correlation context (``app.context.request_id_ctx``) so downstream
+    operations (services, repositories, background tasks) are traceable
+    without threading the id through function signatures. Only curated
+    fields are emitted -- raw credentials, structural identifiers, and other
+    ``record`` internals are never serialized to stdout.
     """
 
     ISO_8601_DATEFMT = "%Y-%m-%dT%H:%M:%S%:z"
@@ -30,6 +36,7 @@ class JsonTelemetryFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
+            "requestId": request_id_ctx.get(),
         }
 
         if hasattr(record, "extra_context"):
@@ -48,6 +55,31 @@ class JsonTelemetryFormatter(logging.Formatter):
         return datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(datefmt)
 
 
+LOGGER_NAME = "iopha.backend"
+
+
+def configure_logging(level: int = logging.INFO) -> logging.Logger:
+    """Build and register the structured JSON logger used by the app.
+
+    Attaches a stdout :class:`logging.StreamHandler` wrapped in
+    :class:`JsonTelemetryFormatter` and disables propagation so records are
+    emitted once, in machine-readable JSON, for external log shippers.
+    """
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.setLevel(level)
+    logger.propagate = False
+    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(JsonTelemetryFormatter())
+        logger.addHandler(handler)
+    return logger
+
+
+def get_logger() -> logging.Logger:
+    """Return the application logger, configuring it on first use."""
+    return configure_logging()
+
+
 class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
     """
     Asynchronous request/response logging middleware.
@@ -56,7 +88,7 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app: Any, logger: logging.Logger | None = None) -> None:
         super().__init__(app)
-        self.logger = logger or logging.getLogger("iopha.backend")
+        self.logger = logger or get_logger()
 
     async def dispatch(
         self,
@@ -64,7 +96,6 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         start_time = time.time()
-        request_id = request.headers.get("X-Request-ID", "unknown")
 
         raw_path = request.url.path
         query_params = dict(request.query_params)
@@ -73,7 +104,6 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
             "request.start",
             extra={
                 "extra_context": {
-                    "requestId": request_id,
                     "method": request.method,
                     "path": raw_path,
                     "userAgent": request.headers.get("user-agent", "unknown"),
@@ -92,7 +122,6 @@ class CentralizedLoggingMiddleware(BaseHTTPMiddleware):
             "request.complete",
             extra={
                 "extra_context": {
-                    "requestId": request_id,
                     "status": response.status_code,
                     "durationMs": duration_ms,
                     "responseSize": response_size,
