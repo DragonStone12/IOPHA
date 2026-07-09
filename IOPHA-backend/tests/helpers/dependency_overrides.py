@@ -11,5 +11,6 @@ def override_dependencies(app: FastAPI, overrides: dict) -> Generator[None, None
     try:
         yield
     finally:
-        app.dependency_overrides.clear()
+        for key in overrides:
+            app.dependency_overrides.pop(key, None)
         app.dependency_overrides.update(original_overrides)
