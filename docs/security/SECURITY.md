@@ -344,9 +344,86 @@ All pull requests to `main` branch must pass the following quality gates:
 
 The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-severity dependency vulnerabilities block the push until resolved.
 
-## Backend PII/PHI Sanitization
+## Testing Security Guardrails
 
-The IOPHA backend implements a defense-in-depth sanitization strategy across three distinct boundaries to prevent accidental PHI exposure in CloudWatch logs, metrics, and API responses.
+### Test Mock Isolation
+
+- **No live data stubs**: Test mocks must not contain real patient records, user credentials, or production API keys
+- **No auth configuration leakage**: Test fixtures must not embed live JWT secrets, OAuth tokens, or database credentials
+- **Dependency overrides only**: Use FastAPI `app.dependency_overrides` to inject test doubles; never patch environment variables or global modules
+
+### Data Classification in Tests
+
+| Test Data Type | Allowable | Guardrail |
+|---|---|---|
+| Synthetic PII | Yes | Generated via factory functions, not copied from production |
+| Live PHI | No | Never import production database dumps into test fixtures |
+| Real credentials | No | Use dummy values (`test@example.com`, `+1-555-000-0000`) |
+| Production URLs | No | Override with `http://test` or mock transports |
+
+### Lifecycle & Cleanup
+
+- Reset `app.dependency_overrides` between tests via fixture teardown
+- Transaction-scoped database fixtures roll back all changes per test
+- Test artifacts (screenshots, logs) auto-excluded from version control
+
+### Configuration Guide (Models & APIs Not Implemented Yet)
+
+Once models and API endpoints exist, configure `PathSanitizer` and
+`PIISanitizationMiddleware` in `app/logging.py` and `app/main.py`
+using the pattern definitions below.
+
+**Canonical `PATH_PATTERNS`** — place in `app/logging.py` `PathSanitizer`:
+
+```python
+PATH_PATTERNS = [
+    (re.compile(r"/patients/\d+"), "/patients/:id"),
+    (re.compile(r"/providers/\d+"), "/providers/:id"),
+    (re.compile(r"/sessions/\d+"), "/sessions/:id"),
+    (re.compile(r"/users/\d+"), "/users/:id"),
+]
+```
+
+**Canonical `SENSITIVE_QUERY_KEYS`** — place in `app/logging.py` `PathSanitizer`:
+
+```python
+SENSITIVE_QUERY_KEYS = {
+    "ssn",
+    "email",
+    "phone",
+    "medical_record_number",
+    "mrn",
+    "dob",
+    "date_of_birth",
+}
+```
+
+**`PIISanitizationMiddleware` sensitive keys** — place in `app/main.py` middleware:
+
+```python
+sensitive_keys = {"ssn", "email", "phone", "medical_record_number"}
+```
+
+**`PII_PATTERNS` and `redact_pii`** — place in `app/main.py` when PII fields are
+confirmed in the domain:
+
+```python
+PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[EMAIL_REDACTED]"),
+    (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
+    (re.compile(r"\b\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}\b"), "[CARD_REDACTED]"),
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[IP_REDACTED]"),
+]
+```
+
+**How it works together once enabled:**
+1. `PathSanitizer.sanitize_path` replaces dynamic ID segments with `:id` placeholders
+2. `PathSanitizer.sanitize_query` redacts sensitive query keys with `[REDACTED]`
+3. `PIISanitizationMiddleware` applies these rules to every incoming request before logging/metrics
+4. `PIISanitizerFilter` applies PII regex redaction to all log records at the root logger level
+
+**Important:** Only configure patterns that match actual implemented models and API responses. Do not add speculative patterns (e.g., `/patients/`, `/providers/`) before the corresponding routes and models exist.
 
 ### HTTP Transport Middleware
 
@@ -444,34 +521,6 @@ All HTTP request/response logs are emitted as structured JSON through `Centraliz
 | Payload size | `responseSize` from `content-length` header |
 | Timestamp | ISO 8601 format for cross-system correlation |
 | Immutable logs | Logs streamed to stdout; tamper-proof once ingested by external shipper |
-
-## Quick Reference
-
-| Command                                   | Purpose                                                  |
-| ----------------------------------------- | -------------------------------------------------------- |
-| `npm run lint`                            | ESLint with security + bug rules; `--max-warnings=0`     |
-| `npm run cy:check-steps`                  | Detect duplicate Cucumber step definitions               |
-| `npm run test:e2e`                        | Start dev server + run all E2E tests                     |
-| `npm run cy:update-snapshots`             | Update visual regression baselines                       |
-| `npm audit --omit=dev --audit-level=high` | Audit dependencies for high-severity issues              |
-| `ruff check IOPHA-backend/`               | Fast Python linting (Pyflakes, Pycodestyle, Security)    |
-| `ruff format --check IOPHA-backend/`      | Code formatting check                                    |
-| `mypy IOPHA-backend/`                     | Static type checking                                     |
-| `npm install`                             | Install deps and set up Husky git hooks (via `prepare`)  |
-| `git config core.hooksPath`               | Confirm hooks resolve to `.husky`                        |
-| Kilo Code Reviewer dashboard              | AI PR reviews, focus areas, PR gate threshold            |
-| Kilo Security Agent dashboard             | Dependabot alerts triage, SLA tracking, auto-remediation |
-
-**Backend Testing Pattern — Python `logging.extra`:**
-
-```python
-# CORRECT: simulate how Python logging actually merges extra into record.__dict__
-record.__dict__["email"] = "admin@example.com"
-
-# WRONG: record.extra is never set by the logging framework;
-# setting it directly tests a code path that does not execute in production.
-record.extra = {"email": "admin@example.com"}
-```
 
 **Related Documentation:**
 

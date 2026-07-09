@@ -207,13 +207,14 @@ Local enforcement is handled by Husky. The hook scripts live in `.husky/`:
 
 The `ci-backend.yml` workflow runs all checks on every push and pull request to `main`:
 
-| Job         | Tool      | Description                         |
-| ----------- | --------- | ----------------------------------- |
-| ruff        | Ruff      | Linting check                       |
-| ruff-format | Ruff      | Formatting check                    |
-| mypy        | Mypy      | Static type checking                |
-| bandit      | Bandit    | Security scanning with SARIF upload |
-| pip-audit   | pip-audit | Dependency vulnerability audit      |
+| Job | Tool | Description |
+|---|---|---|
+| ruff | Ruff | Linting check |
+| ruff-format | Ruff | Formatting check |
+| mypy | Mypy | Static type checking |
+| bandit | Bandit | Security scanning with SARIF upload |
+| pip-audit | pip-audit | Dependency vulnerability audit |
+| pytest | pytest | Unit tests with JUnit XML and coverage reports |
 
 ---
 

@@ -6,7 +6,7 @@ set -e
 
 npm run test:changed
 
-# Guard: ensure the Python backend passes ruff before pushing (mirrors CI).
+# Guard: ensure the Python backend passes ruff and mypy before pushing (mirrors CI).
 cd "$(git rev-parse --show-toplevel)"
 
 # Shared ruff-resolution helper (single source of truth for both hooks).
@@ -69,5 +69,31 @@ if BANDIT=$(resolve_bandit); then
 else
   echo "husky/pre-push: 'bandit' not found on PATH or in ./venv."
   echo "Install it (e.g. 'pip install bandit') and retry, or use 'git push --no-verify' only if you know why."
+  exit 1
+fi
+
+# Guard: ensure the Python backend meets the 80% test coverage threshold before pushing.
+resolve_pytest() {
+  if command -v pytest >/dev/null 2>&1; then
+    echo "pytest"
+    return 0
+  fi
+  if [ -x venv/bin/pytest ]; then
+    echo "venv/bin/pytest"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1 && python3 -m pytest --version >/dev/null 2>&1; then
+    echo "python3 -m pytest"
+    return 0
+  fi
+  return 1
+}
+
+if PYTEST=$(resolve_pytest); then
+  echo "Running pytest with coverage..."
+  cd IOPHA-backend && $PYTEST tests --cov=app --cov-fail-under=80 || exit 1
+else
+  echo "husky/pre-push: 'pytest' not found on PATH or in ./venv."
+  echo "Install it (e.g. 'pip install pytest pytest-cov') and retry, or use 'git push --no-verify' only if you know why."
   exit 1
 fi

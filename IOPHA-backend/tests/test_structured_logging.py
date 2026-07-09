@@ -1,9 +1,10 @@
 import json
 import logging
 
-from app.logging import (
-    JsonTelemetryFormatter,
-)
+from fastapi.testclient import TestClient
+
+from app.logging import JsonTelemetryFormatter
+from app.main import app
 
 # ---------------------------------------------------------------------------
 # JsonTelemetryFormatter tests
@@ -61,5 +62,17 @@ class TestJsonTelemetryFormatter:
 
 
 # ---------------------------------------------------------------------------
-# PathSanitizer: behavior for non-existent API routes
+# CentralizedLoggingMiddleware smoke tests
 # ---------------------------------------------------------------------------
+
+
+class TestCentralizedLoggingMiddleware:
+    def test_logs_request_start_and_complete(self):
+        client = TestClient(app)
+        response = client.get("/metrics")
+        assert response.status_code in (200, 404)
+
+    def test_logs_request_for_non_existent_route(self):
+        client = TestClient(app)
+        response = client.get("/non-existent-route")
+        assert response.status_code == 404

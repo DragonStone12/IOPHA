@@ -286,7 +286,77 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 - Tool: Locust
 - Target: 100 concurrent users, <2s p95 latency
 
-### 5.6 Code Quality & Linting
+### 5.6 Testing Infrastructure
+
+**Test Dependencies**:
+- **pytest**: Test runner with plugin ecosystem
+- **pytest-asyncio**: Async test support with `asyncio_mode = "auto"`
+- **pytest-cov**: Coverage measurement with reporting (XML, HTML, terminal)
+- **httpx**: HTTP client for TestClient transport
+- **coverage**: Core coverage measurement library (installed via pytest-cov)
+- Configuration in `IOPHA-backend/requirements.txt` and `IOPHA-backend/pyproject.toml`
+
+**Pytest Configuration**:
+- `testpaths = ["tests"]`
+- `python_files = ["test_*.py"]`
+- `asyncio_mode = "auto"` for automatic async loop handling
+
+**Coverage Configuration** (`IOPHA-backend/pyproject.toml`):
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `source` | `["app"]` | Measure coverage only for the application package |
+| `branch` | `true` | Track branch coverage (if/else paths) |
+| `fail_under` | `80` | Minimum coverage percentage required to pass |
+| `show_missing` | `true` | Display line numbers of uncovered lines in report |
+| `exclude_lines` | pragmas, `__repr__`, `NotImplementedError`, `__main__`, `TYPE_CHECKING` | Exclude boilerplate from coverage |
+
+**Coverage Commands**:
+
+```bash
+# Run tests with coverage report in terminal
+pytest tests --cov=app --cov-report=term
+
+# Run tests with XML and HTML reports
+pytest tests --cov=app --cov-report=xml --cov-report=html
+
+# Run all CI checks (used in GitHub Actions)
+pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov-report=xml --cov-report=html
+```
+
+**Test Layout**:
+
+```
+/IOPHA-backend/tests/
+├── conftest.py              # Global fixtures: TestClient, dependency overrides
+├── helpers/
+│   ├── __init__.py
+│   └── dependency_overrides.py  # Centralized override utilities
+├── test_*.py                # Unit and integration tests
+```
+
+**Core Fixtures** (`conftest.py`):
+- `client`: In-memory FastAPI `TestClient` wrapping the production `app`
+- Dependency override helpers to intercept database sessions and external services during test runtime
+
+**Mock Assignment Practices**:
+- Use FastAPI `app.dependency_overrides` to replace production dependencies with test doubles
+- Prefer dependency injection over patching module-level state
+- Keep mock schemas minimal and free of live data stubs or authentication configurations
+- Reset `app.dependency_overrides` between tests to prevent state leakage
+
+**Asset Lifecycle Patterns**:
+- Database transactions: roll back per test via transaction-scoped fixtures
+- External services: override via dependency injection, not network mocking
+- Test data: factory-generated, deterministic, and isolated per test case
+
+**Backend Test Reporting**:
+- JUnit XML: `junit/test-results.xml` for CI test result ingestion
+- Coverage reports: XML (`coverage.xml`) and HTML (`htmlcov/`) generated via `pytest-cov`
+- Target coverage: 80%
+- Coverage scope: `--cov=app` (application package)
+
+### 5.7 Code Quality & Linting
 
 **Backend Linting & Type Checking**:
 
@@ -321,6 +391,7 @@ npm run lint
 ### 5.7 CI Integration
 
 - Tests run on every PR to main
+- JUnit XML and coverage reports uploaded as artifacts
 - Screenshots uploaded as artifacts on failure
 
 ## 6. CI/CD & Deployment
@@ -346,6 +417,7 @@ npm run lint
 - Mypy static type checking
 - Bandit SAST scanning
 - pip-audit for dependencies
+- pytest: JUnit XML and coverage reports (80% target)
 
 ### 6.2 Observability & Metrics
 
