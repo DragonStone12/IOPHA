@@ -22,6 +22,12 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "S", "B", "PLR"]
 ignore = ["S105", "S106", "S107"]
 
+# S101 (assert) and PLR2004 (magic value comparisons, e.g. HTTP 200) are
+# idiomatic and expected in test code. Per RUFF_MYPY_LINTING.md, S101 is
+# bypassed in tests; PLR2004 follows the same rationale for test assertions.
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004"]
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true

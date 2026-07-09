@@ -1,7 +1,155 @@
-from fastapi import FastAPI
+import logging
+import re
+import urllib.parse
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from fastapi import FastAPI, Request
 from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+from app.logging import CentralizedLoggingMiddleware, JsonTelemetryFormatter
+
+# Centralized PII patterns shared by the logging filter. Each entry is
+# (compiled_regex, replacement). Matching text is redacted in place;
+# non-matching text is preserved so API responses stay useful for callers
+# instead of being wholly withheld.
+PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+        "[EMAIL_REDACTED]",
+    ),
+    (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
+    (re.compile(r"\b\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}\b"), "[CARD_REDACTED]"),
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[IP_REDACTED]"),
+]
+
+
+def redact_pii(text: str) -> str:
+    """Apply every PII pattern to a single string, preserving non-PII text."""
+    for pattern, replacement in PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+# ---------------------------------------------------------------------------
+# 2. Logging filter for PII/PHI redaction
+# ---------------------------------------------------------------------------
+
+
+class PIISanitizerFilter(logging.Filter):
+    """
+    Industry standard global safety net.
+    Intercepts all log records and scrubs PII/PHI before the JSON formatter.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def _scrub_text(self, text: str) -> str:
+        """Apply every PII pattern to a single string."""
+        return redact_pii(text)
+
+    def _scrub_args(self, args: Any) -> Any:
+        """Redact PII from logging args, preserving dict/tuple shape."""
+        if isinstance(args, dict):
+            return {
+                key: self._scrub_text(value) if isinstance(value, str) else value
+                for key, value in args.items()
+            }
+        if isinstance(args, tuple):
+            return tuple(
+                self._scrub_text(arg) if isinstance(arg, str) else arg for arg in args
+            )
+        return args
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.args:
+            record.args = self._scrub_args(record.args)
+
+        for key, value in record.__dict__.items():
+            if isinstance(value, str):
+                record.__dict__[key] = self._scrub_text(value)
+
+        return True
+
+
+# Attach filter to root logger
+root_logger = logging.getLogger()
+pii_filter = PIISanitizerFilter()
+root_logger.addFilter(pii_filter)
+
+
+# ---------------------------------------------------------------------------
+# 3. FastAPI app initialization + structured JSON logging
+# ---------------------------------------------------------------------------
+
+# Emit structured JSON logs through a stdout StreamHandler so external log
+# shippers can ingest them unchanged (CloudWatch / Elasticsearch).
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(JsonTelemetryFormatter())
+logger = logging.getLogger("iopha.backend")
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
+logger.propagate = False
 
 app = FastAPI(title="IOPHA Backend API")
+
+
+# ---------------------------------------------------------------------------
+# 4. PII Sanitization Middleware (must run BEFORE logging/metrics middleware)
+# ---------------------------------------------------------------------------
+
+
+class PIISanitizationMiddleware(BaseHTTPMiddleware):
+    """
+    Normalizes dynamic URL paths and redacts sensitive query parameters.
+    Must be registered before logging and metrics middleware.
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        # 1. Sanitize URL Path
+        sanitized_path = re.sub(r"/patients/[^/]+", "/patients/:id", request.url.path)
+        sanitized_path = re.sub(r"/providers/[^/]+", "/providers/:id", sanitized_path)
+
+        # 2. Sanitize Query Parameters
+        sensitive_keys = {"ssn", "email", "phone", "medical_record_number"}
+        sanitized_query = {}
+        for key, value in request.query_params.items():
+            if key.lower() in sensitive_keys:
+                sanitized_query[key] = "[REDACTED]"
+            else:
+                sanitized_query[key] = value
+
+        # 3. Rewrite request scope so downstream consumers (access log, metrics)
+        #    see sanitized data instead of raw PII/PHI.
+        request.scope["path"] = sanitized_path
+        query_string = urllib.parse.urlencode(sanitized_query).encode("utf-8")
+        request.scope["query_string"] = query_string
+        if "raw_path" in request.scope:
+            request.scope["raw_path"] = sanitized_path.encode("utf-8")
+
+        # 4. Attach to request.state for any downstream middleware that reads it
+        request.state.sanitized_path = sanitized_path
+        request.state.sanitized_query = sanitized_query
+
+        response = await call_next(request)
+        return response
+
+
+# Register middleware: PII sanitization runs outermost (first) so the logging
+# middleware only ever sees sanitized paths/queries.
+app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
+app.add_middleware(PIISanitizationMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# 5. Prometheus Metrics Instrumentation
+# ---------------------------------------------------------------------------
 
 # Initialize the instrumentator
 # should_group_status_codes=True: group status codes (reduces cardinality)

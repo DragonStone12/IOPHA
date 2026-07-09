@@ -90,11 +90,13 @@ Despite accurate risk identification for obesity, timely intervention is lacking
 #### Step 2: User selects an option
 
 **If tips:**
+
 - Presents top three evidence-based strategies (personalized, actionable, non-generic).
 - Includes dynamic content like meal timing, exercise suggestions, etc.
 - Options to see more, request clarification, or shift to scheduling.
 
 **If scheduling:**
+
 - System auto-fills user information and suggests matched in-network providers.
 - Confirmation step before booking.
 
