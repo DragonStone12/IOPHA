@@ -1,0 +1,218 @@
+# IOPHA Runbooks — Error Mitigation Guide
+
+This document is the centralized troubleshooting reference for the IOPHA
+backend. Every structured error response emitted by the global exception
+handlers includes a `help_url` that deep-links directly to the section below
+matching the fault. The `help_url` link MUST stay in sync with the markdown
+header slugs in this file (GitHub lowercases headers, replaces spaces with
+hyphens, and strips punctuation).
+
+| Error | Status Code | Link |
+| --- | --- | --- |
+| Race Condition (Double Booking) | 409 | [race-condition-double-booking](#race-condition-double-booking) |
+| Time Zone Mismatch | 400 | [time-zone-mismatch](#time-zone-mismatch) |
+| Availability Drift | 409 | [availability-drift](#availability-drift) |
+| Overlapping Modifier Conflict | 409 | [overlapping-modifier-conflict](#overlapping-modifier-conflict) |
+| WebSocket Connection Drop | 503 | [websocket-connection-drop](#websocket-connection-drop) |
+| Out of Order Message Delivery | 409 | [out-of-order-message-delivery](#out-of-order-message-delivery) |
+| Unread Notification Inconsistency | 409 | [unread-notification-inconsistency](#unread-notification-inconsistency) |
+| Payload Too Large | 413 | [payload-too-large](#payload-too-large) |
+| External Calendar Sync Disconnect | 502 | [external-calendar-sync-disconnect](#external-calendar-sync-disconnect) |
+| Upstream Webhook Failure | 502 | [upstream-webhook-failure](#upstream-webhook-failure) |
+| Notification Gateway Timeout | 504 | [notification-gateway-timeout](#notification-gateway-timeout) |
+| Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
+| Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
+| Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
+
+## Race Condition Double Booking
+
+**What happened:** Two transactions committed the same appointment slot in the
+same instant before row-level locking resolved the conflict, producing a
+double-booking.
+
+**Common causes:**
+- Missing `SELECT ... FOR UPDATE` / optimistic concurrency token on the slots table.
+- Two concurrent requests racing on a cached availability read.
+
+**Mitigation:**
+1. Introduce pessimistic row locking or a unique constraint on `(slot_id, date)` at write time.
+2. Add an optimistic-concurrency `version` column and retry on conflict.
+3. Return the conflict to the client; never silently overwrite the existing booking.
+
+## Time Zone Mismatch
+
+**What happened:** A timestamp was stored or parsed in the wrong time zone
+(local vs UTC), shifting the appointment by hours on the patient's calendar.
+
+**Common causes:**
+- Backend persisting naive local time instead of UTC.
+- Client rendering a UTC timestamp without converting to the user's locale.
+
+**Mitigation:**
+1. Store and transport all times in UTC (ISO-8601 with `Z`).
+2. Convert to the patient's timezone only at the presentation layer.
+3. Validate the account/device timezone configuration.
+
+## Availability Drift
+
+**What happened:** The user was shown an open slot from a cached availability
+list, but the slot was already booked; the confirm write failed.
+
+**Common causes:**
+- Stale cache entry not invalidated on booking.
+- Read-after-write inconsistency between cache and database.
+
+**Mitigation:**
+1. Invalidate the availability cache entry on every successful booking.
+2. Re-validate slot availability inside the write transaction before commit.
+3. Surface a clear "slot gone" message and force a refresh.
+
+## Overlapping Modifier Conflict
+
+**What happened:** An appointment's duration was extended (e.g. 30 -> 60 min),
+bleeding into an already-booked following appointment.
+
+**Common causes:**
+- Duration change applied without re-checking adjacent bookings.
+- No overlap constraint on the scheduling window.
+
+**Mitigation:**
+1. Re-run the overlap check whenever duration changes.
+2. Reject or auto-shift the appointment when it collides with the next slot.
+3. Return the conflicting slot id to the client for correction.
+
+## WebSocket Connection Drop
+
+**What happened:** The realtime chat socket disconnected (e.g. Wi-Fi to 5G
+handoff) and the client did not reconnect.
+
+**Common causes:**
+- No exponential backoff reconnect strategy on the client.
+- Socket leak from unclosed listeners on disconnect.
+
+**Mitigation:**
+1. Implement exponential backoff with jitter on the client.
+2. Tear down listeners/subscriptions on `close` to avoid socket leaks.
+3. Replay missed messages on reconnect using the last seen sequence.
+
+## Out of Order Message Delivery
+
+**What happened:** Message B rendered before message A due to async latency or
+poor backend indexing.
+
+**Common causes:**
+- Missing sequence/monotonic index on messages.
+- Client appending messages by arrival instead of order.
+
+**Mitigation:**
+1. Stamp every message with a monotonic sequence/server timestamp.
+2. Sort client-side by sequence before rendering.
+3. De-duplicate by message id.
+
+## Unread Notification Inconsistency
+
+**What happened:** The user read a message but the read receipt never reached
+the server, leaving a stale "1 unread" badge across devices.
+
+**Common causes:**
+- Service worker dropped the acknowledgment.
+- Local state updated without confirming server receipt.
+
+**Mitigation:**
+1. Send the read receipt idempotently and await server ACK.
+2. Reconcile unread counts from the server on focus/refresh.
+3. Make the badge derived from server state, not local optimistic state.
+
+## Payload Too Large
+
+**What happened:** A chat attachment (insurance card, medical record) exceeded
+the backend's maximum multipart upload size, returning 413.
+
+**Common causes:**
+- Upload exceeds `client_max_body_size` / multipart limit.
+- No pre-upload size check on the client.
+
+**Mitigation:**
+1. Enforce and document the max upload size.
+2. Compress/split large files on the client before upload.
+3. Return the limit in the error detail so the client can guide the user.
+
+## External Calendar Sync Disconnect
+
+**What happened:** The linked Google/Outlook calendar disconnected because the
+OAuth refresh token expired or was revoked; slots are still booked locally.
+
+**Common causes:**
+- Refresh token expired, revoked, or scoped incorrectly.
+- No proactive token-health check before booking.
+
+**Mitigation:**
+1. Detect token expiry and prompt re-authorization.
+2. Add a token-refresh health check before synchronizing bookings.
+3. Flag locally-booked slots that could not be pushed to the provider.
+
+## Upstream Webhook Failure
+
+**What happened:** A cancellation processed locally but the webhook to the
+external EHR failed, leaving the appointment active in the secondary ledger.
+
+**Common causes:**
+- EHR endpoint timeout or 5xx.
+- No durable retry/queue for outbound webhooks.
+
+**Mitigation:**
+1. Put outbound webhooks on a durable retry queue with backoff.
+2. Alert on repeated webhook failures.
+3. Reconcile the secondary ledger on the next sync cycle.
+
+## Notification Gateway Timeout
+
+**What happened:** An SMS/push notification (Twilio/FCM) timed out or hit a rate
+limit, so the user was not notified of the booking or message.
+
+**Common causes:**
+- Gateway latency / upstream 5xx.
+- Provider rate-limit exceeded.
+
+**Mitigation:**
+1. Retry with backoff and respect provider rate limits.
+2. Fall back to an alternate channel when one times out.
+3. Track delivery status and surface non-delivery to the user.
+
+## Invalid View Transition
+
+**What happened:** The frontend and backend disagreed on the current booking or
+chat phase (e.g. clicking "Book Now" mid-transition with a missing provider id).
+
+**Common causes:**
+- Frontend forced a view change without required state (provider id undefined).
+- No server-side guard on the expected state machine phase.
+
+**Mitigation:**
+1. Guard every transition server-side against the expected phase.
+2. Validate required identifiers before allowing the transition.
+3. Return the current and expected views so the client can recover.
+
+## Expired Booking Session
+
+**What happened:** The temporary slot hold was released after the session
+timeout, but the frontend never notified the user; submit then failed.
+
+**Common causes:**
+- Hold TTL (10 min) elapsed during form fill / payment.
+- Frontend did not subscribe to hold-expiry events.
+
+**Mitigation:**
+1. Push hold-expiry notifications to the client before TTL.
+2. Show a countdown and re-acquire the hold on activity.
+3. Return 410 with the released slot id so the user restarts cleanly.
+
+## Internal Server Error
+
+**What happened:** An unhandled runtime fault broke execution context.
+
+**What to do (developers):**
+1. Find the `requestId` in the structured server logs and search CloudWatch/ES.
+2. Inspect the `exc_info` trace captured server-side for this request.
+3. Reproduce using the request path and headers; never rely on the client
+   `detail` (it is intentionally generic and contains no stack trace).
