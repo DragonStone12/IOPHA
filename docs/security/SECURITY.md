@@ -526,7 +526,7 @@ All HTTP request/response logs are emitted as structured JSON through `Centraliz
 
 - [ESLint Security & Bug Detection](ESLINT_SECURITY_BUG_DETECTION.md)
 - [Ruff & Mypy Linting Rules](RUFF_MYPY_LINTING.md)
-- [SARIF Justification](security/SARIF_JUSTIFICATION.md)
+- [SARIF](security/SARIF_JUSTIFICATION.md)
 - [Architecture](../infra/ARCHITECTURE.md)
 - [Cypress Testing Guide](../testing/CYPRESS_TESTING.md)
 - [Kilo Code Reviews Documentation](https://kilo.ai/docs/automate/code-reviews/overview)

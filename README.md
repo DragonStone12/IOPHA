@@ -15,7 +15,7 @@ IOPHA is an AI-powered health assistant that delivers personalized, evidence-bas
 | [Security Overview](docs/security/SECURITY.md)                                    | Unified security documentation: trust boundaries, PHI handling, static analysis, dependency auditing, PII handling in frontend flows, HIPAA compliance, and quick reference commands.                                                                         |
 | [Troubleshooting](TROUBLESHOOTING.md)                                             | Known issues and solutions: Vite environment variable pitfalls, IOPHA Resources integration, Tailwind CSS v4 configuration, Cypress overflow clipping, duplicate text labels, React import errors, and logging/performance hooks.                             |
 | [Appointment Flow](docs/features/APPOINTMENT_FLOW.md)                             | Physician appointment booking flow implementation details                                                                                                                                                                                                     |
-| [SARIF Justification](docs/security/SARIF_JUSTIFICATION.md)                       | SARIF security report format rationale and integration notes                                                                                                                                                                                                  |
+| [SARIF](docs/security/SARIF_JUSTIFICATION.md)                       | SARIF security report format rationale and integration notes                                                                                                                                                                                                  |
 | [Business Case](docs/product_plan/BUSINESS_CASE.md)                               | Product business case and market analysis                                                                                                                                                                                                                     |
 | [Product Requirements](docs/product_plan/PRD.md)                                  | Product requirements document with feature specifications                                                                                                                                                                                                     |
 
@@ -40,13 +40,14 @@ This repo uses [Husky](https://typicode.github.io/husky/) for Git hooks (configu
 - **Backend**: the pre-commit hook runs `ruff` (auto-fix + verify) on staged Python files in `IOPHA-backend/`. `ruff` must be available on your `PATH` (e.g. `pip install ruff`, or it is resolved from a `venv`/via `python3 -m ruff`). If it is missing the hook fails loudly rather than committing broken code.
 - **Frontend**: the pre-commit hook runs `npx lint-staged`.
 
-Never bypass hooks with `--no-verify`. `mypy` and `bandit` are enforced in CI, not locally.
+Never bypass hooks with `--no-verify`.
 
 ## Quick Start
 
 | Command                  | Description                             |
 | ------------------------ | --------------------------------------- |
 | `npm run dev`            | Start Vite development server           |
+| `uvicorn app.main:app --reload` | Start FastAPI backend with auto-reload |
 | `npm run build`          | Production build                        |
 | `npm run lint`           | Run ESLint with security and bug checks |
 | `npm run test:e2e`       | Run Cypress E2E tests (Cucumber BDD)    |

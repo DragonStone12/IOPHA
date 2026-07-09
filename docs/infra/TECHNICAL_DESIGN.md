@@ -203,7 +203,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 | `level` | string | Log severity: `INFO`, `WARNING`, `ERROR` |
 | `logger` | string | Logger namespace (e.g., `iopha.backend`) |
 | `message` | string | Event name (`request.start` or `request.complete`) |
-| `requestId` | string | Tracking identifier, masked if containing user IDs |
+| `requestId` | string | Client-supplied correlation/tracing identifier, propagated as-is |
 | `method` | string | HTTP method |
 | `path` | string | Sanitized URL path with dynamic segments normalized |
 | `userAgent` | string | Client user agent |
@@ -211,6 +211,8 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 | `durationMs` | int | Request processing duration in milliseconds |
 | `responseSize` | int | Response payload size in bytes |
 | `queryParams` | object | Sanitized query parameters |
+| `exc_info` | string | Exception traceback (present only when an exception is logged) |
+| `stack_info` | string | Stack information (present only when explicitly captured) |
 
 **Path-Masking Regular Expressions**:
 
@@ -225,6 +227,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 - Raw format: `user_123456`
 - Masked format: `user_***456`
 - Rationale: Prevents full user ID exposure in logs while preserving traceability for debugging
+- Scope: Applied only to genuinely sensitive user identifiers. Correlation/tracing headers such as `X-Request-ID` are client-supplied and must NOT be masked, as they are required for audit trail traceability across distributed systems.
 
 **Serialization Configuration**:
 - Custom `JsonTelemetryFormatter` extends `logging.Formatter`
