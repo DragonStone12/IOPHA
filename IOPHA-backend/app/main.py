@@ -3,9 +3,13 @@ import logging
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.handlers import register_exception_handlers
 from app.logging import CentralizedLoggingMiddleware, JsonTelemetryFormatter
 
 app = FastAPI(title="IOPHA Backend API")
+
+register_exception_handlers(app)
+
 
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(JsonTelemetryFormatter())

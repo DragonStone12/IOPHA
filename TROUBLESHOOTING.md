@@ -14,6 +14,7 @@
 | 8   | [Logging & Performance](#logging--performance)                                         | Logger, `useLogRenders`, `usePerformanceTracking`                  |
 | 9   | [Known Limitations](#known-limitations)                                                | Resource library gaps, calendar styling                            |
 | 10  | [Cypress Component Test Flakiness](#cypress-component-test-flakiness)                  | Dynamic dates, fragile calendar DOM, computed CSS in tests         |
+| 11  | [Backend Global Exception Handler Re-Raises in Tests](#backend-global-exception-handler-re-raises-in-tests) | `TestClient` raises the original error instead of returning the 500 payload |
 
 ## Vite Configuration
 
@@ -603,3 +604,60 @@ During implementation of the Landing Page, all required components (Avatar, Badg
 ### Calendar Styling
 
 Calendar picker styles from `globals.css` are included in `index.css` for future use (booking flow). These styles target `.rdp-*` classes from the `react-day-picker` library, which is not yet installed.
+
+## Backend Global Exception Handler Re-Raises in Tests
+
+### Symptom
+
+A route that raises a raw, unhandled exception (e.g. `RuntimeError`) is meant
+to be caught by the global `Exception` handler in `IOPHA-backend/app/handlers.py`
+(`_global_unexpected_handler`), which returns a structured `500` JSON payload
+with a `help_url` runbook link. Under `FastAPI.testclient.TestClient`, the test
+fails with the **original** exception raised instead of a `500` response:
+
+```
+RuntimeError: simulated unhandled fault
+```
+
+### Root Cause
+
+`app.add_exception_handler(Exception, ...)` is wired into Starlette's
+`ServerErrorMiddleware` (the outermost middleware), not the inner
+`ExceptionMiddleware`. `ServerErrorMiddleware.__call__` deliberately **re-raises
+the exception after** it has built and sent the response:
+
+```python
+# We always continue to raise the exception.
+# This allows servers to log the error, or allows test clients
+# to optionally raise the error within the test case.
+raise exc
+```
+
+In production (uvicorn), that re-raise is caught by the server and logged; the
+client still receives the `500` JSON from the handler. But `TestClient` defaults
+to `raise_server_exceptions=True`, so it surfaces the re-raised error into the
+test instead of returning the response object.
+
+This only affects the global `Exception` handler. Domain exceptions
+(`RaceConditionDoubleBookingError`, etc.) are caught one layer deeper by
+`ExceptionMiddleware`, which returns the response **without** re-raising, so
+their tests behave normally.
+
+### Solution
+
+When testing the global handler, construct the `TestClient` with
+`raise_server_exceptions=False` so the test can assert on the returned `500`
+payload rather than the re-raised error:
+
+```python
+from fastapi.testclient import TestClient
+
+client = TestClient(app, raise_server_exceptions=False)
+response = client.get("/errors/unexpected")
+assert response.status_code == 500
+assert response.json()["help_url"].endswith("#internal-server-error")
+```
+
+Do **not** disable `raise_server_exceptions` to hide unrelated server faults —
+only use it for the specific tests that exercise the global `500` handler.
+

@@ -15,7 +15,7 @@ IOPHA is an AI-powered health assistant that delivers personalized, evidence-bas
 | [Security Overview](docs/security/SECURITY.md)                                    | Unified security documentation: trust boundaries, PHI handling, static analysis, dependency auditing, PII handling in frontend flows, HIPAA compliance, and quick reference commands.                                                                         |
 | [Troubleshooting](TROUBLESHOOTING.md)                                             | Known issues and solutions: Vite environment variable pitfalls, IOPHA Resources integration, Tailwind CSS v4 configuration, Cypress overflow clipping, duplicate text labels, React import errors, and logging/performance hooks.                             |
 | [Appointment Flow](docs/features/APPOINTMENT_FLOW.md)                             | Physician appointment booking flow implementation details                                                                                                                                                                                                     |
-| [SARIF](docs/security/SARIF_JUSTIFICATION.md)                       | SARIF security report format rationale and integration notes                                                                                                                                                                                                  |
+| [SARIF](docs/security/SARIF.md)                                     | SARIF security report format rationale and integration notes                                                                                                                                                                                                  |                                                                                                                                                                                                  |
 | [Business Case](docs/product_plan/BUSINESS_CASE.md)                               | Product business case and market analysis                                                                                                                                                                                                                     |
 | [Product Requirements](docs/product_plan/PRD.md)                                  | Product requirements document with feature specifications                                                                                                                                                                                                     |
 
@@ -29,9 +29,53 @@ cd IOPHA-frontend && npm install && npm run dev
 
 ### Backend
 
+The backend requires Python 3.11+ and its dependencies installed into a
+dedicated virtual environment. **Use the project's own `IOPHA-backend/venv`** —
+do not run `uvicorn` from an unrelated environment (for example a different
+project's virtualenv). If you do, imports such as
+`prometheus_fastapi_instrumentator` fail with
+`ModuleNotFoundError: No module named 'prometheus_fastapi_instrumentator'`,
+because that environment never had `IOPHA-backend/requirements.txt` installed
+into it.
+
+If the virtual environment does not exist yet, create it first:
+
 ```bash
-cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
+cd IOPHA-backend
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
+
+If the virtual environment already exists (for example `IOPHA-backend/venv`),
+just activate it and make sure the dependencies are installed:
+
+```bash
+cd IOPHA-backend
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Then start the development server from inside the activated environment:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000` and auto-reloads on file
+changes. Run `deactivate` to leave the virtual environment when finished.
+
+FastAPI also serves its generated OpenAPI schema and interactive documentation
+automatically. Once the server is running you can open:
+
+- `http://127.0.0.1:8000/docs` — Swagger UI, the interactive API explorer where
+  you can inspect every route and send test requests directly from the browser.
+- `http://127.0.0.1:8000/redoc` — ReDoc, an alternative rendered view of the
+  same API documentation.
+- `http://127.0.0.1:8000/openapi.json` — the raw OpenAPI/JSON schema that
+  drives both doc views and any external tooling (e.g. client generators).
+
+Prometheus metrics are exposed at `http://127.0.0.1:8000/metrics`.
 
 ### Local quality gates (Git hooks)
 
@@ -48,6 +92,7 @@ Never bypass hooks with `--no-verify`.
 | ------------------------ | --------------------------------------- |
 | `npm run dev`            | Start Vite development server           |
 | `uvicorn app.main:app --reload` | Start FastAPI backend with auto-reload |
+| `http://127.0.0.1:8000/docs` | Interactive Swagger UI for the backend API |
 | `npm run build`          | Production build                        |
 | `npm run lint`           | Run ESLint with security and bug checks |
 | `npm run test:e2e`       | Run Cypress E2E tests (Cucumber BDD)    |

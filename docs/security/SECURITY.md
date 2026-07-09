@@ -522,11 +522,27 @@ All HTTP request/response logs are emitted as structured JSON through `Centraliz
 | Timestamp | ISO 8601 format for cross-system correlation |
 | Immutable logs | Logs streamed to stdout; tamper-proof once ingested by external shipper |
 
+### Error Response Payload Hygiene
+
+The global exception handlers (`app/handlers.py`) return structured JSON
+problem payloads to clients. These payloads are explicitly scrubbed so no
+operational or sensitive data leaves the trust boundary:
+
+| Boundary | Rule | Enforcement |
+|---|---|---|
+| Raw trace data | Exception text, `repr()`, memory addresses, and `exc_info` are **never** placed in `detail` or any response field | Global `Exception` handler emits a fixed generic `detail`; raw trace is captured server-side only via `logger.error(..., exc_info=True)` |
+| Credentials & secrets | No JWTs, API keys, OAuth tokens, or database DSNs in any payload attribute | Only opaque identifiers (slot/session/patient ids) are referenced, and only in `detail`/`log_context` |
+| Database schemas | No table names, column names, SQL, or query plans in client payloads | Handlers build `detail` from fixed templates + non-sensitive identifiers only |
+| Log vs payload separation | Sensitive context lives only in `extra_context` server logs; client sees only `help_url` | `extra_context` flows through `JsonTelemetryFormatter`; response body omits `extra_context` entirely |
+
+`detail` is human-readable and client-safe; it must not contain interpolation
+of `str(exc)` or any untrusted exception attribute.
+
 **Related Documentation:**
 
 - [ESLint Security & Bug Detection](ESLINT_SECURITY_BUG_DETECTION.md)
 - [Ruff & Mypy Linting Rules](RUFF_MYPY_LINTING.md)
-- [SARIF](security/SARIF_JUSTIFICATION.md)
+- [SARIF](security/SARIF.md)
 - [Architecture](../infra/ARCHITECTURE.md)
 - [Cypress Testing Guide](../testing/CYPRESS_TESTING.md)
 - [Kilo Code Reviews Documentation](https://kilo.ai/docs/automate/code-reviews/overview)

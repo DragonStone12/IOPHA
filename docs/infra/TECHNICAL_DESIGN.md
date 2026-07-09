@@ -7,7 +7,7 @@
 | 1   | [Technology Stack](#1-technology-stack)                       | Frontend, backend, database, and testing technologies  |
 | 2   | [Project Structure](#2-project-structure-monorepo)            | Monorepo directory layout                              |
 | 3   | [Frontend Implementation](#3-frontend-implementation-details) | Styling, logging, state management, performance        |
-| 4   | [Backend Implementation](#4-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline |
+| 4   | [Backend Implementation](#4-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline, global exception handling |
 | 5   | [Testing Strategy](#5-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
 | 6   | [CI/CD & Deployment](#6-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
 | 7   | [Decision Points](#7-decision-points-pending)                 | Pending architectural decisions                        |
@@ -257,6 +257,66 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 2. Similarity search against guidelines table
 3. Top-K results retrieved
 4. Fallback to full-text search if vector search fails
+
+### 4.5 Global Exception Handling & Runbook Mappings
+
+The backend installs application-wide FastAPI exception handlers
+(`app/handlers.register_exception_handlers`) that intercept domain-specific
+faults and any unhandled runtime error. Every handler returns a structured,
+diagnostic JSON problem payload and emits a structured JSON log record through
+the same `JsonTelemetryFormatter` pipeline as the request middleware.
+
+**Error Response Object** (RFC-7807-style `about:blank` baseline):
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | string | Fixed `about:blank` problem type |
+| `title` | string | Client-safe, human-readable fault summary |
+| `status` | int | HTTP status code returned to the client |
+| `detail` | string | Client-safe explanation; never contains raw trace, memory addresses, DB schemas, or credentials |
+| `instance` | string | `request.url.path` of the failing request |
+| `help_url` | string | Deep-link into the centralized runbook (`docs/RUNBOOKS.md`) targeting the exact mitigation section |
+
+**Base Runbook URL Scheme**: `GITHUB_RUNBOOK_BASE_URL` in `app/exceptions.py`
+points at `docs/RUNBOOKS.md` on the main branch. Each error appends a `#<link>`
+fragment (`_help_url`) whose value MUST match the GitHub-generated slug of the
+corresponding markdown header (lowercase, spaces → hyphens, punctuation
+stripped) or the link 404s.
+
+**Exception-to-Link Routing Map** (registered in `app/exceptions.DOMAIN_EXCEPTIONS`):
+
+| Exception | Status Code | Log Event | Link |
+|---|---|---|---|
+| `RaceConditionDoubleBookingError` | 409 | `scheduling.race_condition_double_booking` | `race-condition-double-booking` |
+| `TimeZoneMismatchError` | 400 | `scheduling.timezone_mismatch` | `time-zone-mismatch` |
+| `AvailabilityDriftError` | 409 | `scheduling.availability_drift` | `availability-drift` |
+| `OverlappingModifierConflictError` | 409 | `scheduling.overlapping_modifier_conflict` | `overlapping-modifier-conflict` |
+| `WebSocketConnectionDropError` | 503 | `chat.websocket_connection_drop` | `websocket-connection-drop` |
+| `OutOfOrderMessageDeliveryError` | 409 | `chat.out_of_order_message_delivery` | `out-of-order-message-delivery` |
+| `UnreadNotificationInconsistencyError` | 409 | `chat.unread_notification_inconsistency` | `unread-notification-inconsistency` |
+| `AttachmentPayloadTooLargeError` | 413 | `chat.attachment_payload_too_large` | `payload-too-large` |
+| `ExternalCalendarSyncDisconnectedError` | 502 | `integration.external_calendar_sync_disconnect` | `external-calendar-sync-disconnect` |
+| `UpstreamWebhookFailureError` | 502 | `integration.upstream_webhook_failure` | `upstream-webhook-failure` |
+| `NotificationGatewayTimeoutError` | 504 | `integration.notification_gateway_timeout` | `notification-gateway-timeout` |
+| `InvalidViewTransitionError` | 409 | `state_machine.invalid_view_transition` | `invalid-view-transition` |
+| `ExpiredBookingSessionError` | 410 | `state_machine.expired_booking_session` | `expired-booking-session` |
+
+**Global Catch-All**: A handler registered for base `Exception` returns `500`
+with a generic detail and `help_url` link `internal-server-error`. It captures
+the full trace server-side via `exc_info=True` but never exposes exception text
+to the client.
+
+**Logging Contract**: Structured context is attached via `extra={"extra_context": {...}}`
+so the `JsonTelemetryFormatter` serializes it as root-level JSON. The global
+handler logs `requestId`, `path`, and `userAgent`; each domain handler logs
+`requestId`, `path`, plus only non-sensitive identifiers (slot/patient/session
+ids) from `IOPHADomainError.log_context`. All handler logging degrades
+gracefully when `X-Request-ID` or `user-agent` headers are missing
+(defaulting to `"unknown"`).
+
+**Security Boundaries**: See [Security Overview](../security/SECURITY.md) —
+error payloads are scrubbed of credentials and sensitive trace data before
+client delivery; raw stack traces exist only in server logs.
 
 ## 5. Testing Strategy
 
