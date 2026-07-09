@@ -79,4 +79,4 @@ def _build_openapi() -> dict[str, object]:
     return schema
 
 
-app.openapi = _build_openapi  # type: ignore[assignment]
+app.openapi = _build_openapi  # type: ignore[method-assign]

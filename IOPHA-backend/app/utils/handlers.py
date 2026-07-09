@@ -201,14 +201,16 @@ class ProblemAPIRoute(APIRoute):
     and let the OpenAPI document reflect the true error contract.
     """
 
-    def get_route_handler(self) -> Callable[[StarletteRequest], Awaitable[Response]]:
+    def get_route_handler(  # type: ignore[override]
+        self,
+    ) -> Callable[[StarletteRequest], Awaitable[Response]]:
         original = super().get_route_handler()
 
         async def route_handler(request: StarletteRequest) -> Response:
             try:
                 return await original(request)
             except RequestValidationError as exc:
-                return _validation_error_handler(request, exc)
+                return _validation_error_handler(request, exc)  # type: ignore[return-value]
 
         return route_handler
 
@@ -217,6 +219,6 @@ def register_exception_handlers(app: FastAPI) -> None:
     """Register all domain handlers plus the global catch-all on ``app``."""
     for exc_class in DOMAIN_EXCEPTIONS:
         app.add_exception_handler(exc_class, _domain_handler)
-    app.add_exception_handler(RequestValidationError, _validation_error_handler)
-    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)
+    app.add_exception_handler(RequestValidationError, _validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StarletteHTTPException, _http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, _global_unexpected_handler)
