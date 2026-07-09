@@ -184,6 +184,7 @@ class TestHeaderDegradation:
     ) -> None:
         client.get("/errors/race")
         record = _find_record(log_records, EXAMPLES["race"].log_event)
+        assert record is not None
         assert _context(record)["requestId"] == "unknown"
 
     def test_request_id_propagated_when_present(
@@ -191,6 +192,7 @@ class TestHeaderDegradation:
     ) -> None:
         client.get("/errors/race", headers={"X-Request-ID": "req-abc"})
         record = _find_record(log_records, EXAMPLES["race"].log_event)
+        assert record is not None
         assert _context(record)["requestId"] == "req-abc"
 
 
