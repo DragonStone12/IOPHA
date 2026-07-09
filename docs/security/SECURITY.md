@@ -367,18 +367,63 @@ The pre-push hook runs `npm audit --omit=dev --audit-level=high`. Known high-sev
 - Transaction-scoped database fixtures roll back all changes per test
 - Test artifacts (screenshots, logs) auto-excluded from version control
 
-### CI Enforcement
+### Configuration Guide (Models & APIs Not Implemented Yet)
 
-- Backend tests run in isolated CI containers with no access to production networks
-- Pre-commit hooks verify no hardcoded secrets in test files
-- Dependency audit scans test-only packages for known vulnerabilities
-- Backend pytest job generates JUnit XML and coverage reports (target: 80%)
-- Coverage threshold enforced via `[tool.coverage.report] fail_under = 80` in `pyproject.toml`
-- Test results and coverage artifacts uploaded to GitHub Actions for review
+Once models and API endpoints exist, configure `PathSanitizer` and
+`PIISanitizationMiddleware` in `app/logging.py` and `app/main.py`
+using the pattern definitions below.
 
-## Backend PII/PHI Sanitization
+**Canonical `PATH_PATTERNS`** — place in `app/logging.py` `PathSanitizer`:
 
-The IOPHA backend implements a defense-in-depth sanitization strategy across three distinct boundaries to prevent accidental PHI exposure in CloudWatch logs, metrics, and API responses.
+```python
+PATH_PATTERNS = [
+    (re.compile(r"/patients/\d+"), "/patients/:id"),
+    (re.compile(r"/providers/\d+"), "/providers/:id"),
+    (re.compile(r"/sessions/\d+"), "/sessions/:id"),
+    (re.compile(r"/users/\d+"), "/users/:id"),
+]
+```
+
+**Canonical `SENSITIVE_QUERY_KEYS`** — place in `app/logging.py` `PathSanitizer`:
+
+```python
+SENSITIVE_QUERY_KEYS = {
+    "ssn",
+    "email",
+    "phone",
+    "medical_record_number",
+    "mrn",
+    "dob",
+    "date_of_birth",
+}
+```
+
+**`PIISanitizationMiddleware` sensitive keys** — place in `app/main.py` middleware:
+
+```python
+sensitive_keys = {"ssn", "email", "phone", "medical_record_number"}
+```
+
+**`PII_PATTERNS` and `redact_pii`** — place in `app/main.py` when PII fields are
+confirmed in the domain:
+
+```python
+PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[EMAIL_REDACTED]"),
+    (re.compile(r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b"), "[PHONE_REDACTED]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[SSN_REDACTED]"),
+    (re.compile(r"\b\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}\b"), "[CARD_REDACTED]"),
+    (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[IP_REDACTED]"),
+]
+```
+
+**How it works together once enabled:**
+1. `PathSanitizer.sanitize_path` replaces dynamic ID segments with `:id` placeholders
+2. `PathSanitizer.sanitize_query` redacts sensitive query keys with `[REDACTED]`
+3. `PIISanitizationMiddleware` applies these rules to every incoming request before logging/metrics
+4. `PIISanitizerFilter` applies PII regex redaction to all log records at the root logger level
+
+**Important:** Only configure patterns that match actual implemented models and API responses. Do not add speculative patterns (e.g., `/patients/`, `/providers/`) before the corresponding routes and models exist.
 
 ### HTTP Transport Middleware
 

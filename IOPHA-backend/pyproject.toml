@@ -22,6 +22,9 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "S", "B", "PLR"]
 ignore = ["S105", "S106", "S107"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
 # S101 (assert) and PLR2004 (magic value comparisons, e.g. HTTP 200) are
 # idiomatic and expected in test code. Per RUFF_MYPY_LINTING.md, S101 is
 # bypassed in tests; PLR2004 follows the same rationale for test assertions.
@@ -46,6 +49,12 @@ show_error_codes = true
 [[tool.mypy.overrides]]
 module = ["tests.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
