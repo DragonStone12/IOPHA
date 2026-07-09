@@ -55,7 +55,6 @@ def _build_openapi() -> dict[str, object]:
     components_schemas = components.setdefault("schemas", {})
     components_schemas["ProblemDetail"] = problem
     components_schemas.update(definitions)
-    # Drop the now-unused default validation schemas.
     components_schemas.pop("HTTPValidationError", None)
     components_schemas.pop("ValidationError", None)
 

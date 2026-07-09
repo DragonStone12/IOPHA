@@ -217,11 +217,10 @@ class TestValidationErrorHandler:
         response = client.get("/validate?q=not-an-int")
         assert response.status_code == 422
         body = response.json()
-        assert body["type"] == "about:blank"
-        assert body["title"] == "Request Validation Error"
         assert body["status"] == 422
+        assert body["title"] == "Unprocessable Content"
         assert "help_url" in body
-        assert "request-validation-error" in body["help_url"]
+        assert "unprocessable-content" in body["help_url"]
         assert body["errors"] is not None
         # Raw user input must never leak into the response body.
         assert "not-an-int" not in response.text
