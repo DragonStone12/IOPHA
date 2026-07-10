@@ -1,9 +1,11 @@
 import asyncio
+import uuid
 
 import pytest
 
 from app.core.context import (
     generate_request_id,
+    get_request_id,
     request_id_ctx,
 )
 
@@ -11,6 +13,13 @@ from app.core.context import (
 class TestRequestIdContext:
     def test_default_is_system(self) -> None:
         assert request_id_ctx.get() == "system"
+
+    def test_get_request_id_returns_bound_value(self) -> None:
+        token = request_id_ctx.set("req-1")
+        try:
+            assert get_request_id() == "req-1"
+        finally:
+            request_id_ctx.reset(token)
 
     def test_set_and_reset_returns_to_default(self) -> None:
         token = request_id_ctx.set("req-1")
@@ -21,8 +30,6 @@ class TestRequestIdContext:
         assert request_id_ctx.get() == "system"
 
     def test_generate_request_id_is_uuid(self) -> None:
-        import uuid
-
         uuid.UUID(generate_request_id())
 
     def test_context_does_not_leak_across_calls(self) -> None:
