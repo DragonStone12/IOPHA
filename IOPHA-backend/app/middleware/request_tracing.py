@@ -28,7 +28,10 @@ class RequestTracingMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         raw_req_id = request.headers.get("X-Request-ID")
-        req_id = raw_req_id if _is_valid_uuid(raw_req_id) else generate_request_id()
+        if raw_req_id and _is_valid_uuid(raw_req_id):
+            req_id = raw_req_id
+        else:
+            req_id = generate_request_id()
         token = request_id_ctx.set(req_id)
         try:
             response = await call_next(request)
