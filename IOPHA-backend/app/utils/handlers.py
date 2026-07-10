@@ -77,16 +77,6 @@ def _problem_response(  # noqa: PLR0913
     return JSONResponse(status_code=status_code, content=payload.model_dump())
 
 
-def _domain_payload(exc: IOPHADomainError, request: Request) -> dict[str, object]:
-    return {
-        "title": exc.title,
-        "status": exc.status_code,
-        "detail": exc.safe_detail(),
-        "instance": request.url.path,
-        "help_url": _help_url(exc.link),
-    }
-
-
 async def _domain_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global handler for every known IOPHA domain exception.
 
@@ -104,9 +94,13 @@ async def _domain_handler(request: Request, exc: Exception) -> JSONResponse:
         domain.log_event,
         extra={"extra_context": context},
     )
-    return JSONResponse(
+    return _problem_response(
+        request=request,
         status_code=domain.status_code,
-        content=_domain_payload(domain, request),
+        title=domain.title,
+        detail=domain.safe_detail(),
+        link=domain.link,
+        errors=None,
     )
 
 
@@ -177,15 +171,13 @@ async def _global_unexpected_handler(request: Request, exc: Exception) -> JSONRe
             }
         },
     )
-    return JSONResponse(
+    return _problem_response(
+        request=request,
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "title": "Internal Server Error",
-            "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "detail": "An unexpected server-side process interruption occurred.",
-            "instance": request.url.path,
-            "help_url": _help_url(INTERNAL_SERVER_ERROR_LINK),
-        },
+        title="Internal Server Error",
+        detail="An unexpected server-side process interruption occurred.",
+        link=INTERNAL_SERVER_ERROR_LINK,
+        errors=None,
     )
 
 
