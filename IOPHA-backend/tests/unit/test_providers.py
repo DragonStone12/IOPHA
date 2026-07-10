@@ -78,12 +78,13 @@ def test_response_is_normalized_frontend_contract() -> None:
 
 
 def test_echoes_supplied_request_id_header() -> None:
+    valid_uuid = "123e4567-e89b-12d3-a456-426614174000"
     with TestClient(app) as client:
         response = client.get(
             "/api/providers/prov-123",
-            headers={"X-Request-ID": "req-xyz"},
+            headers={"X-Request-ID": valid_uuid},
         )
-        assert response.headers["X-Request-ID"] == "req-xyz"
+        assert response.headers["X-Request-ID"] == valid_uuid
 
 
 def test_missing_provider_returns_rfc7807_problem() -> None:

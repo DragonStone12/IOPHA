@@ -147,7 +147,7 @@ async def _http_exception_handler(
         request=request,
         status_code=exc.status_code,
         title="HTTP Error",
-        detail=str(exc.detail) if exc.detail else "The server rejected the request.",
+        detail="The server rejected the request.",
         link=HTTP_ERROR_LINK,
     )
 

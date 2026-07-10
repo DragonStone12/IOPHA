@@ -38,9 +38,43 @@ def test_generates_request_id_when_header_absent(client: TestClient) -> None:
 
 
 def test_propagates_supplied_request_id(client: TestClient) -> None:
+    valid_uuid = "123e4567-e89b-12d3-a456-426614174000"
+    response = client.get("/ping", headers={"X-Request-ID": valid_uuid})
+    assert response.headers["X-Request-ID"] == valid_uuid
+    assert response.json()["requestId"] == valid_uuid
+
+
+def test_rejects_invalid_uuid_and_generates_new(client: TestClient) -> None:
     response = client.get("/ping", headers={"X-Request-ID": "client-abc"})
-    assert response.headers["X-Request-ID"] == "client-abc"
-    assert response.json()["requestId"] == "client-abc"
+    echoed = response.headers["X-Request-ID"]
+    assert echoed is not None
+    assert echoed != "client-abc"
+    # The generated id is a well-formed UUID.
+    uuid.UUID(echoed)
+
+
+def test_rejects_empty_string_and_generates_new(client: TestClient) -> None:
+    response = client.get("/ping", headers={"X-Request-ID": ""})
+    echoed = response.headers["X-Request-ID"]
+    assert echoed is not None
+    uuid.UUID(echoed)
+
+
+def test_rejects_script_injection_and_generates_new(client: TestClient) -> None:
+    response = client.get(
+        "/ping",
+        headers={"X-Request-ID": "<script>alert(1)</script>"},
+    )
+    echoed = response.headers["X-Request-ID"]
+    assert echoed is not None
+    uuid.UUID(echoed)
+
+
+def test_rejects_oversized_header_and_generates_new(client: TestClient) -> None:
+    response = client.get("/ping", headers={"X-Request-ID": "a" * 1025})
+    echoed = response.headers["X-Request-ID"]
+    assert echoed is not None
+    uuid.UUID(echoed)
 
 
 def test_context_is_reset_after_request(client: TestClient) -> None:

@@ -194,10 +194,11 @@ class TestHeaderDegradation:
     def test_request_id_propagated_when_present(
         self, client: TestClient, log_records: list[logging.LogRecord]
     ) -> None:
-        client.get("/errors/race", headers={"X-Request-ID": "req-abc"})
+        valid_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        client.get("/errors/race", headers={"X-Request-ID": valid_uuid})
         record = _find_record(log_records, EXAMPLES["race"].log_event)
         assert record is not None
-        assert _context(record)["requestId"] == "req-abc"
+        assert _context(record)["requestId"] == valid_uuid
 
 
 class TestRoutingRegistry:
