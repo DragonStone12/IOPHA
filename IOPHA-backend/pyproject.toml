@@ -60,7 +60,7 @@ disallow_untyped_defs = false
 warn_return_any = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/unit", "tests/e2e", "tests/integration"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"

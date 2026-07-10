@@ -527,7 +527,7 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 - Prefer dependency injection over patching module-level state
 - Keep mock schemas minimal and free of live data stubs or authentication configurations
 - Reset `app.dependency_overrides` between tests to prevent state leakage
-- The provider scheduling tests (`tests/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown, fully isolating the endpoint from any datastore. `tests/test_request_tracing.py` verifies `X-Request-ID` generation/propagation and `contextvars` reset semantics.
+- The provider scheduling tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown, fully isolating the endpoint from any datastore. `tests/unit/test_request_tracing.py` verifies `X-Request-ID` generation/propagation and `contextvars` reset semantics.
 
 **Asset Lifecycle Patterns**:
 - Repository isolation: override `get_provider_repository` via `app.dependency_overrides` and clear it in teardown (no datastore touched)
