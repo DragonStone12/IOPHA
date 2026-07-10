@@ -65,7 +65,7 @@ def _build_openapi() -> dict[str, object]:
             responses = operation.get("responses", {})
             if "422" in responses:
                 responses["422"] = {
-                    "description": "Unprocessable Entity",
+                    "description": "Unprocessable Entity (validation error)",
                     "content": {
                         "application/json": {
                             "schema": {"$ref": "#/components/schemas/ProblemDetail"}
