@@ -26,6 +26,8 @@ class TestTimeSlotEndpointSmoke:
         spec = app.openapi()
         path = spec["paths"]["/api/providers/{provider_id}/slots"]
         assert "get" in path
-        assert path["get"]["responses"]["200"]["content"]["application/json"]["schema"][
-            "$ref"
-        ].endswith("TimeSlotSchema")
+        schema = path["get"]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ]
+        assert schema["type"] == "array"
+        assert schema["items"]["$ref"].endswith("TimeSlotSchema")

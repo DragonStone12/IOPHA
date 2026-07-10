@@ -2,13 +2,14 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Time strings are displayed in 12-hour civil format, e.g. "09:00 AM" or
-# "2:30 PM". The slot id embeds an ISO calendar date followed by the same
-# time token so a single slot is uniquely addressable across a provider's
-# calendar (matches the frontend `TimeSlot.id` contract in
+# Time strings are displayed in 12-hour civil format with a zero-padded hour,
+# e.g. "09:00 AM" or "02:30 PM". The slot id embeds an ISO calendar date
+# followed by the same time token so a single slot is uniquely addressable
+# across a provider's calendar (matches the frontend `TimeSlot.id` contract in
 # IOPHA-frontend/src/components/booking/TimeSelector.tsx).
-TIME_PATTERN = r"^(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$"
-SLOT_ID_PATTERN = r"^\d{4}-\d{2}-\d{2}-" + TIME_PATTERN[1:]
+_TIME_CORE = r"(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)"
+TIME_PATTERN = r"^" + _TIME_CORE + r"$"
+SLOT_ID_PATTERN = r"^\d{4}-\d{2}-\d{2}-" + _TIME_CORE + r"$"
 
 
 class TimeSlotSchema(BaseModel):

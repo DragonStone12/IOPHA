@@ -77,6 +77,13 @@ class InMemoryCalendarRepository(CalendarRepository):
         }
         # Slot ids that have been reserved and are no longer bookable.
         self._reserved: set[str] = set()
+        # Every slot id this repository can actually produce, across all
+        # seeded providers, so reservations can be validated for existence.
+        self._valid_slot_ids: set[str] = {
+            slot.id
+            for provider_id in self._providers
+            for slot in self._generate_slots(provider_id)
+        }
 
     def get_provider(self, provider_id: str) -> ProviderRecord | None:
         return self._providers.get(provider_id)
@@ -84,6 +91,9 @@ class InMemoryCalendarRepository(CalendarRepository):
     def get_slots(self, provider_id: str) -> list[TimeSlotRecord]:
         if provider_id not in self._providers:
             return []
+        return self._generate_slots(provider_id)
+
+    def _generate_slots(self, provider_id: str) -> list[TimeSlotRecord]:
         slots: list[TimeSlotRecord] = []
         for offset in range(self._days_ahead):
             day = date.today() + timedelta(days=offset)
@@ -102,7 +112,9 @@ class InMemoryCalendarRepository(CalendarRepository):
         return slots
 
     def reserve_slot(self, slot_id: str) -> bool:
-        if slot_id in self._reserved:
+        # Reject fabricated or already-removed slot ids: a reservation is only
+        # valid for a slot this repository actually vends.
+        if slot_id not in self._valid_slot_ids or slot_id in self._reserved:
             return False
         self._reserved.add(slot_id)
         return True

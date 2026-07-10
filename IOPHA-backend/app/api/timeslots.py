@@ -42,7 +42,10 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
             "description": "List of available and booked time slots for the provider.",
             "content": {
                 "application/json": {
-                    "schema": {"$ref": "#/components/schemas/TimeSlotSchema"}
+                    "schema": {
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/TimeSlotSchema"},
+                    }
                 }
             },
         }
