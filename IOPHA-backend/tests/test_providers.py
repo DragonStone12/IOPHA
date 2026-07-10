@@ -91,7 +91,6 @@ def test_missing_provider_returns_rfc7807_problem() -> None:
         response = client.get("/api/providers/missing")
         assert response.status_code == 404
         body = response.json()
-        assert body["type"] == "about:blank"
         assert body["title"] == "Provider Record Absent"
         assert body["status"] == 404
         assert "missing" in body["detail"]

@@ -124,7 +124,6 @@ class TestDomainExceptionHandlers:
         response = client.get(f"/errors/{key}")
         assert response.status_code == exc.status_code
         body = response.json()
-        assert body["type"] == "about:blank"
         assert body["title"] == exc.title
         assert body["status"] == exc.status_code
         assert body["instance"] == f"/errors/{key}"
@@ -159,7 +158,6 @@ class TestGlobalExceptionHandler:
         response = client.get("/errors/unexpected")
         assert response.status_code == 500
         body = response.json()
-        assert body["type"] == "about:blank"
         assert body["title"] == "Internal Server Error"
         assert body["status"] == 500
         assert (

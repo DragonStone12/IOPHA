@@ -331,11 +331,10 @@ faults and any unhandled runtime error. Every handler returns a structured,
 diagnostic JSON problem payload and emits a structured JSON log record through
 the same `JsonTelemetryFormatter` pipeline as the request middleware.
 
-**Error Response Object** (RFC-7807-style `about:blank` baseline):
+**Error Response Object** (RFC-7807-style problem detail):
 
 | Field | Type | Description |
 |---|---|---|
-| `type` | string | Fixed `about:blank` problem type |
 | `title` | string | Client-safe, human-readable fault summary |
 | `status` | int | HTTP status code returned to the client |
 | `detail` | string | Client-safe explanation; never contains raw trace, memory addresses, DB schemas, or credentials |

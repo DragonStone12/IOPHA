@@ -67,7 +67,6 @@ def _problem_response(  # noqa: PLR0913
     errors: list[dict[str, Any]] | None = None,  # noqa: PLR0913
 ) -> JSONResponse:
     payload = ProblemDetail(
-        type="about:blank",
         title=title,
         status=status_code,
         detail=detail,
@@ -80,7 +79,6 @@ def _problem_response(  # noqa: PLR0913
 
 def _domain_payload(exc: IOPHADomainError, request: Request) -> dict[str, object]:
     return {
-        "type": "about:blank",
         "title": exc.title,
         "status": exc.status_code,
         "detail": exc.safe_detail(),
@@ -182,7 +180,6 @@ async def _global_unexpected_handler(request: Request, exc: Exception) -> JSONRe
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "type": "about:blank",
             "title": "Internal Server Error",
             "status": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "detail": "An unexpected server-side process interruption occurred.",
