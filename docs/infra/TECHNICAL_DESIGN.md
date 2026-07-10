@@ -72,7 +72,7 @@ will replace the in-memory default behind the same interface (see §3.1).
 │   │   │   └── provider_repository.py
 │   │   ├── /schemas               # Pydantic contracts + internal relational shapes
 │   │   │   ├── /physician/        # PhysicianSchema (frontend DTO)
-│   │   │   └── /provider/         # ProviderSchema, ProviderRecord, mappers
+│   │   │   └── /provider/         # ProviderRecord, mappers
 │   │   ├── /middleware            # ASGI interceptors (request tracing)
 │   │   │   └── request_tracing.py
 │   │   ├── /exceptions            # Domain exceptions + registry
@@ -396,7 +396,7 @@ directory modules.
 | Controller | `app/controllers/providers.py` | HTTP surface; binds routes, delegates to the service, returns the frontend contract. No persistence or business rules. |
 | Service | `app/services/provider_service.py` | Lookup orchestration, mapping, and domain-fault raising (`ProviderNotFoundException`). |
 | Repository | `app/repositories/provider_repository.py` | `ProviderRepository` ABC + `InMemoryProviderRepository` no-DB stand-in. |
-| Schemas | `app/schemas/` | `PhysicianSchema` / `ProviderSchema` (frontend DTOs) and `ProviderRecord` (internal relational shape) under `physician/` and `provider/` subpackages. |
+| Schemas | `app/schemas/` | `PhysicianSchema` (frontend DTO) and `ProviderRecord` (internal relational shape) under `physician/` and `provider/` subpackages. |
 | Dependencies | `app/dependencies.py` | `get_provider_repository` FastAPI dependency, overridden in tests. |
 | Tracing | `app/middleware/request_tracing.py`, `app/utils/context.py` | `X-Request-ID` correlation via `contextvars`. |
 | Logging | `app/utils/logging.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware`. |
@@ -415,7 +415,7 @@ relational shape, including the `db_primary_key` structural identifier used only
 for persistence). `map_provider_to_physician()` projects only client-safe,
 frontend-aligned fields into `PhysicianSchema`. The internal `db_primary_key`
 is **deliberately dropped** so it never crosses the API boundary. Both
-`PhysicianSchema` and `ProviderSchema` use `model_config = ConfigDict(extra="forbid")`
+`PhysicianSchema` uses `model_config = ConfigDict(extra="forbid")`
 for rigid, defensive validation of the external contract.
 
 ```mermaid
