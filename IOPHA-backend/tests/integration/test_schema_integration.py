@@ -71,6 +71,8 @@ class TestPhysicianSchemaValidation:
             rating=5.0,
             reviewCount=10,
             nextAvailable="Tomorrow",
+            imageUrl=None,
+            facility=None,
         )
         assert schema.id == "p-1"
 
@@ -84,7 +86,9 @@ class TestPhysicianSchemaValidation:
                 rating=5.0,
                 reviewCount=10,
                 nextAvailable="Tomorrow",
-                db_primary_key=1,
+                imageUrl=None,
+                facility=None,
+                db_primary_key=1,  # type: ignore[call-arg]
             )
 
     def test_rejects_missing_required_field(self) -> None:
@@ -97,7 +101,9 @@ class TestPhysicianSchemaValidation:
                 rating=5.0,
                 # reviewCount missing
                 nextAvailable="Tomorrow",
-            )
+                imageUrl=None,
+                facility=None,
+            )  # type: ignore[call-arg]
 
 
 class TestProviderSchemaValidation:
@@ -126,6 +132,8 @@ class TestProviderSchemaValidation:
             rating=4.2,
             reviewCount=45,
             nextAvailable="Next Month",
+            imageUrl=None,
+            facility=None,
         )
         assert schema.imageUrl is None
         assert schema.facility is None
@@ -141,6 +149,7 @@ class TestProblemDetailSchemaValidation:
             detail="The requested resource was not found.",
             instance="/api/providers/missing",
             help_url="https://example.com/runbook#provider-not-found-error",
+            errors=None,
         )
         assert problem.status == 404
         assert "Not Found" in problem.title
@@ -152,6 +161,7 @@ class TestProblemDetailSchemaValidation:
             detail="Input validation failed.",
             instance="/api/providers",
             help_url="https://example.com/runbook#validation-error",
+            errors=None,
         )
         assert problem.errors is None
 
@@ -181,6 +191,6 @@ class TestProblemDetailSchemaValidation:
             detail="Bad request.",
             instance="/api/test",
             help_url="https://example.com/runbook",
-            custom_field="allowed",
+            custom_field="allowed",  # type: ignore[call-arg]
         )
         assert problem.custom_field == "allowed"  # type: ignore[attr-defined]
