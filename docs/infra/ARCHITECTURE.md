@@ -126,7 +126,6 @@ sequenceDiagram
 
 | Feature               | Status   | Notes                                                           |
 | --------------------- | -------- | --------------------------------------------------------------- |
-| BAA Signed with AWS   | Required | Must be completed before production                             |
 | Full Audit Trail      | Pending  | Internal logging needs enhancement for HIPAA audit requirements |
 | Data Retention Policy | Pending  | Define retention periods for PHI                                |
 

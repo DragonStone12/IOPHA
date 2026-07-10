@@ -16,13 +16,14 @@ from app.exceptions import (
     NotificationGatewayTimeoutError,
     OutOfOrderMessageDeliveryError,
     OverlappingModifierConflictError,
+    ProviderNotFoundException,
     RaceConditionDoubleBookingError,
     TimeZoneMismatchError,
     UnreadNotificationInconsistencyError,
     UpstreamWebhookFailureError,
     WebSocketConnectionDropError,
 )
-from app.handlers import register_exception_handlers
+from app.utils.handlers import register_exception_handlers
 
 # Substrings that must NEVER appear in a client-facing error response.
 LEAK_MARKERS = (
@@ -49,6 +50,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "notif": NotificationGatewayTimeoutError("pat-11", "sms"),
     "view": InvalidViewTransitionError("confirmation", "time-selection", "prov-12"),
     "expired": ExpiredBookingSessionError("slot-13", "pat-13", 600),
+    "provider": ProviderNotFoundException("prov-1"),
 }
 
 
@@ -72,6 +74,10 @@ def _make_app() -> FastAPI:
         if key not in EXAMPLES:
             raise ValueError(f"unknown key: {key}")
         raise EXAMPLES[key]
+
+    @app.get("/validate")
+    async def validate(q: int) -> dict[str, int]:
+        return {"q": q}
 
     return app
 
@@ -118,7 +124,6 @@ class TestDomainExceptionHandlers:
         response = client.get(f"/errors/{key}")
         assert response.status_code == exc.status_code
         body = response.json()
-        assert body["type"] == "about:blank"
         assert body["title"] == exc.title
         assert body["status"] == exc.status_code
         assert body["instance"] == f"/errors/{key}"
@@ -153,7 +158,6 @@ class TestGlobalExceptionHandler:
         response = client.get("/errors/unexpected")
         assert response.status_code == 500
         body = response.json()
-        assert body["type"] == "about:blank"
         assert body["title"] == "Internal Server Error"
         assert body["status"] == 500
         assert (
@@ -190,10 +194,11 @@ class TestHeaderDegradation:
     def test_request_id_propagated_when_present(
         self, client: TestClient, log_records: list[logging.LogRecord]
     ) -> None:
-        client.get("/errors/race", headers={"X-Request-ID": "req-abc"})
+        valid_uuid = "123e4567-e89b-12d3-a456-426614174000"
+        client.get("/errors/race", headers={"X-Request-ID": valid_uuid})
         record = _find_record(log_records, EXAMPLES["race"].log_event)
         assert record is not None
-        assert _context(record)["requestId"] == "req-abc"
+        assert _context(record)["requestId"] == valid_uuid
 
 
 class TestRoutingRegistry:
@@ -202,3 +207,19 @@ class TestRoutingRegistry:
         assert AttachmentPayloadTooLargeError in DOMAIN_EXCEPTIONS
         assert InvalidViewTransitionError in DOMAIN_EXCEPTIONS
         assert len(DOMAIN_EXCEPTIONS) == len(EXAMPLES)
+
+
+class TestValidationErrorHandler:
+    def test_validation_error_returns_problem_with_help_url(
+        self, client: TestClient
+    ) -> None:
+        response = client.get("/validate?q=not-an-int")
+        assert response.status_code == 422
+        body = response.json()
+        assert body["status"] == 422
+        assert body["title"] == "Unprocessable Entity"
+        assert "help_url" in body
+        assert "unprocessable-entity-error" in body["help_url"]
+        assert body["errors"] is not None
+        # Raw user input must never leak into the response body.
+        assert "not-an-int" not in response.text

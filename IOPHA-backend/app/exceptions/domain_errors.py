@@ -421,6 +421,29 @@ class ExpiredBookingSessionError(IOPHADomainError):
         }
 
 
+class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
+    """The requested provider or physician record was not found in the directory."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    link = "provider-not-found-error"
+    title = "Provider Record Absent"
+    log_level = logging.WARNING
+    log_event = "directory.provider_not_found"
+
+    def __init__(self, provider_id: str) -> None:
+        super().__init__()
+        self.provider_id = provider_id
+
+    def safe_detail(self) -> str:
+        return (
+            f"The requested provider '{self.provider_id}' was not found in the "
+            "directory. Verify the provider ID and try again."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"providerId": self.provider_id}
+
+
 # Ordered registry of every known domain exception. Registered as a global
 # FastAPI exception handler (see app/handlers.register_exception_handlers)
 # and documented in docs/infra/TECHNICAL_DESIGN.md.
@@ -438,4 +461,5 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     NotificationGatewayTimeoutError,
     InvalidViewTransitionError,
     ExpiredBookingSessionError,
+    ProviderNotFoundException,
 )

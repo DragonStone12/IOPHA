@@ -538,6 +538,25 @@ operational or sensitive data leaves the trust boundary:
 `detail` is human-readable and client-safe; it must not contain interpolation
 of `str(exc)` or any untrusted exception attribute.
 
+### Structured JSON Logging: PHI & Structural-Identifier Scrubbing
+
+The provider/physician scheduling pipeline confirms that every property
+emitted by the structured JSON formatting engine is cleared of confidential
+PHI parameters and private session details before streaming to stdout:
+
+| Boundary | Rule | Enforcement |
+|---|---|---|
+| Structural identifiers | The internal `ProviderRecord.db_primary_key` persistence key is dropped by `map_provider_to_physician()` and never reaches `PhysicianSchema` or the response body | `app/schemas/provider/mappers.py` |
+| Credentials & secrets | `JsonTelemetryFormatter` emits only curated fields (`timestamp`, `level`, `logger`, `message`, `requestId`) plus an explicit `extra_context` dict; raw `record` internals, credentials, and query values are never serialized | `app/utils/logging.py` |
+| Correlation id exposure | `X-Request-ID` is client-supplied and propagated as-is; it is never masked, preserving distributed traceability | `app/utils/context.py`, `app/middleware/request_tracing.py` |
+| Context isolation | `request_id_ctx` (a `contextvars.ContextVar`) is reset in a `finally` block after every request, preventing trace state from leaking across requests or background tasks | `app/middleware/request_tracing.py` |
+| HTTP exception detail | Starlette `HTTPException.detail` is never serialized into the client response; the global handler emits a static safe string to avoid leaking internal exception structures | `app/utils/handlers.py` |
+
+All scheduling responses and error payloads are validated by tests that assert
+no structural identifier (`db_primary_key`) and no leak markers
+(`Traceback`, `0x`, `password`, `secret`, `Bearer `, `postgresql`) appear in the
+client response.
+
 **Related Documentation:**
 
 - [ESLint Security & Bug Detection](ESLINT_SECURITY_BUG_DETECTION.md)

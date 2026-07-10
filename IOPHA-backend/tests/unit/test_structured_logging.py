@@ -3,8 +3,8 @@ import logging
 
 from fastapi.testclient import TestClient
 
-from app.logging import JsonTelemetryFormatter
 from app.main import app
+from app.utils.logging import JsonTelemetryFormatter
 
 # ---------------------------------------------------------------------------
 # JsonTelemetryFormatter tests

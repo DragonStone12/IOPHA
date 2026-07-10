@@ -22,6 +22,8 @@ hyphens, and strips punctuation).
 | Notification Gateway Timeout | 504 | [notification-gateway-timeout](#notification-gateway-timeout) |
 | Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
 | Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
+| Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
+| UnprocessableEntityException | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -206,6 +208,43 @@ timeout, but the frontend never notified the user; submit then failed.
 1. Push hold-expiry notifications to the client before TTL.
 2. Show a countdown and re-acquire the hold on activity.
 3. Return 410 with the released slot id so the user restarts cleanly.
+
+## Provider Not Found Error
+
+**What happened:** A client requested a physician/provider entity by id
+(`GET /api/providers/{provider_id}`) but the repository returned no matching
+record, so the service raised `ProviderNotFoundException`.
+
+**Common causes:**
+- Typo'd or stale provider id in the frontend route / cache.
+- The provider was deactivated or never existed in the directory source.
+- A test or integration hitting the real repository with an un-seeded id.
+
+**Mitigation:**
+1. Verify the `provider_id` passed by the client matches an active directory record.
+2. Confirm the provider repository is wired to the correct datasource for the environment.
+3. Return the canonical directory listing so the client can re-select a valid provider.
+
+## UnprocessableEntityException
+
+**What happened:** The client sent a syntactically valid request, but the server
+could not process it because one or more fields failed validation (wrong type,
+missing required field, format violation, or out-of-range value). FastAPI
+returns this as `RequestValidationError`, which the global handler projects
+into a single RFC-7807 `ProblemDetail` payload.
+
+**Common causes:**
+- Missing required field in the JSON body or query parameters.
+- Type mismatch (`"age": "twenty-five"` instead of a number).
+- String or enum format violation (bad email, unknown enum value).
+- Value outside an allowed range or length constraint.
+
+**Mitigation:**
+1. Inspect the `errors` array in the response for the exact field, message, and
+   validation type.
+2. Correct the payload according to the API schema before retrying.
+3. Validate client-side against the OpenAPI `ProblemDetail` contract so the
+   frontend surfaces field-level errors before the request is sent.
 
 ## Internal Server Error
 

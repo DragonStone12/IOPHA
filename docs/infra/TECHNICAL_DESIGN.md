@@ -5,33 +5,42 @@
 | #   | Section                                                       | Description                                            |
 | --- | ------------------------------------------------------------- | ------------------------------------------------------ |
 | 1   | [Technology Stack](#1-technology-stack)                       | Frontend, backend, database, and testing technologies  |
-| 2   | [Project Structure](#2-project-structure-monorepo)            | Monorepo directory layout                              |
-| 3   | [Frontend Implementation](#3-frontend-implementation-details) | Styling, logging, state management, performance        |
-| 4   | [Backend Implementation](#4-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline, global exception handling |
-| 5   | [Testing Strategy](#5-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
-| 6   | [CI/CD & Deployment](#6-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
-| 7   | [Decision Points](#7-decision-points-pending)                 | Pending architectural decisions                        |
+| 2   | [Frontend Implementation](#2-frontend-implementation-details) | Styling, logging, state management, performance        |
+| 3   | [Backend Implementation](#3-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline, global exception handling |
+| 4   | [Testing Strategy](#4-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
+| 5   | [CI/CD & Deployment](#5-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
+| 6   | [Decision Points](#6-decision-points-pending)                 | Pending architectural decisions                        |
 
 ## 1. Technology Stack
 
-| Layer              | Technology           | Version   |
-| ------------------ | -------------------- | --------- |
-| Frontend Framework | React                | 18        |
-| Language           | TypeScript           | 5         |
-| Build Tool         | Vite                 | 8         |
-| Styling            | Tailwind CSS         | v4        |
-| Component Library  | shadcn/ui + Radix UI | Confirmed |
-| Backend Framework  | FastAPI              | Latest    |
-| Language           | Python               | 3.11+     |
-| ORM                | SQLAlchemy           | Latest    |
-| Validation         | Pydantic             | Latest    |
-| Database           | PostgreSQL           | 15        |
-| Vector Extension   | pgvector             | Latest    |
-| Testing (Backend)  | pytest               | Latest    |
-| Testing (E2E)      | Cypress              | Latest    |
-| Load Testing       | Locust               | Latest    |
+| Layer              | Technology                        | Version | Status      |
+| ------------------ | --------------------------------- | ------- | ----------- |
+| Frontend Framework | React                             | 18      | In use      |
+| Language           | TypeScript                        | 5       | In use      |
+| Build Tool         | Vite                              | 8       | In use      |
+| Styling            | Tailwind CSS                      | v4      | In use      |
+| Component Library  | shadcn/ui + Radix UI              | Confirmed | In use    |
+| Backend Framework  | FastAPI                           | 0.139   | In use      |
+| ASGI Server        | Uvicorn                           | 0.51    | In use      |
+| Language           | Python                            | 3.11    | In use      |
+| Validation         | Pydantic (v2)                     | 2.13    | In use      |
+| Metrics            | prometheus-fastapi-instrumentator | 8.0     | In use      |
+| HTTP Client (test) | httpx                             | 0.28    | In use      |
+| ORM                | SQLAlchemy                        | Latest  | Pending     |
+| Database           | PostgreSQL + pgvector             | 15      | Pending\*   |
+| Testing (Backend)  | pytest                            | 9.1     | In use      |
+| Async Tests        | pytest-asyncio                    | 1.4     | In use      |
+| Coverage           | pytest-cov                        | 7.1     | In use      |
+| Linting            | Ruff                              | 0.15    | In use      |
+| Type Checking      | Mypy (strict)                     | 2.2     | In use      |
+| SAST               | Bandit                            | 1.9     | In use      |
+| Testing (E2E)      | Cypress                           | Latest  | In use      |
+| Load Testing       | Locust                            | Latest  | Planned     |
 
-## 2. Project Structure (Monorepo)
+\*Pending: persistence is abstracted behind the `ProviderRepository`
+interface; the default `InMemoryProviderRepository` ships today and no
+relational datastore is wired. A SQLAlchemy + PostgreSQL + pgvector backend
+will replace the in-memory default behind the same interface (see §3.1).
 
 ```
 /IOPHA
@@ -42,7 +51,7 @@
 │   │   │   ├── /RiskProfileSidebar/
 │   │   │   ├── /ChatArea/
 │   │   │   └── /ui/           # shadcn/ui primitives (copied from IOPHA Resources)
-│   │   ├── /hooks           # Custom hooks (useLogRenders, usePerformanceTracking)
+│   │   ├── /hooks             # Custom hooks (useLogRenders, usePerformanceTracking)
 │   │   ├── /utils
 │   │   │   ├── logger.ts      # Custom Logger class
 │   │   │   └── performance.js # Performance monitoring utilities
@@ -53,21 +62,40 @@
 │   └── package.json
 ├── /IOPHA-backend
 │   ├── /app
-│   │   ├── /api               # Route definitions
-│   │   ├── /services          # Business logic (RAG, directory, ingestion)
-│   │   ├── /core
-│   │   │   ├── auth.py        # JWT middleware, dependencies
-│   │   │   ├── config.py      # Settings management
-│   │   │   └── database.py    # SQLAlchemy setup
-│   │   └── main.py
-│   ├── /tests                 # pytest tests
-│   └── pyproject.toml
-├── /infra                     # Terraform/CDK configurations
+│   │   ├── main.py                # FastAPI entry point — wiring only
+│   │   ├── dependencies.py        # FastAPI dependency factories
+│   │   ├── /controllers           # HTTP route controllers (one per resource)
+│   │   │   └── providers.py       # GET /api/providers/{provider_id}
+│   │   ├── /services              # Business logic / orchestration
+│   │   │   └── provider_service.py
+│   │   ├── /repositories          # Persistence abstractions (ABC + in-memory)
+│   │   │   └── provider_repository.py
+│   │   ├── /schemas               # Pydantic contracts + internal relational shapes
+│   │   │   ├── /physician/        # PhysicianSchema (frontend DTO)
+│   │   │   └── /provider/         # ProviderRecord, mappers
+│   │   ├── /middleware            # ASGI interceptors (request tracing)
+│   │   │   └── request_tracing.py
+│   │   ├── /exceptions            # Domain exceptions + registry
+│   │   │   └── domain_errors.py
+│   │   └── /utils                 # Cross-cutting utilities
+│   │       ├── context.py         # contextvars request-id correlation
+│   │       ├── handlers.py        # Global RFC-7807 exception handlers
+│   │       └── logging.py         # JsonTelemetryFormatter + logging middleware
+│   ├── /tests                     # pytest suites (isolated via dependency_overrides)
+│   │   ├── /helpers               # dependency_overrides utilities
+│   │   ├── conftest.py
+│   │   ├── test_providers.py
+│   │   ├── test_request_tracing.py
+│   │   ├── test_exception_handlers.py
+│   │   └── test_structured_logging.py
+│   ├── pyproject.toml             # ruff / mypy / bandit / pytest / coverage config
+│   └── requirements.txt
+├── /docs                          # Architecture & security documentation
+└── /infra                        # Terraform/CDK configurations
 ```
+## 2. Frontend Implementation Details
 
-## 3. Frontend Implementation Details
-
-### 3.1 Styling with Tailwind CSS
+### 2.1 Styling with Tailwind CSS
 
 The frontend uses Tailwind CSS v4 with the IOPHA brand theme (copied from IOPHA Resources):
 
@@ -78,7 +106,7 @@ The frontend uses Tailwind CSS v4 with the IOPHA brand theme (copied from IOPHA 
 
 UI components are sourced from IOPHA Resources (shadcn/ui primitives) and copied into `src/components/ui/`. Components use Radix UI primitives under the hood (`@radix-ui/react-*` packages).
 
-### 3.2 Logging & Observability
+### 2.2 Logging & Observability
 
 **Custom Logger Class** (`src/utils/logger.ts`):
 
@@ -114,14 +142,14 @@ Environment behavior:
 - Structured error logging: message, stack, component stack
 - Fallback UI: Localized with "Try again" reset button, no external API calls
 
-### 3.3 State Management & Data Fetching
+### 2.3 State Management & Data Fetching
 
 Strategy:
 
 - Server state: React Query (TanStack Query) or SWR for caching, background updates
 - Client state: React Context or Zustand for UI state
 
-### 3.3 Performance Monitoring
+### 2.4 Performance Monitoring
 
 **React Profiler Integration**:
 
@@ -138,11 +166,27 @@ Strategy:
 - DNS lookup, TCP connection, TTFB, DOM interactive, DOM loaded, load complete
 - First Paint, First Contentful Paint via Paint Timing API
 
-## 4. Backend Implementation Details
+## 3. Backend Implementation Details
 
-### 4.1 Database Schema
+### 3.1 Data Access & Persistence
 
-**Tables**:
+> **Current state:** the backend has **no production database dependency**.
+> Data access is abstracted behind the `ProviderRepository` protocol
+> (`app/repositories/provider_repository.py`); the default
+> `InMemoryProviderRepository` is a pure in-memory stand-in so the scheduling
+> pipeline runs, is tested, and passes CI without any datastore. A relational
+> backend (SQLAlchemy + PostgreSQL + pgvector) will replace the in-memory
+> default behind the same interface — no caller (service, controller) changes
+> when that lands.
+
+**Repository Contract** (`app/repositories/provider_repository.py`):
+
+| Member        | Signature                                          | Purpose                                                                 |
+| ------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `find_by_id`  | `(provider_id: str) -> ProviderRecord \| None`     | Resolve the internal relational record for a provider id, or `None` if absent (drives the 404 path). |
+
+**Intended Relational Schema** (provisional — not yet implemented; pending the
+SQLAlchemy backend described in §1):
 
 | Table          | Purpose                                 |
 | -------------- | --------------------------------------- |
@@ -153,17 +197,10 @@ Strategy:
 | guidelines     | Clinical guidelines with vector column  |
 | ingestion_jobs | Document processing status              |
 
-**Indexes**:
+- Indexes: GIN indexes for full-text search on text columns; IVFFlat/HNSW index for vector similarity search on embeddings.
+- `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small).
 
-- GIN indexes for full-text search on text columns
-- IVFFlat index for vector similarity search on embeddings
-
-**pgvector Configuration**:
-
-- `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small)
-- HNSW or IVFFlat index strategy based on dataset size
-
-### 4.2 PII/PHI Sanitization Architecture
+### 3.2 PII/PHI Sanitization Architecture
 
 A defense-in-depth sanitization strategy is implemented across three layers to prevent accidental PHI exposure in logs, metrics, and API responses.
 
@@ -191,7 +228,7 @@ A defense-in-depth sanitization strategy is implemented across three layers to p
 **Rationale for DTO Separation**:
 Applying `@field_serializer` to internal domain models would mask data needed for database writes and internal business logic. By separating internal models from external DTOs, we ensure serializers only apply at the API boundary.
 
-### 4.3 Structured JSON Logging & Auditing
+### 3.3 Structured JSON Logging & Auditing
 
 The backend emits structured JSON logs for every HTTP transaction, enabling direct ingestion by CloudWatch and Elasticsearch without custom parsers.
 
@@ -236,11 +273,39 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 - Logger namespace: `iopha.backend`
 
 **Middleware Execution Order**:
-1. `PIISanitizationMiddleware` runs outermost to normalize paths and redact sensitive query parameters before any logging occurs.
-2. `CentralizedLoggingMiddleware` captures PII-sanitized request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes.
-3. Path sanitization occurs before metrics collection.
+1. `RequestTracingMiddleware` runs outermost. It reads the inbound `X-Request-ID` header, mints a UUID when absent, and binds the value to the `request_id_ctx` `contextvars.ContextVar` for the request lifetime. The resolved id is echoed on the response `X-Request-ID` header. All downstream logging, services, repositories, and background tasks read the same trace without parameter threading. The token is reset in a `finally` block so the context cannot leak across requests or async tasks.
+2. `CentralizedLoggingMiddleware` captures request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes. Each log line carries `requestId` sourced live from `request_id_ctx` by `JsonTelemetryFormatter`.
+3. `PIISanitizationMiddleware` (planned) — path normalization and sensitive query-parameter redaction are designed to run ahead of logging; it is **not yet enabled** in the current build.
 
-### 4.4 RAG Pipeline Logic
+**Context-Threaded Tracing Flow** (`app/utils/context.py`, `app/middleware/request_tracing.py`):
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTracingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as ProviderController
+    participant Svc as ProviderService
+    participant Repo as ProviderRepository
+
+    C->>T: GET /api/providers/{id} (X-Request-ID?)
+    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: get_physician(id)
+    Svc->>Repo: find_by_id(id)
+    Repo-->>Svc: ProviderRecord | None
+    Svc-->>Ctrl: PhysicianSchema | ProviderNotFoundException
+    Ctrl-->>L: response
+    L->>L: log request.complete (requestId from context)
+    L-->>T: response
+    T->>T: response.headers["X-Request-ID"] = req_id
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 200 / 404 (X-Request-ID echoed)
+```
+
+### 3.4 RAG Pipeline Logic
 
 **Chunking Strategy**:
 
@@ -258,7 +323,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 3. Top-K results retrieved
 4. Fallback to full-text search if vector search fails
 
-### 4.5 Global Exception Handling & Runbook Mappings
+### 3.5 Global Exception Handling & Runbook Mappings
 
 The backend installs application-wide FastAPI exception handlers
 (`app/handlers.register_exception_handlers`) that intercept domain-specific
@@ -266,18 +331,17 @@ faults and any unhandled runtime error. Every handler returns a structured,
 diagnostic JSON problem payload and emits a structured JSON log record through
 the same `JsonTelemetryFormatter` pipeline as the request middleware.
 
-**Error Response Object** (RFC-7807-style `about:blank` baseline):
+**Error Response Object** (RFC-7807-style problem detail):
 
 | Field | Type | Description |
 |---|---|---|
-| `type` | string | Fixed `about:blank` problem type |
 | `title` | string | Client-safe, human-readable fault summary |
 | `status` | int | HTTP status code returned to the client |
 | `detail` | string | Client-safe explanation; never contains raw trace, memory addresses, DB schemas, or credentials |
 | `instance` | string | `request.url.path` of the failing request |
 | `help_url` | string | Deep-link into the centralized runbook (`docs/RUNBOOKS.md`) targeting the exact mitigation section |
 
-**Base Runbook URL Scheme**: `GITHUB_RUNBOOK_BASE_URL` in `app/exceptions.py`
+**Base Runbook URL Scheme**: `GITHUB_RUNBOOK_BASE_URL` in `app/exceptions/domain_errors.py`
 points at `docs/RUNBOOKS.md` on the main branch. Each error appends a `#<link>`
 fragment (`_help_url`) whose value MUST match the GitHub-generated slug of the
 corresponding markdown header (lowercase, spaces → hyphens, punctuation
@@ -300,6 +364,7 @@ stripped) or the link 404s.
 | `NotificationGatewayTimeoutError` | 504 | `integration.notification_gateway_timeout` | `notification-gateway-timeout` |
 | `InvalidViewTransitionError` | 409 | `state_machine.invalid_view_transition` | `invalid-view-transition` |
 | `ExpiredBookingSessionError` | 410 | `state_machine.expired_booking_session` | `expired-booking-session` |
+| `ProviderNotFoundException` | 404 | `directory.provider_not_found` | `provider-not-found-error` |
 
 **Global Catch-All**: A handler registered for base `Exception` returns `500`
 with a generic detail and `help_url` link `internal-server-error`. It captures
@@ -318,38 +383,90 @@ gracefully when `X-Request-ID` or `user-agent` headers are missing
 error payloads are scrubbed of credentials and sensitive trace data before
 client delivery; raw stack traces exist only in server logs.
 
-## 5. Testing Strategy
+## 3.6 Provider / Physician Scheduling Core API
 
-### 5.1 Unit Tests
+The scheduling resource pipeline establishes the core FastAPI routing engine,
+Pydantic contracts, and isolated test scaffolding for the physician/provider
+directory modules.
+
+### 3.6.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| Controller | `app/controllers/providers.py` | HTTP surface; binds routes, delegates to the service, returns the frontend contract. No persistence or business rules. |
+| Service | `app/services/provider_service.py` | Lookup orchestration, mapping, and domain-fault raising (`ProviderNotFoundException`). |
+| Repository | `app/repositories/provider_repository.py` | `ProviderRepository` ABC + `InMemoryProviderRepository` no-DB stand-in. |
+| Schemas | `app/schemas/` | `PhysicianSchema` (frontend DTO) and `ProviderRecord` (internal relational shape) under `physician/` and `provider/` subpackages. |
+| Dependencies | `app/dependencies.py` | `get_provider_repository` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/utils/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware`. |
+
+### 3.6.2 Route Contract
+
+- `GET /api/providers/{provider_id}` → `PhysicianSchema` (200) or RFC-7807 problem (404).
+- The controller resolves a `ProviderController` per request via the
+  `get_provider_controller` factory, which wires `get_provider_repository` →
+  `ProviderService` → `ProviderController`.
+
+### 3.6.3 Data Conversion Pathway (Relational → Frontend)
+
+Internal datastore rows arrive as `ProviderRecord` (a `@dataclass` carrying the
+relational shape, including the `db_primary_key` structural identifier used only
+for persistence). `map_provider_to_physician()` projects only client-safe,
+frontend-aligned fields into `PhysicianSchema`. The internal `db_primary_key`
+is **deliberately dropped** so it never crosses the API boundary. Both
+`PhysicianSchema` uses `model_config = ConfigDict(extra="forbid")`
+for rigid, defensive validation of the external contract.
+
+```mermaid
+flowchart LR
+    Repo[ProviderRepository.find_by_id] -->|ProviderRecord| Svc[ProviderService.get_physician]
+    Svc -->|ProviderNotFoundException| Err[RFC-7807 404]
+    Svc -->|map_provider_to_physician| DTO[PhysicianSchema]
+    DTO -->|response_model| API[GET /api/providers/:id]
+```
+
+### 3.6.4 Transaction Schema Rules
+
+- Frontend DTOs use camelCase field names dictated by the API contract
+  (`reviewCount`, `nextAvailable`, `imageUrl`); these are intentional and
+  excluded from N815 lint enforcement on `app/schemas/**`.
+- Internal `ProviderRecord` is never serialized directly to clients.
+- Structural identifiers and credentials are never placed in the response body
+  or in `extra_context` log payloads.
+
+## 4. Testing Strategy
+
+### 4.1 Unit Tests
 
 - Framework: pytest
 - Coverage target: 80%
 - Location: `/IOPHA-backend/tests/`
 
-### 5.2 Integration Tests
+### 4.2 Integration Tests
 
-- FastAPI TestClient for all API routes
-- Database transactions rolled back per test
-- MinIO for local S3-compatible storage
+- FastAPI `TestClient` drives all API routes against the in-process `app`
+- No production datastore: the repository dependency (`get_provider_repository`) is overridden per test, so the endpoint is exercised end-to-end against an in-memory double
+- Scheduling endpoints are validated for both the 200 success path and the 404 RFC-7807 problem path
 
-### 5.3 E2E Tests
+### 4.3 E2E Tests
 
 - Framework: Cypress with Cucumber Preprocessor
 - Browsers: Chrome, Firefox, Edge (matrix strategy)
 - `fail-fast: false` for full browser coverage
 
-### 5.4 Visual Regression Tests
+### 4.4 Visual Regression Tests
 
 - Tool: cypress-image-diff-js
 - Artifacts: `cypress-visual-screenshots/`, `cypress-visual-report/`
 - Auto-excluded via `.gitignore`
 
-### 5.5 Performance Tests
+### 4.5 Performance Tests
 
 - Tool: Locust
 - Target: 100 concurrent users, <2s p95 latency
 
-### 5.6 Testing Infrastructure
+### 4.6 Testing Infrastructure
 
 **Test Dependencies**:
 - **pytest**: Test runner with plugin ecosystem
@@ -391,25 +508,29 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 
 ```
 /IOPHA-backend/tests/
-├── conftest.py              # Global fixtures: TestClient, dependency overrides
+├── conftest.py                  # Global fixtures: TestClient
 ├── helpers/
 │   ├── __init__.py
 │   └── dependency_overrides.py  # Centralized override utilities
-├── test_*.py                # Unit and integration tests
+├── test_providers.py            # Provider endpoint: success + RFC-7807 404 (isolated via overrides)
+├── test_request_tracing.py      # X-Request-ID generation/propagation + contextvars reset
+├── test_exception_handlers.py   # Domain + global exception handler payloads/logs
+└── test_structured_logging.py   # JsonTelemetryFormatter + logging middleware
 ```
 
 **Core Fixtures** (`conftest.py`):
 - `client`: In-memory FastAPI `TestClient` wrapping the production `app`
-- Dependency override helpers to intercept database sessions and external services during test runtime
+- Dependency override helpers to intercept repository and external service dependencies during test runtime
 
 **Mock Assignment Practices**:
 - Use FastAPI `app.dependency_overrides` to replace production dependencies with test doubles
 - Prefer dependency injection over patching module-level state
 - Keep mock schemas minimal and free of live data stubs or authentication configurations
 - Reset `app.dependency_overrides` between tests to prevent state leakage
+- The provider scheduling tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown, fully isolating the endpoint from any datastore. `tests/unit/test_request_tracing.py` verifies `X-Request-ID` generation/propagation and `contextvars` reset semantics.
 
 **Asset Lifecycle Patterns**:
-- Database transactions: roll back per test via transaction-scoped fixtures
+- Repository isolation: override `get_provider_repository` via `app.dependency_overrides` and clear it in teardown (no datastore touched)
 - External services: override via dependency injection, not network mocking
 - Test data: factory-generated, deterministic, and isolated per test case
 
@@ -419,7 +540,7 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 - Target coverage: 80%
 - Coverage scope: `--cov=app` (application package)
 
-### 5.7 Code Quality & Linting
+### 4.7 Code Quality & Linting
 
 **Backend Linting & Type Checking**:
 
@@ -451,15 +572,15 @@ npm run lint
 
 \*\*IMPORTANT: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI. The pre-push hook runs the same checks as GitHub Actions (lint, E2E tests, component tests, security audit). If a hook fails, fix the underlying issue instead of attempting to bypass it.
 
-### 5.7 CI Integration
+### 4.7 CI Integration
 
 - Tests run on every PR to main
 - JUnit XML and coverage reports uploaded as artifacts
 - Screenshots uploaded as artifacts on failure
 
-## 6. CI/CD & Deployment
+## 5. CI/CD & Deployment
 
-### 6.1 GitHub Actions Workflows
+### 5.1 GitHub Actions Workflows
 
 **ci-frontend.yml**:
 
@@ -482,7 +603,7 @@ npm run lint
 - pip-audit for dependencies
 - pytest: JUnit XML and coverage reports (80% target)
 
-### 6.2 Observability & Metrics
+### 5.2 Observability & Metrics
 
 **Prometheus Instrumentation**:
 
@@ -518,57 +639,7 @@ The `/metrics` endpoint exposes internal application state, endpoint names, requ
 - Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
 - Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
 
-### 6.3 Environment Configuration
-
-**Variables**:
-
-| Category  | Variable              | Secret |
-| --------- | --------------------- | ------ |
-| Auth      | JWT_SECRET            | Yes    |
-| Auth      | AUTH_PROVIDER_URL     | No     |
-| Database  | DATABASE_URL          | Yes    |
-| Vector DB | PGVECTOR_DIMENSION    | No     |
-| AWS       | AWS_ACCESS_KEY_ID     | Yes    |
-| AWS       | AWS_SECRET_ACCESS_KEY | Yes    |
-| AWS       | AWS_REGION            | No     |
-| AWS       | S3_BUCKET_GUIDELINES  | No     |
-| LLM       | LLM_API_KEY           | Yes    |
-| LLM       | LLM_MODEL             | No     |
-| Email     | EMAIL_API_KEY         | Yes    |
-| App       | APP_ENV               | No     |
-| App       | CORS_ORIGINS          | No     |
-
-### 6.4 Local Development
-
-```bash
-# Frontend development
-cd IOPHA-frontend && npm install && npm run dev
-
-# Backend development (requires main.py in app/)
-cd IOPHA-backend && pip install -r requirements.txt && uvicorn app.main:app --reload
-
-# Install git hooks (Husky) — runs automatically via the "prepare" script on `npm install`
-npm install
-```
-
-#### Git Hook Configuration (Husky)
-
-The project uses [Husky](https://typicode.github.io/husky/) to enforce code quality before commits reach CI. Hook scripts live in `.husky/`:
-
-| Hook                | What it runs                                                                                                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.husky/pre-commit` | Backend: `ruff check --fix` + `ruff format` on staged Python files, then a **verifying** `ruff check` / `ruff format --check` that blocks the commit on any remaining issue. Frontend: `npx lint-staged`. |
-| `.husky/pre-push`   | `npm run test:changed` (frontend) and `ruff check` / `ruff format --check` / `mypy` / `bandit` gates over `IOPHA-backend/` (mirrors CI). |
-
-**Fail-fast (`set -e`)**: Both `.husky/pre-commit` and `.husky/pre-push` start with `set -e`, so any gate that errors — including the frontend `npm run test:changed` suite in `pre-push` — aborts the commit/push immediately. This prevents a failing check from being silently bypassed and keeps local hooks aligned with the "mirrors CI" intent. The shared `resolve_ruff()` logic lives in `.husky/resolve-ruff.sh`, sourced by both hooks, so ruff-resolution cannot drift between them.
-
-**Rules Enabled (Ruff)**: Pyflakes (F), Pycodestyle (E/W), isort (I), Pydocstyle (N), Bandit Security (S), Bugbear (B), Pylint Refactoring (PLR) — see `IOPHA-backend/pyproject.toml` and `docs/security/RUFF_MYPY_LINTING.md`.
-
-**Pre-Commit Enforcement Rule**: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI.
-
-**Incremental Linting**: Run `python scripts/lint-changed.py` to lint only changed Python files instead of the entire codebase.
-
-## 7. Decision Points (Pending)
+## 6. Decision Points (Pending)
 
 | Component     | Options                           | Criteria                              |
 | ------------- | --------------------------------- | ------------------------------------- |
