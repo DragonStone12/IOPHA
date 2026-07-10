@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.api.timeslots import router as timeslots_router
 from app.controllers.providers import router as providers_router
 from app.middleware import RequestTracingMiddleware
 from app.utils.handlers import ProblemAPIRoute, register_exception_handlers
@@ -14,6 +15,7 @@ logger = configure_logging()
 app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
 app.add_middleware(RequestTracingMiddleware)
 app.include_router(providers_router)
+app.include_router(timeslots_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,

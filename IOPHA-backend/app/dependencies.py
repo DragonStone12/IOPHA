@@ -1,3 +1,7 @@
+from app.repositories.calendar_repository import (
+    CalendarRepository,
+    InMemoryCalendarRepository,
+)
 from app.repositories.provider_repository import (
     InMemoryProviderRepository,
     ProviderRepository,
@@ -11,3 +15,12 @@ def get_provider_repository() -> ProviderRepository:
     double without touching any live datastore.
     """
     return InMemoryProviderRepository()
+
+
+def get_calendar_repository() -> CalendarRepository:
+    """FastAPI dependency factory yielding the active calendar repository.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fault-
+    injectable mock without touching any live calendar backend.
+    """
+    return InMemoryCalendarRepository()
