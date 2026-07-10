@@ -65,9 +65,7 @@ def _build_openapi() -> dict[str, object]:
             responses = operation.get("responses", {})
             if "422" in responses:
                 responses["422"] = {
-                    "description": (
-                        "Request validation failed (RFC 7807 problem detail)."
-                    ),
+                    "description": "Unprocessable Entity",
                     "content": {
                         "application/json": {
                             "schema": {"$ref": "#/components/schemas/ProblemDetail"}
