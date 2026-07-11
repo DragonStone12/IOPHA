@@ -51,10 +51,14 @@ class JsonTelemetryFormatter(logging.Formatter):
                 )
 
         if record.exc_info:
-            log_payload["exc_info"] = self.formatException(record.exc_info)
+            log_payload["exc_info"] = _scrubber.scrub_message(
+                self.formatException(record.exc_info)
+            )
 
         if record.stack_info:
-            log_payload["stack_info"] = self.formatStack(record.stack_info)
+            log_payload["stack_info"] = _scrubber.scrub_message(
+                self.formatStack(record.stack_info)
+            )
 
         return json.dumps(log_payload, default=str)
 

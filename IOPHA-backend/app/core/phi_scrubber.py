@@ -15,9 +15,8 @@ _PATTERNS: list[re.Pattern[str]] = [
     ),  # DOB MM/DD/YYYY
     re.compile(
         r"\b(?:name|patient|member|contact|dob)\s*[:=]\s*"
-        r"[A-Z][a-z]+(?:\s[A-Z][a-z]+)*",
-        re.IGNORECASE,
-    ),  # labeled name / dob
+        r"(?:[^\W\d_]+(?:[-'][^\W\d_]+)*\s+){1,}[^\W\d_]+(?:[-'][^\W\d_]+)*",
+    ),
 ]
 
 

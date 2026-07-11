@@ -1,6 +1,5 @@
 import logging
 
-from app.core.phi_scrubber import PHIScrubber
 from app.utils.logging import LOGGER_NAME, JsonTelemetryFormatter, configure_logging
 
 
@@ -20,7 +19,6 @@ def configure_structured_logging(level: int = logging.INFO) -> logging.Logger:
 
 __all__ = [
     "JSONLogFormatter",
-    "PHIScrubber",
     "configure_structured_logging",
     "LOGGER_NAME",
 ]
