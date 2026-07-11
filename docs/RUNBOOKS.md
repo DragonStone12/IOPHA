@@ -23,7 +23,9 @@ hyphens, and strips punctuation).
 | Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
 | Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
 | Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
-| UnprocessableEntityException | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
+| Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
+| Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
+| Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -225,7 +227,7 @@ record, so the service raised `ProviderNotFoundException`.
 2. Confirm the provider repository is wired to the correct datasource for the environment.
 3. Return the canonical directory listing so the client can re-select a valid provider.
 
-## UnprocessableEntityException
+## Unprocessable Entity Exception
 
 **What happened:** The client sent a syntactically valid request, but the server
 could not process it because one or more fields failed validation (wrong type,
@@ -255,3 +257,37 @@ into a single RFC-7807 `ProblemDetail` payload.
 2. Inspect the `exc_info` trace captured server-side for this request.
 3. Reproduce using the request path and headers; never rely on the client
    `detail` (it is intentionally generic and contains no stack trace).
+
+## Time Slot Unavailable
+
+**What happened:** A patient attempted to reserve a time slot that has already
+been booked by another patient or released by the system.
+
+**Common causes:**
+- Two patients reserved the same slot concurrently before row-level locking
+  resolved the conflict.
+- The slot was held beyond its TTL and automatically released.
+- A stale availability cache returned a slot that was no longer bookable.
+
+**Mitigation:**
+1. Re-fetch the provider's available slots and present the refreshed list.
+2. Return the conflict to the client with a clear "slot gone" message and force
+   a refresh.
+3. Log `slotId` and `providerId` for audit trail correlation.
+
+## Invalid Time Slot Format
+
+**What happened:** The client supplied a slot identifier or time string that
+does not conform to the expected `YYYY-MM-DD-h:MM AM/PM` format.
+
+**Common causes:**
+- Frontend slug-encoding or URL-decoding transformed the slot id.
+- A calendar integration emitted a non-civil time format (24-hour clock,
+  lowercase AM/PM).
+- The slot id was manually constructed or copy-pasted incorrectly.
+
+**Mitigation:**
+1. Inspect the `details` field in the response for the exact format violation.
+2. Correct the slot id to match the `TimeSlotSchema.id` pattern before retrying.
+3. Ensure client-side formatting uses the same 12-hour civil time pattern
+   (`0[1-9]|1[0-2]:[0-5][0-9] (AM|PM)`) as the backend validator.

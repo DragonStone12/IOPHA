@@ -8,7 +8,10 @@ from typing import Any, Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.phi_scrubber import PHIScrubber
 from app.utils.context import request_id_ctx
+
+_scrubber = PHIScrubber()
 
 
 class JsonTelemetryFormatter(logging.Formatter):
@@ -35,18 +38,27 @@ class JsonTelemetryFormatter(logging.Formatter):
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": _scrubber.scrub_message(record.getMessage()),
             "requestId": request_id_ctx.get(),
         }
 
         if hasattr(record, "extra_context"):
-            log_payload.update(record.extra_context)
+            # Scrub any human-readable string values; structured/non-string
+            # values (dicts, ints) are passed through untouched.
+            for key, value in record.extra_context.items():
+                log_payload[key] = (
+                    _scrubber.scrub_message(value) if isinstance(value, str) else value
+                )
 
         if record.exc_info:
-            log_payload["exc_info"] = self.formatException(record.exc_info)
+            log_payload["exc_info"] = _scrubber.scrub_message(
+                self.formatException(record.exc_info)
+            )
 
         if record.stack_info:
-            log_payload["stack_info"] = self.formatStack(record.stack_info)
+            log_payload["stack_info"] = _scrubber.scrub_message(
+                self.formatStack(record.stack_info)
+            )
 
         return json.dumps(log_payload, default=str)
 
@@ -58,19 +70,23 @@ class JsonTelemetryFormatter(logging.Formatter):
 LOGGER_NAME = "iopha.backend"
 
 
-def configure_logging(level: int = logging.INFO) -> logging.Logger:
+def configure_logging(
+    level: int = logging.INFO,
+    formatter: logging.Formatter | None = None,
+) -> logging.Logger:
     """Build and register the structured JSON logger used by the app.
 
     Attaches a stdout :class:`logging.StreamHandler` wrapped in
-    :class:`JsonTelemetryFormatter` and disables propagation so records are
-    emitted once, in machine-readable JSON, for external log shippers.
+    :class:`JsonTelemetryFormatter` (or a caller-supplied formatter) and
+    disables propagation so records are emitted once, in machine-readable
+    JSON, for external log shippers.
     """
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(level)
     logger.propagate = False
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
-        handler.setFormatter(JsonTelemetryFormatter())
+        handler.setFormatter(formatter or JsonTelemetryFormatter())
         logger.addHandler(handler)
     return logger
 

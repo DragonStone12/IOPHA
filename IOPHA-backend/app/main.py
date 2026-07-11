@@ -2,18 +2,23 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.providers import router as providers_router
-from app.middleware import RequestTracingMiddleware
+from app.controllers.timeslots import router as timeslots_router
+from app.core.logging_config import configure_structured_logging
+from app.exceptions.error_handlers import register_timeslot_error_handlers
+from app.middleware.tracking import RequestTrackingMiddleware
 from app.utils.handlers import ProblemAPIRoute, register_exception_handlers
-from app.utils.logging import CentralizedLoggingMiddleware, configure_logging
+from app.utils.logging import CentralizedLoggingMiddleware
 
 app = FastAPI(title="IOPHA Backend API", route_class=ProblemAPIRoute)
 
 register_exception_handlers(app)
+register_timeslot_error_handlers(app)
 
-logger = configure_logging()
+logger = configure_structured_logging()
 app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
-app.add_middleware(RequestTracingMiddleware)
+app.add_middleware(RequestTrackingMiddleware)
 app.include_router(providers_router)
+app.include_router(timeslots_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -67,7 +72,7 @@ def _build_openapi() -> dict[str, object]:
                 responses["422"] = {
                     "description": (
                         "Request payload validation failed "
-                        "(UnprocessableEntityException)"
+                        "(Unprocessable Entity Exception)"
                     ),
                     "content": {
                         "application/json": {

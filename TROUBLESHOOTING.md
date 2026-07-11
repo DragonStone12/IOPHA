@@ -610,7 +610,7 @@ Calendar picker styles from `globals.css` are included in `index.css` for future
 ### Symptom
 
 A route that raises a raw, unhandled exception (e.g. `RuntimeError`) is meant
-to be caught by the global `Exception` handler in `IOPHA-backend/app/handlers.py`
+to be caught by the global `Exception` handler in `IOPHA-backend/app/utils/handlers.py`
 (`_global_unexpected_handler`), which returns a structured `500` JSON payload
 with a `help_url` runbook link. Under `FastAPI.testclient.TestClient`, the test
 fails with the **original** exception raised instead of a `500` response:
