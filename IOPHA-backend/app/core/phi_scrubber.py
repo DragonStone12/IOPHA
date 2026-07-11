@@ -6,6 +6,14 @@ import re
 # availability logs. DOB is therefore matched only in the US civil form
 # (MM/DD/YYYY), and names only when introduced by a recognizable label so we
 # do not over-redact ordinary two-capitalized-word phrases.
+# A "name word" is letters, optionally followed by a single hyphen or
+# apostrophe and more letters -- but it must NOT be followed by another
+# hyphen/word char. That lookahead is what keeps multi-hyphen system
+# identifiers (e.g. ``primary-db-replica``) intact: a ``word-word-word``
+# chain has 2+ hyphens, so once the regex sees the second hyphen it fails
+# the lookahead and the whole value is left alone, while real names
+# (``Mary-Jane``, ``O'Connor``) still redact.
+_NAME_WORD = r"(?>[^\W\d_]+)(?:[-'][^\W\d_]+)?(?![-\w'])"
 _PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),  # email
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),  # SSN
@@ -15,11 +23,7 @@ _PATTERNS: list[re.Pattern[str]] = [
     ),  # DOB MM/DD/YYYY
     re.compile(
         r"\b(?:name|patient|member|contact|dob)\s*[:=]\s*"
-        # Limit hyphens/apostrophes to at most one per word so multi-hyphen
-        # system identifiers (e.g. ``primary-db-replica``) are left intact,
-        # while real names (``Mary-Jane``, ``O'Connor``) are still redacted.
-        # Cap the value at four words to avoid swallowing following prose.
-        r"(?:[^\W\d_]+(?:[-'][^\W\d_]+)?(?:\s+[^\W\d_]+(?:[-'][^\W\d_]+)?){0,3})",
+        rf"(?:{_NAME_WORD}(?:\s+{_NAME_WORD}){{0,3}})",
     ),
 ]
 

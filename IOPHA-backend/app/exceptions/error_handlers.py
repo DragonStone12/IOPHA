@@ -30,7 +30,6 @@ def _request_id() -> str:
 
 def format_problem_detail(  # noqa: PLR0913
     *,
-    request: Request,
     status_code: int,
     title: str,
     detail: str,
@@ -67,7 +66,6 @@ async def _timeslot_unavailable_handler(
         extra={"extra_context": context},
     )
     return format_problem_detail(
-        request=request,
         status_code=status.HTTP_409_CONFLICT,
         title=exc.title,
         detail=exc.safe_detail(),
@@ -90,7 +88,6 @@ async def _provider_not_found_handler(
         extra={"extra_context": context},
     )
     return format_problem_detail(
-        request=request,
         status_code=status.HTTP_404_NOT_FOUND,
         title=exc.title,
         detail=exc.safe_detail(),
@@ -113,7 +110,6 @@ async def _invalid_format_handler(
         extra={"extra_context": context},
     )
     return format_problem_detail(
-        request=request,
         status_code=status.HTTP_400_BAD_REQUEST,
         title=exc.title,
         detail=exc.safe_detail(),
