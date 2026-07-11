@@ -16,11 +16,13 @@ class TestTimeSlotEndpointSmoke:
         # Matches the frontend TimeSlot contract.
         assert slot["id"].endswith(slot["time"])
 
-    def test_unknown_provider_returns_empty_list(self) -> None:
+    def test_unknown_provider_returns_404(self) -> None:
         with TestClient(app) as client:
             response = client.get("/api/providers/does-not-exist/slots")
-        assert response.status_code == 200
-        assert response.json() == []
+        assert response.status_code == 404
+        body = response.json()
+        assert body["title"] == "Provider Not Found"
+        assert body["status"] == 404
 
     def test_openapi_documents_response_model(self) -> None:
         spec = app.openapi()

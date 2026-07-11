@@ -20,6 +20,11 @@ class TimeSlotController:
         """Resolve and normalize a provider's available time slots."""
         return self._service.get_slots(provider_id)
 
+    def reserve_slot(self, provider_id: str, slot_id: str) -> dict[str, str]:
+        """Reserve a slot on behalf of the patient."""
+        self._service.reserve_slot(provider_id, slot_id)
+        return {"status": "reserved", "slot_id": slot_id}
+
 
 def get_timeslot_controller(
     repository: CalendarRepository = Depends(get_calendar_repository),  # noqa: B008
@@ -62,6 +67,35 @@ def get_provider_slots(
     enable or disable the slot button.
     """
     return controller.list_slots(provider_id)
+
+
+@router.post(
+    "/{provider_id}/slots/{slot_id}/reserve",
+    summary="Reserve a specific time slot",
+    responses={
+        200: {
+            "description": "Slot successfully reserved.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "status": {"type": "string"},
+                            "slot_id": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+def reserve_provider_slot(
+    provider_id: str,
+    slot_id: str,
+    controller: TimeSlotController = Depends(get_timeslot_controller),  # noqa: B008
+) -> dict[str, str]:
+    """Reserve the identified slot for the current patient session."""
+    return controller.reserve_slot(provider_id, slot_id)
 
 
 __all__ = ["TimeSlotController", "router"]

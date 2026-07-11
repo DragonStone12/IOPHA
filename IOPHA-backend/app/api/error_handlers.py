@@ -43,6 +43,7 @@ def format_problem_detail(  # noqa: PLR0913
         help_url=help_url,
         type="about:blank",
         requestId=request_id,
+        errors=None,
     )
     return JSONResponse(status_code=status_code, content=payload.model_dump())
 

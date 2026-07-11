@@ -16,7 +16,7 @@ def _record(msg: str, extra: dict[str, object] | None = None) -> logging.LogReco
         exc_info=None,
     )
     if extra is not None:
-        rec.extra_context = extra  # type: ignore[attr-defined]
+        rec.extra_context = extra
     return rec
 
 
