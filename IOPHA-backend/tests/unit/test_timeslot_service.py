@@ -1,5 +1,8 @@
 from datetime import date
 
+import pytest
+
+from app.exceptions.timeslot_exceptions import TimeSlotUnavailableException
 from app.repositories.calendar_repository import InMemoryCalendarRepository
 from app.services.timeslot_service import TimeSlotService
 
@@ -65,4 +68,5 @@ class TestTimeSlotService:
         service = TimeSlotService(repo)
         slot_id = _known_slot_id(repo)
         assert service.reserve_slot(slot_id) is True
-        assert service.reserve_slot(slot_id) is False
+        with pytest.raises(TimeSlotUnavailableException):
+            service.reserve_slot(slot_id)
