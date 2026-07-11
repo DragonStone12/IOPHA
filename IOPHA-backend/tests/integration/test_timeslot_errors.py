@@ -41,19 +41,6 @@ def log_records() -> Generator[list[logging.LogRecord], None, None]:
         logger.removeHandler(handler)
 
 
-@pytest.fixture
-def log_sink() -> Generator[list[logging.LogRecord], None, None]:
-    records: list[logging.LogRecord] = []
-    handler = _CaptureHandler(records)
-    logger = logging.getLogger("iopha.backend")
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-    try:
-        yield records
-    finally:
-        logger.removeHandler(handler)
-
-
 class TestTimeSlotUnavailableException:
     def test_returns_409_with_rfc7807_body(self) -> None:
         mock = MockCalendarService(reserve_succeeds=False)
@@ -74,7 +61,7 @@ class TestTimeSlotUnavailableException:
                 == "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve"
             )
             assert body["help_url"].endswith("#time-slot-unavailable")
-            assert body["type"] == "about:blank"
+            assert "type" not in body
             assert response.headers["X-Request-ID"] == request_id
         finally:
             app.dependency_overrides.pop(get_calendar_repository, None)
@@ -99,15 +86,17 @@ class TestTimeSlotUnavailableException:
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             with TestClient(app) as client:
-                client.post(
+                response = client.post(
                     "/api/providers/prov-123/slots/2024-01-15-09%3A00%20AM/reserve"
                 )
             record = next(
                 (r for r in log_records if r.msg == "timeslot.unavailable"), None
             )
             assert record is not None
-            ctx = record.__dict__["extra_context"]
-            assert ctx["requestId"] == "unknown"
+            ctx = getattr(record, "extra_context", {})
+            # The handler now echoes the same correlation id the middleware
+            # assigns and returns on X-Request-ID, so they must agree.
+            assert ctx["requestId"] == response.headers["X-Request-ID"]
             assert (
                 ctx["path"]
                 == "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve"

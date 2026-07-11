@@ -72,7 +72,7 @@ class TestTimeSlotUnavailableException:
         assert body["help_url"].startswith(
             "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
         )
-        assert body["type"] == "about:blank"
+        assert "type" not in body
         assert body["requestId"] is not None
         assert "2024-01-15-09:00 AM" in body["detail"]
 
@@ -87,8 +87,8 @@ class TestTimeSlotUnavailableException:
         client.get("/slots/slot-123")
         record = next((r for r in log_records if r.msg == "timeslot.unavailable"), None)
         assert record is not None
-        ctx = record.__dict__["extra_context"]
-        assert ctx["requestId"] == "unknown"
+        ctx = getattr(record, "extra_context", {})
+        assert ctx["requestId"] == "system"
         assert ctx["path"] == "/slots/slot-123"
         assert ctx["slotId"] == "slot-123"
 
@@ -102,7 +102,7 @@ class TestProviderNotFoundException:
         assert body["status"] == 404
         assert body["instance"] == "/providers/ghost-provider"
         assert body["help_url"].endswith("#provider-not-found-error")
-        assert body["type"] == "about:blank"
+        assert "type" not in body
         assert body["requestId"] is not None
         assert "ghost-provider" in body["detail"]
 
@@ -121,7 +121,7 @@ class TestInvalidTimeSlotFormatException:
         assert body["status"] == 400
         assert body["instance"] == "/format"
         assert body["help_url"].endswith("#invalid-time-slot-format")
-        assert body["type"] == "about:blank"
+        assert "type" not in body
         assert body["requestId"] is not None
         assert "time-only" in body["detail"]
 

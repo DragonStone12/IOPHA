@@ -15,7 +15,11 @@ _PATTERNS: list[re.Pattern[str]] = [
     ),  # DOB MM/DD/YYYY
     re.compile(
         r"\b(?:name|patient|member|contact|dob)\s*[:=]\s*"
-        r"(?:[^\W\d_]+(?:[-'][^\W\d_]+)*\s+){1,}[^\W\d_]+(?:[-'][^\W\d_]+)*",
+        # Limit hyphens/apostrophes to at most one per word so multi-hyphen
+        # system identifiers (e.g. ``primary-db-replica``) are left intact,
+        # while real names (``Mary-Jane``, ``O'Connor``) are still redacted.
+        # Cap the value at four words to avoid swallowing following prose.
+        r"(?:[^\W\d_]+(?:[-'][^\W\d_]+)?(?:\s+[^\W\d_]+(?:[-'][^\W\d_]+)?){0,3})",
     ),
 ]
 
