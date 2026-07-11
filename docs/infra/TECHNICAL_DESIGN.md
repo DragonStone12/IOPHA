@@ -326,7 +326,7 @@ sequenceDiagram
 ### 3.5 Global Exception Handling & Runbook Mappings
 
 The backend installs application-wide FastAPI exception handlers
-(`app/handlers.register_exception_handlers`) that intercept domain-specific
+(`app/utils/handlers.register_exception_handlers`) that intercept domain-specific
 faults and any unhandled runtime error. Every handler returns a structured,
 diagnostic JSON problem payload and emits a structured JSON log record through
 the same `JsonTelemetryFormatter` pipeline as the request middleware.
@@ -609,8 +609,11 @@ sequenceDiagram
 ### 4.2 Integration Tests
 
 - FastAPI `TestClient` drives all API routes against the in-process `app`
-- No production datastore: the repository dependency (`get_provider_repository`) is overridden per test, so the endpoint is exercised end-to-end against an in-memory double
-- Scheduling endpoints are validated for both the 200 success path and the 404 RFC-7807 problem path
+- No production datastore: the repository dependency is overridden per test
+  (`get_calendar_repository` for time slots, `get_provider_repository` for
+  providers), so the endpoint is exercised end-to-end against an in-memory double
+- Time-slot endpoints are validated for success, 404, 400, and 409 RFC-7807
+  problem paths
 
 ### 4.3 E2E Tests
 
@@ -640,7 +643,7 @@ sequenceDiagram
 - Configuration in `IOPHA-backend/requirements.txt` and `IOPHA-backend/pyproject.toml`
 
 **Pytest Configuration**:
-- `testpaths = ["tests"]`
+- `testpaths = ["tests/unit", "tests/e2e", "tests/integration"]`
 - `python_files = ["test_*.py"]`
 - `asyncio_mode = "auto"` for automatic async loop handling
 
@@ -671,29 +674,44 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 
 ```
 /IOPHA-backend/tests/
-├── conftest.py                  # Global fixtures: TestClient
-├── helpers/
-│   ├── __init__.py
-│   └── dependency_overrides.py  # Centralized override utilities
-├── test_providers.py            # Provider endpoint: success + RFC-7807 404 (isolated via overrides)
-├── test_request_tracing.py      # X-Request-ID generation/propagation + contextvars reset
-├── test_exception_handlers.py   # Domain + global exception handler payloads/logs
-└── test_structured_logging.py   # JsonTelemetryFormatter + logging middleware
+├── integration/
+│   ├── test_schema_integration.py     # Domain record → API schema projection
+│   ├── test_timeslot_full_flow.py     # End-to-end request lifecycle + performance
+│   ├── test_timeslot_errors.py        # Fault injection + RFC-7807 error handlers
+│   └── test_timeslots_success.py      # Time slot success paths (TestClient)
+├── unit/
+│   ├── test_core_context.py
+│   ├── test_exception_handlers.py
+│   ├── test_logging_config.py
+│   ├── test_phi_scrubber.py
+│   ├── test_providers.py
+│   ├── test_request_tracing.py
+│   ├── test_request_tracking_middleware.py
+│   ├── test_structured_logging.py
+│   ├── test_timeslot_endpoint.py
+│   ├── test_timeslot_schema.py
+│   └── test_timeslot_service.py
+├── e2e/
+│   └── (placeholder)
+└── conftest.py
 ```
 
-**Core Fixtures** (`conftest.py`):
-- `client`: In-memory FastAPI `TestClient` wrapping the production `app`
-- Dependency override helpers to intercept repository and external service dependencies during test runtime
+**Core Fixtures**:
+- `app`: The production FastAPI app imported directly from `app.main`
+- `log_records`: Captures structured JSON log records for assertions
+- Per-test `MockCalendarService` overrides injected via `app.dependency_overrides`
 
 **Mock Assignment Practices**:
 - Use FastAPI `app.dependency_overrides` to replace production dependencies with test doubles
 - Prefer dependency injection over patching module-level state
 - Keep mock schemas minimal and free of live data stubs or authentication configurations
 - Reset `app.dependency_overrides` between tests to prevent state leakage
-- The provider scheduling tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown, fully isolating the endpoint from any datastore. `tests/unit/test_request_tracing.py` verifies `X-Request-ID` generation/propagation and `contextvars` reset semantics.
+- Time-slot API tests (`tests/integration/test_timeslots_success.py`, `tests/integration/test_timeslot_errors.py`) manually override `get_calendar_repository` and clear it in `finally` blocks
+- Provider tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown
+- Integration tests (`tests/integration/test_timeslot_full_flow.py`) use `raise_server_exceptions=False` to validate error handler responses without re-raising
 
 **Asset Lifecycle Patterns**:
-- Repository isolation: override `get_provider_repository` via `app.dependency_overrides` and clear it in teardown (no datastore touched)
+- Repository isolation: override the relevant factory (`get_calendar_repository` for time slots, `get_provider_repository` for providers) via `app.dependency_overrides` and clear it in teardown (no datastore touched)
 - External services: override via dependency injection, not network mocking
 - Test data: factory-generated, deterministic, and isolated per test case
 
