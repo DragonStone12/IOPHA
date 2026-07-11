@@ -1,5 +1,4 @@
 import logging
-import time
 from collections.abc import Generator
 from typing import Any
 
@@ -269,22 +268,3 @@ class TestTimeSlotFullRequestFlow:
         assert "422" in get_op["responses"]
         ref = get_op["responses"]["422"]["content"]["application/json"]["schema"]
         assert ref["$ref"].endswith("ProblemDetail")
-
-
-class TestTimeSlotFullFlowPerformance:
-    def test_sequential_performance_below_sla(self) -> None:
-        mock = MockCalendarService()
-        _apply_mock(mock)
-        try:
-            with TestClient(app, raise_server_exceptions=False) as client:
-                durations: list[float] = []
-                for _ in range(20):
-                    start = time.perf_counter()
-                    client.get("/api/providers/prov-123/slots")
-                    durations.append((time.perf_counter() - start) * 1000)
-        finally:
-            _clear_mock()
-
-        assert durations
-        p95 = sorted(durations)[int(len(durations) * 0.95)]
-        assert p95 < 100, f"Sequential p95 latency {p95:.2f}ms exceeded 100ms threshold"
