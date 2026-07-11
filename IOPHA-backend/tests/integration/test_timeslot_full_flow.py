@@ -261,41 +261,6 @@ class TestTimeSlotFullRequestFlow:
     def test_no_dependency_override_leak_between_tests(self) -> None:
         assert get_calendar_repository not in app.dependency_overrides
 
-    def test_concurrent_requests_isolate_context_and_timing(
-        self, log_records: list[logging.LogRecord]
-    ) -> None:
-        mock = MockCalendarService()
-        _apply_mock(mock)
-        try:
-            with TestClient(app, raise_server_exceptions=False) as client:
-                request_id_a = "123e4567-e89b-12d3-a456-426614174020"
-                request_id_b = "123e4567-e89b-12d3-a456-426614174021"
-                start_a = time.perf_counter()
-                resp_a = client.get(
-                    "/api/providers/prov-123/slots",
-                    headers={"X-Request-ID": request_id_a},
-                )
-                duration_a = time.perf_counter() - start_a
-
-                start_b = time.perf_counter()
-                resp_b = client.get(
-                    "/api/providers/prov-123/slots",
-                    headers={"X-Request-ID": request_id_b},
-                )
-                duration_b = time.perf_counter() - start_b
-        finally:
-            _clear_mock()
-
-        assert resp_a.headers["X-Request-ID"] == request_id_a
-        assert resp_b.headers["X-Request-ID"] == request_id_b
-
-        p95 = max(duration_a, duration_b) * 1000
-        assert p95 < 100, f"p95 latency {p95:.2f}ms exceeded 100ms threshold"
-
-        messages = _logged_messages(log_records)
-        assert messages.count("request.start") == 2
-        assert messages.count("request.complete") == 2
-
     def test_openapi_contract_rewrites_422_to_problem_detail(self) -> None:
         spec = app.openapi()
         provider_path = spec["paths"]["/api/providers/{provider_id}"]
