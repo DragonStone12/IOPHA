@@ -446,7 +446,7 @@ handling.
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Controller | `app/api/timeslots.py` | HTTP surface for `GET /slots` and `POST /slots/{id}/reserve`. |
+| Controller | `app/api/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots` and `POST /api/providers/{provider_id}/slots/{id}/reserve`. |
 | Service | `app/services/timeslot_service.py` | Lookup orchestration, slot validation, and domain-fault raising. |
 | Repository | `app/repositories/calendar_repository.py` | `CalendarRepository` ABC + `InMemoryCalendarRepository` no-DB stand-in. |
 | Schemas | `app/schemas/timeslot.py` | `TimeSlotSchema` (frontend DTO) and `TimeSlotRecord` (internal shape). |
@@ -479,10 +479,10 @@ Validation helpers:
 ### 3.7.3 Route Contract
 
 - `GET /api/providers/{provider_id}/slots` → `list[TimeSlotSchema]` (200) or
-  RFC-7807 problem (404 `ProviderNotFoundException`, 400
-  `InvalidTimeSlotFormatException`, 409 `TimeSlotUnavailableException`).
+  RFC-7807 problem (404 `ProviderNotFoundException`).
 - `POST /api/providers/{provider_id}/slots/{slot_id}/reserve` → `{"status":
-  "reserved", "slot_id": str}` (200) or RFC-7807 problem.
+  "reserved", "slot_id": str}` (200) or RFC-7807 problem (409
+  `TimeSlotUnavailableException`, 400 `InvalidTimeSlotFormatException`).
 
 The controller resolves a `TimeSlotController` per request via the
 `get_timeslot_controller` factory, which wires
@@ -505,23 +505,28 @@ flowchart LR
     DTO -->|response_model| API[GET /slots]
 ```
 
-### 3.7.5 Middleware Stack
+### 3.7.5 Middleware & Logging Stack
 
 The availability API runs inside the same middleware stack as the directory
 API, with the ticket-named `RequestTrackingMiddleware` subclass registered
-under the availability resource:
+under the availability resource.
+
+**Middleware:**
 
 1. `RequestTrackingMiddleware` — outermost. Reads inbound `X-Request-ID` or
    mints a UUID; binds to `request_id_ctx` `ContextVar`; echoes on response
    header; resets in `finally` to prevent context leaks.
 2. `CentralizedLoggingMiddleware` — logs `request.start` and `request.complete`
    with method, path, status, and duration.
-3. `JsonTelemetryFormatter` / `JSONLogFormatter` — serializes logs as compact
-   JSON, scrubbing PHI via `PHIScrubber`.
-4. `ProblemAPIRoute` — catches `RequestValidationError` and projects it into
+3. `ProblemAPIRoute` — catches `RequestValidationError` and projects it into
    a `ProblemDetail` (RFC-7807) payload.
-5. `register_timeslot_error_handlers` — maps slot-domain exceptions to their
+4. `register_timeslot_error_handlers` — maps slot-domain exceptions to their
    corresponding HTTP status codes and problem payloads.
+
+**Logging formatters:**
+
+1. `JsonTelemetryFormatter` / `JSONLogFormatter` — serializes logs as compact
+   JSON, scrubbing PHI via `PHIScrubber`.
 
 ### 3.7.6 Exception Hierarchy & Handling Flow
 

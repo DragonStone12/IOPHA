@@ -576,7 +576,7 @@ record before serialization (`app/core/phi_scrubber.py`):
 
 | Pattern | Regex | Replacement | Purpose |
 |---|---|---|---|
-| Email | `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}` | `[REDACTED]` | Contact emails in user-facing errors |
+| Email | `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b` | `[REDACTED]` | Contact emails in user-facing errors |
 | SSN | `\b\d{3}-\d{2}-\d{4}\b` | `[REDACTED]` | Social security numbers |
 | Phone | `(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b` | `[REDACTED]` | North American phone numbers |
 | DOB | `\b(0[1-9]|1[0-2])[/-](0[1-9]|[12]\d|3[01])[/-]\d{4}\b` | `[REDACTED]` | Dates of birth (MM/DD/YYYY only) |
