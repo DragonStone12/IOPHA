@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from app.api.error_handlers import register_timeslot_error_handlers
 from app.controllers.providers import router as providers_router
 from app.controllers.timeslots import router as timeslots_router
 from app.core.logging_config import configure_structured_logging
+from app.exceptions.error_handlers import register_timeslot_error_handlers
 from app.middleware.tracking import RequestTrackingMiddleware
 from app.utils.handlers import ProblemAPIRoute, register_exception_handlers
 from app.utils.logging import CentralizedLoggingMiddleware

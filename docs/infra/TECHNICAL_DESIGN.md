@@ -330,6 +330,8 @@ The backend installs application-wide FastAPI exception handlers
 faults and any unhandled runtime error. Every handler returns a structured,
 diagnostic JSON problem payload and emits a structured JSON log record through
 the same `JsonTelemetryFormatter` pipeline as the request middleware.
+For scrubbing rules, payload hygiene, and output boundaries, see
+[Security Overview](../security/SECURITY.md).
 
 **Error Response Object** (RFC-7807-style problem detail):
 
@@ -446,7 +448,7 @@ handling.
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Controller | `app/api/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots` and `POST /api/providers/{provider_id}/slots/{id}/reserve`. |
+| Controller | `app/controllers/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots` and `POST /api/providers/{provider_id}/slots/{id}/reserve`. |
 | Service | `app/services/timeslot_service.py` | Lookup orchestration, slot validation, and domain-fault raising. |
 | Repository | `app/repositories/calendar_repository.py` | `CalendarRepository` ABC + `InMemoryCalendarRepository` no-DB stand-in. |
 | Schemas | `app/schemas/timeslot.py` | `TimeSlotSchema` (frontend DTO) and `TimeSlotRecord` (internal shape). |
@@ -604,7 +606,6 @@ sequenceDiagram
 
 - Framework: pytest
 - Coverage target: 80%
-- Location: `/IOPHA-backend/tests/`
 
 ### 4.2 Integration Tests
 
@@ -669,46 +670,6 @@ pytest tests --cov=app --cov-report=xml --cov-report=html
 # Run all CI checks (used in GitHub Actions)
 pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov-report=xml --cov-report=html
 ```
-
-**Test Layout**:
-
-```
-/IOPHA-backend/tests/
-├── integration/
-│   ├── test_schema_integration.py     # Domain record → API schema projection
-│   ├── test_timeslot_full_flow.py     # End-to-end request lifecycle + performance
-│   ├── test_timeslot_errors.py        # Fault injection + RFC-7807 error handlers
-│   └── test_timeslots_success.py      # Time slot success paths (TestClient)
-├── unit/
-│   ├── test_core_context.py
-│   ├── test_exception_handlers.py
-│   ├── test_logging_config.py
-│   ├── test_phi_scrubber.py
-│   ├── test_providers.py
-│   ├── test_request_tracing.py
-│   ├── test_request_tracking_middleware.py
-│   ├── test_structured_logging.py
-│   ├── test_timeslot_endpoint.py
-│   ├── test_timeslot_schema.py
-│   └── test_timeslot_service.py
-├── e2e/
-│   └── (placeholder)
-└── conftest.py
-```
-
-**Core Fixtures**:
-- `app`: The production FastAPI app imported directly from `app.main`
-- `log_records`: Captures structured JSON log records for assertions
-- Per-test `MockCalendarService` overrides injected via `app.dependency_overrides`
-
-**Mock Assignment Practices**:
-- Use FastAPI `app.dependency_overrides` to replace production dependencies with test doubles
-- Prefer dependency injection over patching module-level state
-- Keep mock schemas minimal and free of live data stubs or authentication configurations
-- Reset `app.dependency_overrides` between tests to prevent state leakage
-- Time-slot API tests (`tests/integration/test_timeslots_success.py`, `tests/integration/test_timeslot_errors.py`) manually override `get_calendar_repository` and clear it in `finally` blocks
-- Provider tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown
-- Integration tests (`tests/integration/test_timeslot_full_flow.py`) use `raise_server_exceptions=False` to validate error handler responses without re-raising
 
 **Asset Lifecycle Patterns**:
 - Repository isolation: override the relevant factory (`get_calendar_repository` for time slots, `get_provider_repository` for providers) via `app.dependency_overrides` and clear it in teardown (no datastore touched)

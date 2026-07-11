@@ -5,7 +5,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.error_handlers import register_timeslot_error_handlers
+from app.exceptions.error_handlers import register_timeslot_error_handlers
 from app.exceptions.timeslot_exceptions import (
     AppBaseException,
     InvalidTimeSlotFormatException,

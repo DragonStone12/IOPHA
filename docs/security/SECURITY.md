@@ -654,14 +654,10 @@ All availability inputs are validated before business logic executes:
 - `TimeSlotUnavailableException` is raised when a reservation is attempted on
   a non-existent or already-reserved slot, returning HTTP 409.
 
-**Validation test coverage:**
-
-- `tests/unit/test_timeslot_schema.py` — valid/invalid schema instantiation.
-- `tests/unit/test_timeslot_service.py` — service-layer validation and fault
-  injection.
-- `tests/api/test_timeslot_errors.py` — end-to-end validation of RFC-7807
-  error payloads with `LEAK_MARKERS` assertions ensuring no stack traces,
-  memory addresses, or credentials appear in client responses.
+**Validation coverage:**
+- Schema instantiation and service-layer validation are covered by unit tests.
+- RFC-7807 error payloads are validated with `LEAK_MARKERS` assertions ensuring
+  no stack traces, memory addresses, or credentials appear in client responses.
 
 ### OpenAPI Error Contract
 

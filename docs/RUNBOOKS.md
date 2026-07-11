@@ -25,7 +25,7 @@ hyphens, and strips punctuation).
 | Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
 | Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
-| UnprocessableEntityException | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
+| Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -227,7 +227,7 @@ record, so the service raised `ProviderNotFoundException`.
 2. Confirm the provider repository is wired to the correct datasource for the environment.
 3. Return the canonical directory listing so the client can re-select a valid provider.
 
-## UnprocessableEntityException
+## Unprocessable Entity Exception
 
 **What happened:** The client sent a syntactically valid request, but the server
 could not process it because one or more fields failed validation (wrong type,
