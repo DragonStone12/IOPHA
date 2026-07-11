@@ -643,7 +643,7 @@ sequenceDiagram
 - Configuration in `IOPHA-backend/requirements.txt` and `IOPHA-backend/pyproject.toml`
 
 **Pytest Configuration**:
-- `testpaths = ["tests/unit", "tests/e2e", "tests/integration", "tests/api"]`
+- `testpaths = ["tests/unit", "tests/e2e", "tests/integration"]`
 - `python_files = ["test_*.py"]`
 - `asyncio_mode = "auto"` for automatic async loop handling
 
@@ -674,12 +674,11 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 
 ```
 /IOPHA-backend/tests/
-├── api/
-│   ├── test_timeslots_success.py      # Time slot success paths (TestClient)
-│   └── test_timeslot_errors.py        # Fault injection + RFC-7807 error handlers
 ├── integration/
 │   ├── test_schema_integration.py     # Domain record → API schema projection
-│   └── test_timeslot_full_flow.py     # End-to-end request lifecycle + performance
+│   ├── test_timeslot_full_flow.py     # End-to-end request lifecycle + performance
+│   ├── test_timeslot_errors.py        # Fault injection + RFC-7807 error handlers
+│   └── test_timeslots_success.py      # Time slot success paths (TestClient)
 ├── unit/
 │   ├── test_core_context.py
 │   ├── test_exception_handlers.py
@@ -690,7 +689,6 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 │   ├── test_request_tracking_middleware.py
 │   ├── test_structured_logging.py
 │   ├── test_timeslot_endpoint.py
-│   ├── test_timeslot_errors.py
 │   ├── test_timeslot_schema.py
 │   └── test_timeslot_service.py
 ├── e2e/
@@ -708,7 +706,7 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 - Prefer dependency injection over patching module-level state
 - Keep mock schemas minimal and free of live data stubs or authentication configurations
 - Reset `app.dependency_overrides` between tests to prevent state leakage
-- Time-slot API tests (`tests/api/test_timeslots_success.py`, `tests/api/test_timeslot_errors.py`) manually override `get_calendar_repository` and clear it in `finally` blocks
+- Time-slot API tests (`tests/integration/test_timeslots_success.py`, `tests/integration/test_timeslot_errors.py`) manually override `get_calendar_repository` and clear it in `finally` blocks
 - Provider tests (`tests/unit/test_providers.py`) use an `autouse` fixture that overrides `get_provider_repository` with an in-memory double and clears all overrides in teardown
 - Integration tests (`tests/integration/test_timeslot_full_flow.py`) use `raise_server_exceptions=False` to validate error handler responses without re-raising
 
