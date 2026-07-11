@@ -67,6 +67,6 @@ class TestTimeSlotService:
         repo = InMemoryCalendarRepository()
         service = TimeSlotService(repo)
         slot_id = _known_slot_id(repo)
-        assert service.reserve_slot(slot_id) is True
+        assert service.reserve_slot("prov-123", slot_id) is True
         with pytest.raises(TimeSlotUnavailableException):
-            service.reserve_slot(slot_id)
+            service.reserve_slot("prov-123", slot_id)

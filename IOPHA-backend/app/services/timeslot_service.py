@@ -33,12 +33,20 @@ class TimeSlotService:
             for record in records
         ]
 
-    def reserve_slot(self, slot_id: str) -> bool:
-        """Attempt to reserve *slot_id*; validate format before delegating."""
+    def reserve_slot(self, provider_id: str, slot_id: str) -> bool:
+        """Attempt to reserve *slot_id* for *provider_id*.
+
+        Validates the slot format and provider ownership before delegating.
+        """
         if not TimeSlotSchema.is_valid_slot_id(slot_id):
             raise InvalidTimeSlotFormatException(
                 f"Slot id '{slot_id}' does not match expected format."
             )
+        if self._repository.get_provider(provider_id) is None:
+            raise ProviderNotFoundException(provider_id)
+        provider_slots = self._repository.get_slots(provider_id)
+        if not any(record.id == slot_id for record in provider_slots):
+            raise TimeSlotUnavailableException(slot_id)
         if not self._repository.reserve_slot(slot_id):
             raise TimeSlotUnavailableException(slot_id)
         return True

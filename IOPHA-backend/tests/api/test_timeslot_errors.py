@@ -62,7 +62,7 @@ class TestTimeSlotUnavailableException:
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.post(
-                    "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve",
+                    "/api/providers/prov-123/slots/2024-01-15-09%3A00%20AM/reserve",
                     headers={"X-Request-ID": request_id},
                 )
             assert response.status_code == 409
@@ -85,21 +85,25 @@ class TestTimeSlotUnavailableException:
         try:
             with TestClient(app) as client:
                 response = client.post(
-                    "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve",
+                    "/api/providers/prov-123/slots/2024-01-15-09%3A00%20AM/reserve",
                 )
             for marker in LEAK_MARKERS:
                 assert marker not in response.text
         finally:
             app.dependency_overrides.pop(get_calendar_repository, None)
 
-    def test_logs_structured_context(self, log_sink: list[logging.LogRecord]) -> None:
+    def test_logs_structured_context(
+        self, log_records: list[logging.LogRecord]
+    ) -> None:
         mock = MockCalendarService(reserve_succeeds=False)
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             with TestClient(app) as client:
-                client.post("/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve")
+                client.post(
+                    "/api/providers/prov-123/slots/2024-01-15-09%3A00%20AM/reserve"
+                )
             record = next(
-                (r for r in log_sink if r.msg == "timeslot.unavailable"), None
+                (r for r in log_records if r.msg == "timeslot.unavailable"), None
             )
             assert record is not None
             ctx = record.__dict__["extra_context"]

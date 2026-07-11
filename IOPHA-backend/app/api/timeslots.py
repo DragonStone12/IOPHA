@@ -22,7 +22,7 @@ class TimeSlotController:
 
     def reserve_slot(self, provider_id: str, slot_id: str) -> dict[str, str]:
         """Reserve a slot on behalf of the patient."""
-        self._service.reserve_slot(slot_id)
+        self._service.reserve_slot(provider_id, slot_id)
         return {"status": "reserved", "slot_id": slot_id}
 
 
