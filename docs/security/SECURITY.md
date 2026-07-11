@@ -524,7 +524,7 @@ All HTTP request/response logs are emitted as structured JSON through `Centraliz
 
 ### Error Response Payload Hygiene
 
-The global exception handlers (`app/handlers.py`) return structured JSON
+The global exception handlers (`app/utils/handlers.py`) return structured JSON
 problem payloads to clients. These payloads are explicitly scrubbed so no
 operational or sensitive data leaves the trust boundary:
 
