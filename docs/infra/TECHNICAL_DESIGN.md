@@ -435,6 +435,169 @@ flowchart LR
 - Structural identifiers and credentials are never placed in the response body
   or in `extra_context` log payloads.
 
+## 3.7 Time Slot Availability API
+
+The time-slot resource pipeline extends the core scheduling engine with a
+provider-availability endpoint, Pydantic slot contracts, request-tracing
+middleware, structured JSON logging, PHI scrubbing, and RFC-7807 error
+handling.
+
+### 3.7.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| Controller | `app/api/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots` and `POST /api/providers/{provider_id}/slots/{id}/reserve`. |
+| Service | `app/services/timeslot_service.py` | Lookup orchestration, slot validation, and domain-fault raising. |
+| Repository | `app/repositories/calendar_repository.py` | `CalendarRepository` ABC + `InMemoryCalendarRepository` no-DB stand-in. |
+| Schemas | `app/schemas/timeslot.py` | `TimeSlotSchema` (frontend DTO) and `TimeSlotRecord` (internal shape). |
+| Dependencies | `app/dependencies.py` | `get_calendar_repository` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| PHI Scrubbing | `app/core/phi_scrubber.py` | Redacts PII/PHI from log messages before serialization. |
+| Exceptions | `app/exceptions/timeslot_exceptions.py` | Domain exceptions mapped to HTTP status codes. |
+| Error Handlers | `app/api/error_handlers.py` | RFC-7807 problem detail responses with runbook deep-links. |
+
+### 3.7.2 TimeSlotSchema
+
+The external contract returned by the availability API (`TimeSlotSchema`):
+
+| Field | Type | Validation | Description |
+|---|---|---|---|
+| `id` | `str` | Pattern: `^\d{4}-\d{2}-\d{2}-(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$` | Unique slot key embedding ISO date + civil time (e.g. `2024-01-15-09:00 AM`). |
+| `time` | `str` | Pattern: `^(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$` | Display time in 12-hour civil format (e.g. `09:00 AM`). |
+| `label` | `str` | None | Human-readable label rendered on the slot button. |
+| `available` | `bool` | None | Whether the slot can still be booked. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+Validation helpers:
+
+- `TimeSlotSchema.is_valid_time(value) -> bool` — validates civil time pattern.
+- `TimeSlotSchema.is_valid_slot_id(value) -> bool` — validates composite slot-id pattern.
+
+### 3.7.3 Route Contract
+
+- `GET /api/providers/{provider_id}/slots` → `list[TimeSlotSchema]` (200) or
+  RFC-7807 problem (404 `ProviderNotFoundException`).
+- `POST /api/providers/{provider_id}/slots/{slot_id}/reserve` → `{"status":
+  "reserved", "slot_id": str}` (200) or RFC-7807 problem (409
+  `TimeSlotUnavailableException`, 400 `InvalidTimeSlotFormatException`).
+
+The controller resolves a `TimeSlotController` per request via the
+`get_timeslot_controller` factory, which wires
+`get_calendar_repository` → `TimeSlotService` → `TimeSlotController`.
+
+### 3.7.4 Data Conversion Pathway
+
+`TimeSlotRecord` (internal repository shape with `id`, `time`, `label`,
+`available`) is projected into `TimeSlotSchema` inside
+`TimeSlotService.get_slots()`. No structural identifiers leak because the
+internal record contains only slot attributes.
+
+```mermaid
+flowchart LR
+    Repo[CalendarRepository] -->|TimeSlotRecord| Svc[TimeSlotService]
+    Svc -->|ProviderNotFoundException| Err404[RFC-7807 404]
+    Svc -->|TimeSlotUnavailableException| Err409[RFC-7807 409]
+    Svc -->|InvalidTimeSlotFormatException| Err400[RFC-7807 400]
+    Svc -->|map records| DTO[TimeSlotSchema]
+    DTO -->|response_model| API[GET /slots]
+```
+
+### 3.7.5 Middleware & Logging Stack
+
+The availability API runs inside the same middleware stack as the directory
+API, with the ticket-named `RequestTrackingMiddleware` subclass registered
+under the availability resource.
+
+**Middleware:**
+
+1. `RequestTrackingMiddleware` — outermost. Reads inbound `X-Request-ID` or
+   mints a UUID; binds to `request_id_ctx` `ContextVar`; echoes on response
+   header; resets in `finally` to prevent context leaks.
+2. `CentralizedLoggingMiddleware` — logs `request.start` and `request.complete`
+   with method, path, status, and duration.
+3. `ProblemAPIRoute` — catches `RequestValidationError` and projects it into
+   a `ProblemDetail` (RFC-7807) payload.
+4. `register_timeslot_error_handlers` — maps slot-domain exceptions to their
+   corresponding HTTP status codes and problem payloads.
+
+**Logging formatters:**
+
+1. `JsonTelemetryFormatter` / `JSONLogFormatter` — serializes logs as compact
+   JSON, scrubbing PHI via `PHIScrubber`.
+
+### 3.7.6 Exception Hierarchy & Handling Flow
+
+All availability exceptions inherit from `AppBaseException`, which itself
+inherits from `IOPHADomainError`. The base class provides `status_code = 500`,
+`log_level = ERROR`, and a `log_context()` hook.
+
+| Exception | Status | Log Event | Link |
+|---|---|---|---|
+| `TimeSlotUnavailableException` | 409 | `timeslot.unavailable` | `time-slot-unavailable` |
+| `ProviderNotFoundException` | 404 | `directory.provider_not_found` | `provider-not-found-error` |
+| `InvalidTimeSlotFormatException` | 400 | `timeslot.invalid_format` | `invalid-time-slot-format` |
+
+Each exception stores a single non-sensitive identifier (`slot_id` or
+`provider_id` or `details`). `safe_detail()` returns a client-safe string.
+`log_context()` returns a dict of those non-sensitive identifiers, which the
+error handler injects into the structured log record under
+`extra={"extra_context": ...}`.
+
+The global catch-all handler (`Exception`) returns 500 with a generic detail
+and `help_url` link `internal-server-error`; raw traces are captured
+server-side only via `exc_info=True` and never exposed to the client.
+
+### 3.7.7 Request Tracking Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTrackingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as TimeSlotController
+    participant Svc as TimeSlotService
+    participant Repo as CalendarRepository
+
+    C->>T: GET /api/providers/{id}/slots (X-Request-ID?)
+    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: get_slots(provider_id)
+    Svc->>Repo: get_provider / get_slots
+    Repo-->>Svc: TimeSlotRecord[]
+    Svc-->>Ctrl: list[TimeSlotSchema]
+    Ctrl-->>L: response
+    L->>L: log request.complete (requestId from context)
+    L-->>T: response
+    T->>T: response.headers["X-Request-ID"] = req_id
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 200 (X-Request-ID echoed)
+```
+
+On fault:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTrackingMiddleware
+    participant H as ErrorHandler
+    participant Svc as TimeSlotService
+
+    C->>T: POST /reserve (X-Request-ID?)
+    T->>T: request_id_ctx.set(req_id)
+    T->>Svc: dispatch endpoint
+    Svc-->>H: TimeSlotUnavailableException
+    H->>H: log warning with requestId + slotId
+    H-->>T: RFC-7807 409
+    T->>T: response.headers["X-Request-ID"] = req_id
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 409 (X-Request-ID echoed)
+```
+
 ## 4. Testing Strategy
 
 ### 4.1 Unit Tests

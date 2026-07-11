@@ -566,3 +566,112 @@ client response.
 - [Cypress Testing Guide](../testing/CYPRESS_TESTING.md)
 - [Kilo Code Reviews Documentation](https://kilo.ai/docs/automate/code-reviews/overview)
 - [Kilo Security Agent Documentation](https://kilo.ai/docs/deploy-secure/security-reviews)
+
+## Time Slot Availability API Security
+
+### PHI Scrubbing Patterns & Regex Rules
+
+The availability pipeline scrubs the following PHI/PII patterns from every log
+record before serialization (`app/core/phi_scrubber.py`):
+
+| Pattern | Regex | Replacement | Purpose |
+|---|---|---|---|
+| Email | `[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b` | `[REDACTED]` | Contact emails in user-facing errors |
+| SSN | `\b\d{3}-\d{2}-\d{4}\b` | `[REDACTED]` | Social security numbers |
+| Phone | `(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b` | `[REDACTED]` | North American phone numbers |
+| DOB | `\b(0[1-9]|1[0-2])[/-](0[1-9]|[12]\d|3[01])[/-]\d{4}\b` | `[REDACTED]` | Dates of birth (MM/DD/YYYY only) |
+| Labeled name | `\b(?:name|patient|member|contact|dob)\s*[:=]\s*(?:[^\W\d_]+(?:[-'][^\W\d_]+)*\s+){1,}[^\W\d_]+(?:[-'][^\W\d_]+)*` | `[REDACTED]` | PHI introduced with recognizable labels |
+
+**Explicit non-pattern:** ISO calendar dates (`YYYY-MM-DD`) are **not**
+redacted because `TimeSlotSchema.id` embeds real ISO dates (e.g.
+`2024-01-15-09:00 AM`). Redacting those would corrupt legitimate availability
+logs and break log correlation.
+
+**Scrubber semantics:** `PHIScrubber` is side-effect free. It returns a copy
+with matches replaced; the original is never mutated.
+
+### HIPAA Logging Compliance
+
+All availability API request/response logs are emitted as structured JSON
+through `JsonTelemetryFormatter` / `JSONLogFormatter`.
+
+| Boundary | Implementation | Purpose |
+|---|---|---|
+| URL path | Raw path passed through to structured logs | `/api/providers/{provider_id}/slots` does not embed PHI; cardinality is protected by Prometheus path grouping. |
+| Query parameters | Sanitized by `CentralizedLoggingMiddleware` before logging | No sensitive query keys are expected on availability routes, but the middleware passes them through the JSON formatter where PHI patterns are scrubbed. |
+| Slot identifiers | `TimeSlotSchema.id` embeds an ISO date; dates are not redacted by PHIScrubber | Calendar dates are not PHI under HIPAA; they are required for log correlation and debugging. |
+| Provider names | Never logged; only `providerId` (opaque directory key) is emitted | `ProviderNotFoundException` logs `providerId`, not provider name. |
+| Response body | Only status code and content-length are logged | `CentralizedLoggingMiddleware` avoids body extraction to prevent async freezes. |
+
+### Request ID Tracing for Audit Purposes
+
+`X-Request-ID` is the canonical correlation identifier for every availability
+transaction:
+
+- **Generation:** `RequestTrackingMiddleware` mints a UUID if the client does not
+  supply one.
+- **Validation:** Only syntactically valid UUIDs are trusted from the client to
+  prevent trace spoofing.
+- **Propagation:** Bound to `request_id_ctx` `ContextVar` at the start of the
+  request; accessible to logging, services, repositories, and background tasks
+  without explicit parameter threading.
+- **Echo:** Returned on the response `X-Request-ID` header for client-side
+  correlation.
+- **Reset:** The context var token is reset in a `finally` block after every
+  request so trace state cannot leak across requests or async tasks.
+- **Log inclusion:** Every structured JSON log line carries `requestId` sourced
+  live from `request_id_ctx` by `JsonTelemetryFormatter`.
+
+**Audit trail fields** present in every availability transaction log:
+
+| Field | Description |
+|---|---|
+| `timestamp` | ISO 8601 event time |
+| `level` | Log severity |
+| `requestId` | Correlation UUID |
+| `method` | HTTP method |
+| `path` | Request path |
+| `message` | `request.start` or `request.complete` |
+| `status` | HTTP response status |
+| `durationMs` | Request processing duration |
+| `slotId` | Present only on `timeslot.unavailable` events |
+| `providerId` | Present only on `directory.provider_not_found` events |
+
+### Input Sanitization & Validation Rules
+
+All availability inputs are validated before business logic executes:
+
+- `TimeSlotSchema` enforces `extra="forbid"` so no unplanned fields can cross
+  the API boundary.
+- `id` and `time` fields are validated against strict Pydantic regex patterns
+  (`SLOT_ID_PATTERN` and `TIME_PATTERN`) so malformed slots are rejected at
+  the schema layer.
+- `InvalidTimeSlotFormatException` is raised for any slot id that does not
+  match the expected `YYYY-MM-DD-h:MM AM/PM` format, returning HTTP 400 with
+  a scrubbed detail string.
+- `ProviderNotFoundException` is raised when the provider id resolves to no
+  directory record, returning HTTP 404.
+- `TimeSlotUnavailableException` is raised when a reservation is attempted on
+  a non-existent or already-reserved slot, returning HTTP 409.
+
+**Validation test coverage:**
+
+- `tests/unit/test_timeslot_schema.py` — valid/invalid schema instantiation.
+- `tests/unit/test_timeslot_service.py` — service-layer validation and fault
+  injection.
+- `tests/api/test_timeslot_errors.py` — end-to-end validation of RFC-7807
+  error payloads with `LEAK_MARKERS` assertions ensuring no stack traces,
+  memory addresses, or credentials appear in client responses.
+
+### OpenAPI Error Contract
+
+`app/main.py` rewrites every 422 response to reference `ProblemDetail` and
+registers the `ProblemDetail` schema in `components/schemas`. The published
+contract matches the real error object returned to clients, including the
+`help_url` runbook link.
+
+**Related Documentation:**
+
+- [Technical Design](../infra/TECHNICAL_DESIGN.md)
+- [Structured JSON Logging Compliance](#structured-json-logging-compliance)
+- [Runbooks](RUNBOOKS.md)
