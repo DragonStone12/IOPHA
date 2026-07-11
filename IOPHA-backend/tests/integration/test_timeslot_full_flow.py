@@ -34,12 +34,17 @@ def log_records() -> Generator[list[logging.LogRecord], None, None]:
     records: list[logging.LogRecord] = []
     handler = _CaptureHandler(records)
     logger = logging.getLogger("iopha.backend")
+    previous_level = logger.level
+    previous_propagate = logger.propagate
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
+    logger.propagate = False
     try:
         yield records
     finally:
         logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+        logger.propagate = previous_propagate
 
 
 def _apply_mock(mock: MockCalendarService) -> None:
@@ -102,12 +107,13 @@ class TestTimeSlotFullRequestFlow:
 
         start = next(r for r in log_records if r.msg == "request.start")
         complete = next(r for r in log_records if r.msg == "request.complete")
-        assert start.__dict__["extra_context"]["method"] == "GET"
+        assert getattr(start, "extra_context", {})["method"] == "GET"
         assert (
-            start.__dict__["extra_context"]["path"] == "/api/providers/prov-123/slots"
+            getattr(start, "extra_context", {})["path"]
+            == "/api/providers/prov-123/slots"
         )
-        assert complete.__dict__["extra_context"]["status"] == 200
-        complete_ctx = complete.__dict__["extra_context"]
+        assert getattr(complete, "extra_context", {})["status"] == 200
+        complete_ctx = getattr(complete, "extra_context", {})
         assert "durationMs" in complete_ctx
         assert complete_ctx["responseSize"] >= 0
 
@@ -115,7 +121,7 @@ class TestTimeSlotFullRequestFlow:
 
     def test_post_reserve_success_body_shape(self) -> None:
         mock = MockCalendarService()
-        slot_id = next(iter(mock._slots)).id
+        slot_id = mock.first_slot_id
         _apply_mock(mock)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
@@ -206,7 +212,7 @@ class TestTimeSlotFullRequestFlow:
 
             record = next((r for r in log_records if r.msg == expected_log_event), None)
             assert record is not None, f"Missing log event {expected_log_event}"
-            ctx = record.__dict__["extra_context"]
+            ctx = getattr(record, "extra_context", {})
             assert ctx["requestId"] == request_id
             assert ctx["path"] == path
             if expected_slot_or_provider_id is not None:

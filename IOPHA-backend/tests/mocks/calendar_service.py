@@ -47,6 +47,11 @@ class MockCalendarService:
         self._raise_on_reserve = raise_on_reserve
         self._reserved: set[str] = set()
 
+    @property
+    def first_slot_id(self) -> str:
+        """Return the id of the first seeded slot (for test convenience)."""
+        return self._slots[0].id
+
     def get_provider(self, provider_id: str) -> ProviderRecord | None:
         if self._raise_on_get_provider is not None:
             raise self._raise_on_get_provider(provider_id)
