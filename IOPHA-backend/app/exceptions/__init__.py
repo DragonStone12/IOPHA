@@ -17,14 +17,21 @@ from app.exceptions.domain_errors import (
     UpstreamWebhookFailureError,
     WebSocketConnectionDropError,
 )
+from app.exceptions.timeslot_exceptions import (
+    AppBaseException,
+    InvalidTimeSlotFormatException,
+    TimeSlotUnavailableException,
+)
 
 __all__ = [
+    "AppBaseException",
     "AttachmentPayloadTooLargeError",
     "AvailabilityDriftError",
     "DOMAIN_EXCEPTIONS",
     "ExpiredBookingSessionError",
     "ExternalCalendarSyncDisconnectedError",
     "GITHUB_RUNBOOK_BASE_URL",
+    "InvalidTimeSlotFormatException",
     "InvalidViewTransitionError",
     "IOPHADomainError",
     "NotificationGatewayTimeoutError",
@@ -32,6 +39,7 @@ __all__ = [
     "OverlappingModifierConflictError",
     "ProviderNotFoundException",
     "RaceConditionDoubleBookingError",
+    "TimeSlotUnavailableException",
     "TimeZoneMismatchError",
     "UnreadNotificationInconsistencyError",
     "UpstreamWebhookFailureError",

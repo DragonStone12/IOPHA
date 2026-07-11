@@ -15,6 +15,10 @@ class ProblemDetail(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
+    type: Optional[str] = Field(
+        default=None,
+        description="URI reference identifying the problem type (RFC 7807).",
+    )
     title: str = Field(..., description="Short, human-readable summary of the problem.")
     status: int = Field(
         ..., description="HTTP status code generated for this response."
@@ -31,6 +35,10 @@ class ProblemDetail(BaseModel):
         description=(
             "Deep link into docs/RUNBOOKS.md describing remediation for this error."
         ),
+    )
+    requestId: Optional[str] = Field(
+        default=None,
+        description="Correlation ID tracing the request through the system.",
     )
     errors: Optional[list[dict[str, Any]]] = Field(
         None,
