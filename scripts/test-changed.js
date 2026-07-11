@@ -20,11 +20,16 @@ try {
     file.startsWith("IOPHA-frontend/src/components/"),
   );
 
+  const e2eSpecFiles = changedFiles.filter((file) =>
+    file.startsWith("IOPHA-frontend/cypress/e2e/"),
+  );
+
   const specFiles = changedFiles.filter((file) =>
     file.startsWith("IOPHA-frontend/src/components/"),
   );
 
   const specsToRun = new Set();
+  const shouldRunE2E = e2eSpecFiles.length > 0;
 
   specFiles.forEach((file) => {
     if (file.endsWith(".spec.tsx") || file.endsWith(".spec.ts")) {
@@ -44,9 +49,7 @@ try {
     }
   });
 
-  if (specsToRun.size === 0) {
-    console.log("No component tests changed, skipping component tests");
-  } else {
+  if (specsToRun.size > 0) {
     const specList = Array.from(specsToRun).join(",");
     console.log(`Running ${specsToRun.size} changed component test(s):`);
     console.log(specList);
@@ -58,12 +61,16 @@ try {
     );
   }
 
-  console.log("\nRunning E2E tests (headless, mirroring CI)...");
-  execFileSync(
-    "npx",
-    ["start-server-and-test", "dev", "http://localhost:3000", "npx cypress run --e2e --headless"],
-    { cwd: FRONTEND_DIR, stdio: "inherit" },
-  );
+  if (shouldRunE2E) {
+    console.log("\nRunning E2E tests (headless, mirroring CI)...");
+    execFileSync(
+      "npx",
+      ["start-server-and-test", "dev", "http://localhost:3000", "npx cypress run --e2e --headless"],
+      { cwd: FRONTEND_DIR, stdio: "inherit" },
+    );
+  } else if (specsToRun.size > 0) {
+    console.log("No E2E tests changed, skipping E2E test suite");
+  }
 } catch (error) {
   process.exit(1);
 }
