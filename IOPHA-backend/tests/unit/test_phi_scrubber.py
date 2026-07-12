@@ -27,8 +27,8 @@ class TestPHIScrubber:
         assert REDACTED in out
 
     def test_redacts_labeled_name(self) -> None:
-        out = PHIScrubber().scrub_message("patient: John Doe arrived")
-        assert "John Doe" not in out
+        out = PHIScrubber().scrub_message("patient: Jane Doe arrived")
+        assert "Jane Doe" not in out
         assert REDACTED in out
 
     def test_leaves_non_phi_untouched(self) -> None:
