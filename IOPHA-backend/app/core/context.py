@@ -1,9 +1,9 @@
-import asyncio
 import functools
+import inspect
 import uuid
 from collections.abc import Awaitable, Coroutine
 from contextvars import ContextVar
-from typing import Any, Callable, ParamSpec, TypeVar, cast
+from typing import Any, Callable, ParamSpec, TypeVar, cast, overload
 
 # Request correlation identifier threaded through every downstream operation
 # (logging, repositories, services, background tasks) without being passed
@@ -27,6 +27,42 @@ def generate_request_id() -> str:
     return str(uuid.uuid4())
 
 
+def _is_async_callable(func: Callable[P, Any]) -> bool:
+    """Return ``True`` for awaitable callables, unwrapping ``functools.partial``.
+
+    ``inspect.iscoroutinefunction`` (the non-deprecated replacement for
+    ``asyncio.iscoroutinefunction``) follows ``partial`` chains, so a
+    ``functools.partial(async_fn, arg)`` is correctly recognised as async.
+    Callables whose ``__call__`` is a coroutine function (e.g. async protocol
+    classes) are detected via their ``__call__`` attribute.
+    """
+    target: Any = func
+    while isinstance(target, functools.partial):
+        target = target.func
+    if inspect.iscoroutinefunction(target):
+        return True
+    if not callable(target):
+        return False
+    # An async-protocol instance has a coroutine ``__call__``; detect it
+    # via the bound method rather than ``getattr(x, "__call__")`` (B004).
+    if not inspect.iscoroutinefunction(target):
+        bound_call = target.__call__
+        return inspect.iscoroutinefunction(bound_call)
+    return True
+
+
+@overload
+def preserve_request_context(
+    func: Callable[P, Awaitable[R]],
+) -> Callable[P, Coroutine[Any, Any, R]]: ...
+
+
+@overload
+def preserve_request_context(
+    func: Callable[P, R],
+) -> Callable[P, R]: ...
+
+
 def preserve_request_context(func: Callable[P, R]) -> Callable[P, R]:
     """Bind the *current* correlation id into *func* for deferred execution.
 
@@ -38,8 +74,9 @@ def preserve_request_context(func: Callable[P, R]) -> Callable[P, R]:
     This decorator snapshots the correlation id at wrap time (i.e. while the
     request context is still active) and re-binds it around every invocation,
     resetting it afterwards so nothing leaks. It supports both synchronous and
-    ``async`` callables, so it can wrap any background task before it is handed
-    to ``BackgroundTasks.add_task`` / ``asyncio.create_task``.
+    ``async`` callables (including ``functools.partial`` of an async callable),
+    so it can wrap any background task before it is handed to
+    ``BackgroundTasks.add_task`` / ``asyncio.create_task``.
 
     Usage::
 
@@ -47,17 +84,18 @@ def preserve_request_context(func: Callable[P, R]) -> Callable[P, R]:
     """
     captured_id = request_id_ctx.get()
 
-    if asyncio.iscoroutinefunction(func):
+    if _is_async_callable(func):
+        async_target = cast(Callable[P, Awaitable[R]], func)
 
         @functools.wraps(func)
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             token = request_id_ctx.set(captured_id)
             try:
-                return await func(*args, **kwargs)
+                return await async_target(*args, **kwargs)
             finally:
                 request_id_ctx.reset(token)
 
-        return cast(Callable[P, R], async_wrapper)
+        return async_wrapper  # type: ignore[return-value]
 
     @functools.wraps(func)
     def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:

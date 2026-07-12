@@ -1,4 +1,5 @@
 import asyncio
+import functools
 
 import pytest
 from fastapi import BackgroundTasks, FastAPI
@@ -14,6 +15,22 @@ from app.middleware.tracking import RequestTrackingMiddleware
 
 
 class TestPreserveRequestContextSync:
+    def test_wrapper_resets_context_on_exception(self) -> None:
+        # The try/finally safety net must run even when the wrapped callable
+        # raises, so the correlation id can never leak into later work.
+
+        def boom() -> str:
+            raise ValueError("kaboom")
+
+        token = request_id_ctx.set("req-exc")
+        wrapped = preserve_request_context(boom)
+        request_id_ctx.reset(token)
+
+        with pytest.raises(ValueError):
+            wrapped()
+        # Context restored to the default despite the raised exception.
+        assert request_id_ctx.get() == "system"
+
     def test_wrapper_rebinds_captured_id_after_reset(self) -> None:
         # Simulate a background task: the wrapper is created while the request
         # context is active, then invoked later once the middleware has reset
@@ -56,6 +73,39 @@ class TestPreserveRequestContextAsync:
         request_id_ctx.reset(token)
 
         assert await wrapped() == "async-req"
+        assert request_id_ctx.get() == "system"
+
+    @pytest.mark.asyncio
+    async def test_async_wrapper_resets_context_on_exception(self) -> None:
+        # The finally block must reset the context even when the awaited
+        # coroutine raises, preventing a leaked correlation id.
+
+        async def boom() -> str:
+            raise RuntimeError("nope")
+
+        token = request_id_ctx.set("async-exc")
+        wrapped = preserve_request_context(boom)
+        request_id_ctx.reset(token)
+
+        with pytest.raises(RuntimeError):
+            await wrapped()
+        assert request_id_ctx.get() == "system"
+
+    @pytest.mark.asyncio
+    async def test_partial_async_callable_routes_to_async_wrapper(self) -> None:
+        # functools.partial(async_func, arg) must be detected as async and
+        # awaited (not returned as a bare, un-executed coroutine).
+
+        async def read_id(suffix: str) -> str:
+            await asyncio.sleep(0)
+            return get_request_id() + suffix
+
+        token = request_id_ctx.set("partial-req")
+        wrapped = preserve_request_context(functools.partial(read_id, "-x"))
+        request_id_ctx.reset(token)
+
+        # Awaiting yields the real result, proving it executed under the id.
+        assert await wrapped() == "partial-req-x"
         assert request_id_ctx.get() == "system"
 
     @pytest.mark.asyncio
