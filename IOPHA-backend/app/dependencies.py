@@ -6,6 +6,10 @@ from app.repositories.provider_repository import (
     InMemoryProviderRepository,
     ProviderRepository,
 )
+from app.repositories.tips_repository import (
+    InMemoryTipsRepository,
+    TipsRepository,
+)
 
 
 def get_provider_repository() -> ProviderRepository:
@@ -24,3 +28,12 @@ def get_calendar_repository() -> CalendarRepository:
     injectable mock without touching any live calendar backend.
     """
     return InMemoryCalendarRepository()
+
+
+def get_tips_repository() -> TipsRepository:
+    """FastAPI dependency factory yielding the active tips repository.
+
+    Tests override this via ``app.dependency_overrides`` to inject an in-memory
+    (or fault-injectable) double without touching any live datastore.
+    """
+    return InMemoryTipsRepository()
