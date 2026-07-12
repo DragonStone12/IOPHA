@@ -15,6 +15,7 @@
 | 9   | [Known Limitations](#known-limitations)                                                | Resource library gaps, calendar styling                            |
 | 10  | [Cypress Component Test Flakiness](#cypress-component-test-flakiness)                  | Dynamic dates, fragile calendar DOM, computed CSS in tests         |
 | 11  | [Backend Global Exception Handler Re-Raises in Tests](#backend-global-exception-handler-re-raises-in-tests) | `TestClient` raises the original error instead of returning the 500 payload |
+| 12  | [Backend PHI Scrubber Leaves JSON Secret Values Exposed](#backend-phi-scrubber-leaves-json-secret-values-exposed) | `"secret": "shh-99"` masks only the key; `TestClient` `AttributeError` in `test_tips_logging.py` |
 
 ## Vite Configuration
 
@@ -660,4 +661,122 @@ assert response.json()["help_url"].endswith("#internal-server-error")
 
 Do **not** disable `raise_server_exceptions` to hide unrelated server faults —
 only use it for the specific tests that exercise the global `500` handler.
+
+## Backend PHI Scrubber Leaves JSON Secret Values Exposed
+
+### Symptom
+
+`PHIScrubber.scrub_message` masked the credential **key** but left the **value**
+exposed for JSON-style pairs:
+
+```python
+scrubber.scrub_message('payload {"secret": "shh-99"} done')
+# Expected: 'payload {[MASKED]} done'
+# Actual:   'payload {"[MASKED]": "shh-99"} done'
+```
+
+The `key=value` form (`password=hunter2`) was already correct, only the
+`"key": "value"` form leaked.
+
+Separately, running the suite surfaced a failure in
+`tests/unit/test_tips_logging.py`:
+
+```
+AttributeError: module 'fastapi' has no attribute 'TestClient'
+```
+
+which (after the first edit) became:
+
+```
+NameError: name 'TestClient' is not defined
+```
+
+### Why the earlier attempts didn't work
+
+The value class in the JSON pattern (`[^\s,"]+`) was not the root cause. Two
+red herrings were chased first:
+
+1. **"The value class stops at the closing quote."** Making it inclusive of
+   quotes would capture the value, but the real problem was upstream: the whole
+   value syntax never even applied to the `secret` key (see below), so the value
+   was never reached by the match.
+2. **Pattern-ordering / single-combined-alternation theories.** The scrubber
+   deliberately concatenates every pattern into one alternation run in a single
+   `sub` pass to avoid re-mangling output, so "reorder the patterns" was not the
+   fix.
+
+The actual bug is the **regex operator-precedence trap**: the JSON pattern
+injected the `_CREDENTIAL_KEYS` string (which contains `|` alternation) into the
+pattern **without** wrapping it in a non-capturing group:
+
+```python
+# BROKEN — keys are not grouped, so \s*:\s*... binds only to the LAST key
+re.compile(rf'["\']?{_CREDENTIAL_KEYS}["\']?\s*:\s*["\']?[^\s,"]+["\']?')
+```
+
+Because `|` is a top-level alternation operator, the engine parses this as
+`["\']?password` OR `passwd` OR ... OR `secret` OR ... OR
+`session[_-]?id["\']?\s*:\s*["\']?[^\s,"]+["\']?`. The trailing value syntax
+(`\s*:\s*["\']?[^\s,"]+["\']?`) attaches **only to the last key**
+(`session[_-]?id`). For `"secret": "shh-99"` the engine matches the bare
+`secret` branch and stops — the `: "shh-99"` portion is never consumed. (The
+`key=value` pattern on the line above already wrapped its keys in `(?:...)`,
+which is why it worked.)
+
+The `__import__` theory for the test failure was also a red herring until the
+import itself was inspected: the test called
+`__import__("fastapi.testclient").TestClient(app)`. Python's `__import__` returns
+the **top-level** package for a dotted name, so it returned the `fastapi` module
+(which has no `TestClient` attribute) rather than the `fastapi.testclient`
+submodule → `AttributeError`.
+
+### What finally worked
+
+**1. Wrap the keys in a non-capturing group** so the value syntax applies to
+*every* key (`app/core/phi_scrubber.py`):
+
+```python
+# FIXED — grouped, so \s*:\s*... binds to all keys
+re.compile(rf'["\']?(?:{_CREDENTIAL_KEYS})["\']?\s*:\s*["\']?[^\s,"]+["\']?'),
+```
+
+The value class was left as-is (it already consumes the value's surrounding
+quotes via the optional `["\']?` on each side). Result:
+`'payload {"secret": "shh-99"} done'` → `'payload {[MASKED]} done'`.
+
+**2. Fix the test** (`tests/unit/test_tips_logging.py`):
+
+- A previous `ruff` run (F401 "imported but unused") had **removed** the
+  `from fastapi.testclient import TestClient` import, because the only reference
+  to `TestClient` was the broken `__import__(...)` call. Restore it:
+  ```python
+  from fastapi.testclient import TestClient
+  ```
+- Replace the `__import__` call with the already-imported name:
+  ```python
+  # ❌ BEFORE
+  with __import__("fastapi.testclient").TestClient(app) as client:
+  # ✅ AFTER
+  with TestClient(app) as client:
+  ```
+
+### Verification
+
+```bash
+cd IOPHA-backend
+PYTHONPATH=. venv/bin/python -c "
+from app.core.phi_scrubber import PHIScrubber
+print(PHIScrubber().scrub_message('payload {\"secret\": \"shh-99\"} done'))
+"   # -> payload {[MASKED]} done
+
+PYTHONPATH=. venv/bin/python -m pytest tests/unit/test_tips_logging.py -q   # 9 passed
+PYTHONPATH=. venv/bin/python -m pytest -q                                  # 204 passed
+venv/bin/ruff check app tests                                               # All checks passed!
+```
+
+### Rule of thumb
+
+Whenever you interpolate a variable that contains regex alternation (`|`) into a
+larger pattern, **always** wrap it in `(?:...)` so the surrounding syntax binds
+to the whole alternation, not just the last branch.
 
