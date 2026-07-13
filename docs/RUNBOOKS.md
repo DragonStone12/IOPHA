@@ -26,6 +26,7 @@ hyphens, and strips punctuation).
 | Tip Not Found | 404 | [tip-not-found-error](#tip-not-found-error) |
 | Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
+| Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
 | Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
@@ -309,3 +310,24 @@ does not conform to the expected `YYYY-MM-DD-h:MM AM/PM` format.
 2. Correct the slot id to match the `TimeSlotSchema.id` pattern before retrying.
 3. Ensure client-side formatting uses the same 12-hour civil time pattern
    (`0[1-9]|1[0-2]:[0-5][0-9] (AM|PM)`) as the backend validator.
+
+## Search Aggregator Timeout
+
+**What happened:** The provider discovery aggregator failed to return
+parameters within the execution time bound, so the search endpoint returned
+504 instead of a populated `FindDoctorResponseDataSchema`.
+
+**Common causes:**
+- Upstream provider directory or index service is unhealthy or overloaded.
+- Network partition between the backend and the discovery microservice.
+- Query complexity or missing index caused the aggregation pipeline to exceed
+  the configured timeout threshold.
+
+**Mitigation:**
+1. Inspect the structured server logs for the `requestId` and the
+   `search.search_aggregator_timeout` event to identify the offending query
+   and upstream latency.
+2. Check the health of the discovery microservice and retry with a narrower
+   query if possible.
+3. If the upstream is degraded, surface a clear timeout message to the client
+   and suggest refining the search terms or trying again later.
