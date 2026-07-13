@@ -93,7 +93,7 @@ def _build_openapi() -> dict[str, object]:
                         }
                     },
                 }
-            if path_key == "/api/v1/tips/{tip_id}" and "get" in path:
+            if path_key == "/api/tips/{tip_id}" and "get" in path:
                 responses["404"] = {
                     "description": ("Tip record not found (TipNotFoundException)."),
                     "content": {

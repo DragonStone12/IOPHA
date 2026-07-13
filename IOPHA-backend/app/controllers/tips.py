@@ -32,7 +32,7 @@ def get_tips_controller(
     return TipsController(TipsService(repository))
 
 
-router = APIRouter(prefix="/api/v1/tips", tags=["tips"])
+router = APIRouter(prefix="/api/tips", tags=["tips"])
 
 
 @router.get(

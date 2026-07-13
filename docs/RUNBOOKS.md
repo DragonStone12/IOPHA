@@ -231,7 +231,7 @@ record, so the service raised `ProviderNotFoundException`.
 ## Tip Not Found Error
 
 **What happened:** A client requested a single dynamic booking tip / advice
-node by id (`GET /api/v1/tips/{tip_id}`) but the tips repository
+node by id (`GET /api/tips/{tip_id}`) but the tips repository
 returned no matching record, so the service raised
 `TipNotFoundException`.
 

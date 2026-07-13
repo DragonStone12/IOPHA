@@ -49,14 +49,14 @@ class TestTipNotFoundException:
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.get(
-                    "/api/v1/tips/corrupt-id",
+                    "/api/tips/corrupt-id",
                     headers={"X-Request-ID": request_id},
                 )
             assert response.status_code == 404
             body = response.json()
             assert body["title"] == "Onboarding Tip Resource Absent"
             assert body["status"] == 404
-            assert body["instance"] == "/api/v1/tips/corrupt-id"
+            assert body["instance"] == "/api/tips/corrupt-id"
             assert body["help_url"].endswith("#tip-not-found-error")
             assert body["help_url"].startswith(
                 "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
@@ -72,7 +72,7 @@ class TestTipNotFoundException:
         try:
             app.dependency_overrides[get_tips_repository] = lambda: mock
             with TestClient(app) as client:
-                response = client.get("/api/v1/tips/corrupt-id")
+                response = client.get("/api/tips/corrupt-id")
             for marker in LEAK_MARKERS:
                 assert marker not in response.text
         finally:
@@ -87,7 +87,7 @@ class TestTipNotFoundException:
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.get(
-                    "/api/v1/tips/corrupt-id",
+                    "/api/tips/corrupt-id",
                     headers={"X-Request-ID": request_id},
                 )
             record = next(
@@ -99,7 +99,7 @@ class TestTipNotFoundException:
             # The handler echoes the same correlation id the middleware
             # assigns and returns on X-Request-ID, so they must agree.
             assert ctx["requestId"] == response.headers["X-Request-ID"]
-            assert ctx["path"] == "/api/v1/tips/corrupt-id"
+            assert ctx["path"] == "/api/tips/corrupt-id"
             assert ctx["tipId"] == "corrupt-id"
         finally:
             app.dependency_overrides.pop(get_tips_repository, None)
@@ -109,7 +109,7 @@ class TestTipNotFoundException:
         try:
             app.dependency_overrides[get_tips_repository] = lambda: mock
             with TestClient(app) as client:
-                response = client.get("/api/v1/tips/tip-001")
+                response = client.get("/api/tips/tip-001")
             assert response.status_code == 200
             body = response.json()
             assert body["id"] == "tip-001"

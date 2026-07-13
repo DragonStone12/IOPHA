@@ -610,7 +610,7 @@ tips endpoint, ``TipSchema`` contract, and RFC-7807 error handling.
 
 | Layer | Module | Responsibility |
 |---|---|---|
-| Controller | `app/controllers/tips.py` | HTTP surface for `GET /api/v1/tips` (list) and `GET /api/v1/tips/{tip_id}` (single). |
+| Controller | `app/controllers/tips.py` | HTTP surface for `GET /api/tips` (list) and `GET /api/tips/{tip_id}` (single). |
 | Service | `app/services/tips_service.py` | Lookup orchestration and domain-fault raising (`TipNotFoundException`). |
 | Repository | `app/repositories/tips_repository.py` | `TipsRepository` ABC + `InMemoryTipsRepository` no-DB stand-in. |
 | Schemas | `app/schemas/tip.py` | `TipSchema` (frontend DTO). |
@@ -636,9 +636,9 @@ fields can cross the API boundary.
 
 ### 3.8.3 Route Contract
 
-- `GET /api/v1/tips` → `list[TipSchema]` (200) or RFC-7807 problem
+- `GET /api/tips` → `list[TipSchema]` (200) or RFC-7807 problem
   (422 on invalid `limit`).
-- `GET /api/v1/tips/{tip_id}` → `TipSchema` (200) or RFC-7807 problem
+- `GET /api/tips/{tip_id}` → `TipSchema` (200) or RFC-7807 problem
   (404 `TipNotFoundException`).
 
 The controller resolves a `TipsController` per request via the
