@@ -12,7 +12,8 @@
 | 6   | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows)                | Booking form, logging, and transport security              |
 | 7   | [Compliance & Regulatory](#compliance--regulatory)                               | HIPAA, TLS, and audit requirements                         |
 | 8   | [Structured JSON Logging Compliance](#structured-json-logging-compliance)       | PHI prevention, aggregation security, audit trail         |
-| 9   | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
+| 9   | [Provider Discovery API Security](#provider-discovery-api-security)            | Search schema validation, mock-object isolation, timeout error hygiene |
+| 10  | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
 | 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
 | 11  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
@@ -667,6 +668,57 @@ All availability inputs are validated before business logic executes:
 registers the `ProblemDetail` schema in `components/schemas`. The published
 contract matches the real error object returned to clients, including the
 `help_url` runbook link.
+
+### Provider Discovery API Security
+
+#### Validation Schemas
+
+The provider discovery endpoint (`POST /api/providers/search`) enforces strict
+Pydantic contracts at the API boundary:
+
+| Schema | Field | Validation | Purpose |
+|---|---|---|---|
+| `ProviderSearchRequest` | `queryText` | `min_length=1`, `max_length=500` | Prevents empty or oversized search payloads. |
+| `FindDoctorResponseDataSchema` | `summaryText` | `max_length=2000` | Limits response size; prevents response-splitting attacks. |
+| `FindDoctorResponseDataSchema` | `providers` | `list[ProviderSchema]` | Rigidly typed provider records; `extra="forbid"` rejects unplanned fields. |
+| `FindDoctorResponseDataSchema` | `followUpActions` | `list[FollowUpActionSchema]` | Action chips with bounded string lengths; `extra="forbid"`. |
+| `FollowUpActionSchema` | `label` | `max_length=200` | Prevents oversized action-chip text. |
+| `FollowUpActionSchema` | `actionType` | `max_length=100` | Prevents oversized routing directives. |
+| `FollowUpActionSchema` | `providerId` | `max_length=100` | Prevents oversized provider identifiers. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary. Internal domain models remain
+unmasked for business logic; only external DTOs enforce strict validation.
+
+#### Log Metadata Sanitation
+
+The search endpoint runs inside the same `CentralizedLoggingMiddleware` stack as
+the scheduling and tips APIs. All request/response log lines carry `requestId`
+sourced live from `request_id_ctx` by `JsonTelemetryFormatter`. The following
+sanitization boundaries apply:
+
+| Boundary | Rule | Enforcement |
+|---|---|---|
+| Query text | `queryText` is never logged directly; only the structured `request.start` / `request.complete` events are emitted | `CentralizedLoggingMiddleware` |
+| Provider identifiers | Only opaque `providerId` strings from `FollowUpActionSchema` are logged in error contexts; no provider names or PHI | `SearchAggregatorTimeoutError.log_context()` |
+| Credential scrubbing | `PHIScrubber` redacts passwords, API keys, tokens, and secrets from all log strings before serialization | `app/core/phi_scrubber.py` |
+| Context isolation | `request_id_ctx` is reset in a `finally` block after every request | `app/middleware/request_tracing.py` |
+
+#### Mock-Object Mapping Patterns
+
+Tests inject a `MockSearchOrchestrator` via `app.dependency_overrides`. The mock
+lives in `tests/integration/_search_test_utils.py` and implements the same
+`SearchOrchestrator` ABC so the controller remains oblivious to the test double.
+
+**Isolation rules:**
+- The mock is injected per-test via an `autouse=True` fixture that clears the
+  override in teardown.
+- No real provider data, search indexes, or external service credentials are
+  embedded in the mock payload.
+- The mock supports a `timeout_query` parameter that raises
+  `SearchAggregatorTimeoutError` for fault-injection tests, verifying that the
+  global exception handler returns a scrubbed RFC-7807 payload with a runbook
+  `help_url`.
 
 **Related Documentation:**
 
