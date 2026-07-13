@@ -24,9 +24,9 @@ _NAME_WORD = r"(?>[^\W\d_]+)(?:[-'][^\W\d_]+)?(?![-\w'])"
 # service/operator secrets that must never reach stdout even though they are
 # not patient-identifying. Each rule requires a recognizable key prefix so
 # ordinary business fields on a tips record (``title``, ``description``) are
-# never touched. Values are captured greedily to the next whitespace/quote/
-# comma so tokens like ``secret=abc123`` or ``"token": "xyz"`` are fully
-# redacted.
+# never touched. Values are captured greedily to the next whitespace/quote so
+# tokens like ``secret=abc,def`` or ``"token": "x,y"`` (including any commas
+# inside the value) are fully redacted.
 _CREDENTIAL_KEYS = (
     r"password|passwd|pwd|api[_-]?key|key|secret|token|access[_-]?token|"
     r"refresh[_-]?token|authorization|auth|bearer|client[_-]?secret|"
@@ -38,19 +38,20 @@ _CREDENTIAL_KEYS = (
 # patterns are concatenated. Each rule requires a recognizable key prefix
 # so ordinary business fields on a tips record (``title``,
 # ``description``) are never touched. Values run to the next
-# whitespace/quote/comma/'=' so tokens like ``secret=abc123`` or
-# ``"token": "xyz"`` are fully redacted.
+# whitespace/quote/'=' so tokens like ``secret=abc123`` or
+# ``"token": "xyz"`` (including commas within the value) are fully
+# redacted.
 _CREDENTIAL_PATTERNS: list[re.Pattern[str]] = [
     # HTTP Authorization: Bearer <token> / Basic <token>. Must run
     # BEFORE the JSON quoted-key rule so the entire header (incl.
     # the token) is masked in one match, not just "Authorization:".
     re.compile(r"\bauthorization\s*:\s*(?:bearer|basic)\s+[^\s]+"),
     # key=value
-    re.compile(rf"\b(?:{_CREDENTIAL_KEYS})\s*=\s*['\"]?[^\s,'\"=]+"),
+    re.compile(rf"\b(?:{_CREDENTIAL_KEYS})\s*=\s*['\"]?[^\s'\"=]+"),
     # JSON-ish "key": "value" -- the value (incl. its wrapping
-    # quotes) runs to the next whitespace/comma so tokens like
-    # "shh-99" are fully masked.
-    re.compile(rf'["\']?(?:{_CREDENTIAL_KEYS})["\']?\s*:\s*["\']?[^\s,"]+["\']?'),
+    # quotes) runs to the next whitespace or closing quote so tokens
+    # like "shh-99" or "a,b,c" (commas included) are fully masked.
+    re.compile(rf'["\']?(?:{_CREDENTIAL_KEYS})["\']?\s*:\s*["\']?[^\s"]+["\']?'),
     # Guard: consume any prior sentinel so repeated scrub passes cannot
     # re-match the words inside "[MASKED]" (secret/auth) and cascade.
     re.compile(re.escape(REDACTED)),
@@ -113,6 +114,8 @@ class PHIScrubber:
         (e.g. ``secret``), which would otherwise cascade and mangle
         the output.
         """
+        if text is None:
+            return ""
         if not text:
             return text
         return self._combined.sub(self.REDACTED, text)
