@@ -1,65 +1,14 @@
-import json
-import logging
-from collections.abc import Mapping, Sequence
-
 from fastapi.testclient import TestClient
 
-from app.core.context import request_id_ctx
-from app.core.logging_config import JSONLogFormatter
 from app.core.phi_scrubber import PHIScrubber
 from app.main import app
+from tests.unit._log_test_utils import (
+    assert_any_string_contains,
+    assert_no_string_contains,
+    format_log_record,
+)
 
 REDACTED = PHIScrubber.REDACTED
-
-
-def _format(msg: str, extra: dict[str, object] | None = None) -> dict[str, object]:
-    rec = logging.LogRecord(
-        name="iopha.backend",
-        level=logging.INFO,
-        pathname="",
-        lineno=0,
-        msg=msg,
-        args=(),
-        exc_info=None,
-    )
-    if extra is not None:
-        rec.extra_context = extra
-    return json.loads(JSONLogFormatter().format(rec))
-
-
-def _assert_no_string_contains(value: object, forbidden: str) -> None:
-    """Recursively assert no string value in *value* contains *forbidden*."""
-    if isinstance(value, str):
-        assert forbidden not in value, f"Leaked '{forbidden}' in {value!r}"
-    elif isinstance(value, Mapping):
-        for key, val in value.items():
-            _assert_no_string_contains(key, forbidden)
-            _assert_no_string_contains(val, forbidden)
-    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
-        for item in value:
-            _assert_no_string_contains(item, forbidden)
-
-
-def _assert_any_string_contains(value: object, expected: str) -> None:
-    """Recursively assert at least one string value in *value* contains *expected*."""
-    found = False
-
-    def _walk(v: object) -> None:
-        nonlocal found
-        if found:
-            return
-        if isinstance(v, str):
-            if expected in v:
-                found = True
-        elif isinstance(v, Mapping):
-            for val in v.values():
-                _walk(val)
-        elif isinstance(v, Sequence) and not isinstance(v, (bytes, bytearray)):
-            for item in v:
-                _walk(item)
-
-    _walk(value)
-    assert found, f"Expected substring {expected!r} not found in any string"
 
 
 class TestCredentialScrubbing:
@@ -97,7 +46,6 @@ class TestCredentialScrubbing:
         assert REDACTED in out
 
     def test_leaves_tip_fields_untouched(self) -> None:
-        # The very fields the tips API returns must not be redacted.
         text = "tip title Hydrate Early description Drink water number 1"
         assert PHIScrubber().scrub_message(text) == text
 
@@ -110,32 +58,25 @@ class TestTipsStructuredLogging:
     correlation context and no leaking credentials.
     """
 
-    def test_tips_request_log_is_valid_json_with_request_context(self) -> None:
-        # Drive the real app with a known request id so the centralized
-        # logging middleware emits a JSON line carrying the correlation id,
-        # method, and path for the tips route.
+    def test_tips_endpoint_emits_structured_json_with_request_context(
+        self, json_log_records: list[dict[str, object]]
+    ) -> None:
         with TestClient(app) as client:
-            response = client.get("/api/tips", headers={"X-Request-ID": "trace-tips-1"})
-        assert response.status_code == 200
-        # Request context is read live by JsonTelemetryFormatter from the
-        # request_id_ctx ContextVar; the formatter itself is covered here
-        # by formatting a record under a bound id.
-        token = request_id_ctx.set("trace-tips-1")
-        try:
-            parsed = _format(
-                "request.start",
-                {"method": "GET", "path": "/api/tips"},
+            response = client.get(
+                "/api/tips",
+                headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
             )
-        finally:
-            request_id_ctx.reset(token)
+        assert response.status_code == 200
 
-        assert parsed["requestId"] == "trace-tips-1"
-        assert parsed["method"] == "GET"
-        assert parsed["path"] == "/api/tips"
-        # Every line must round-trip through JSON for CloudWatch/Elasticsearch.
-        assert json.loads(json.dumps(parsed)) == parsed
+        record = next(
+            (r for r in json_log_records if r.get("message") == "request.start"), None
+        )
+        assert record is not None
+        assert record["requestId"] == "123e4567-e89b-12d3-a456-426614174000"
+        assert record["method"] == "GET"
+        assert record["path"] == "/api/tips"
 
     def test_credentials_scrubbed_in_tips_log_output(self) -> None:
-        parsed = _format("token=supersecret emitted during tips fetch")
-        _assert_no_string_contains(parsed, "supersecret")
-        _assert_any_string_contains(parsed, REDACTED)
+        parsed = format_log_record("token=supersecret emitted during tips fetch")
+        assert_no_string_contains(parsed, "supersecret")
+        assert_any_string_contains(parsed, REDACTED)
