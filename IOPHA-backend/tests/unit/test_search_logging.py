@@ -21,7 +21,7 @@ class TestSearchStructuredLogging:
     ) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Cardiologist"},
                 headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
             )
@@ -33,7 +33,7 @@ class TestSearchStructuredLogging:
         assert record is not None
         assert record["requestId"] == "123e4567-e89b-12d3-a456-426614174000"
         assert record["method"] == "POST"
-        assert record["path"] == "/api/v1/providers/search"
+        assert record["path"] == "/api/providers/search"
 
     def test_credentials_scrubbed_in_search_log_output(self) -> None:
         parsed = format_log_record("api_key=supersecret emitted during search fetch")

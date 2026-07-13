@@ -5,7 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.dependencies import get_search_orchestrator
+from app.exceptions.domain_errors import SearchAggregatorTimeoutError
 from app.main import app
+from tests.integration._search_test_utils import MockSearchOrchestrator
 
 LEAK_MARKERS = (
     "Traceback",
@@ -16,43 +18,6 @@ LEAK_MARKERS = (
     "Bearer ",
     "postgresql",
 )
-
-
-class MockSearchOrchestrator:
-    """Fault-injectable search double for integration tests."""
-
-    def __init__(self, timeout_query: str = "timeout-trigger") -> None:
-        self._timeout_query = timeout_query
-
-    def execute_query(self, query_string: str) -> dict:
-        if query_string == self._timeout_query:
-            raise SearchTimeoutError()
-        return {
-            "summaryText": "Found 1 doctor near you.",
-            "providers": [
-                {
-                    "id": "doc-77",
-                    "name": "Dr. Sam",
-                    "specialty": "General",
-                    "distance": "1.2 miles",
-                    "rating": 5.0,
-                    "reviewCount": 10,
-                    "nextAvailable": "Tomorrow",
-                    "imageUrl": "/static/img.png",
-                }
-            ],
-            "followUpActions": [
-                {
-                    "label": "Book Now",
-                    "actionType": "BOOK_PROVIDER",
-                    "providerId": "doc-77",
-                }
-            ],
-        }
-
-
-class SearchTimeoutError(Exception):
-    """Domain exception raised when the search aggregator times out."""
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +31,7 @@ class TestProviderSearchHappyPath:
     def test_search_returns_200(self) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Cardiologist"},
             )
         assert response.status_code == 200
@@ -80,7 +45,7 @@ class TestProviderSearchHappyPath:
     def test_response_matches_contract_schema(self) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Dermatologist"},
             )
         assert response.status_code == 200
@@ -112,7 +77,7 @@ class TestProviderSearchValidation:
     def test_missing_query_text_returns_422(self) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={},
             )
         assert response.status_code == 422
@@ -122,7 +87,7 @@ class TestProviderSearchContextPropagation:
     def test_request_id_generated_when_header_absent(self) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Cardiologist"},
             )
         assert response.status_code == 200
@@ -134,7 +99,7 @@ class TestProviderSearchContextPropagation:
         request_id = "123e4567-e89b-12d3-a456-426614174000"
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Cardiologist"},
                 headers={"X-Request-ID": request_id},
             )
@@ -146,7 +111,7 @@ class TestProviderSearchLeakPrevention:
     def test_response_contains_no_leaked_data(self) -> None:
         with TestClient(app) as client:
             response = client.post(
-                "/api/v1/providers/search",
+                "/api/providers/search",
                 json={"queryText": "Cardiologist"},
             )
         for marker in LEAK_MARKERS:
@@ -161,3 +126,64 @@ class TestProviderSearchDependencyIsolation:
         assert get_search_orchestrator in app.dependency_overrides
         app.dependency_overrides.pop(get_search_orchestrator, None)
         assert get_search_orchestrator not in app.dependency_overrides
+
+
+class TestProviderSearchErrorInjection:
+    """Error Handling Test: Confirms that when dependencies trigger exceptional
+    paths, the custom error interceptor structures the response payload
+    correctly and preserves tracking logs."""
+
+    def test_timeout_returns_504_with_problem_detail(self) -> None:
+        app.dependency_overrides[get_search_orchestrator] = lambda: (
+            MockSearchOrchestrator(timeout_query="timeout-trigger")
+        )
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    "/api/providers/search",
+                    json={"queryText": "timeout-trigger"},
+                    headers={"X-Request-ID": "trace-555-search-err"},
+                )
+            assert response.status_code == 504
+            body = response.json()
+            assert body["title"] == SearchAggregatorTimeoutError.title
+            assert body["status"] == 504
+            assert body["help_url"].endswith(f"#{SearchAggregatorTimeoutError.link}")
+            assert body["help_url"].startswith(
+                "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
+            )
+        finally:
+            app.dependency_overrides.pop(get_search_orchestrator, None)
+
+    def test_timeout_preserves_request_id_in_response_header(self) -> None:
+        request_id = "123e4567-e89b-12d3-a456-426614174000"
+        app.dependency_overrides[get_search_orchestrator] = lambda: (
+            MockSearchOrchestrator(timeout_query="timeout-trigger")
+        )
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    "/api/providers/search",
+                    json={"queryText": "timeout-trigger"},
+                    headers={"X-Request-ID": request_id},
+                )
+            assert response.status_code == 504
+            assert response.headers["X-Request-ID"] == request_id
+        finally:
+            app.dependency_overrides.pop(get_search_orchestrator, None)
+
+    def test_timeout_response_contains_no_leaked_data(self) -> None:
+        app.dependency_overrides[get_search_orchestrator] = lambda: (
+            MockSearchOrchestrator(timeout_query="timeout-trigger")
+        )
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    "/api/providers/search",
+                    json={"queryText": "timeout-trigger"},
+                )
+            assert response.status_code == 504
+            for marker in LEAK_MARKERS:
+                assert marker not in response.text
+        finally:
+            app.dependency_overrides.pop(get_search_orchestrator, None)
