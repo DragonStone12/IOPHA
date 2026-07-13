@@ -71,7 +71,8 @@
     "vite": "^8.1.0"
   },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --max-warnings=0 --fix",
+    "*mock*": [],
+    "*.{ts,tsx}": "eslint --max-warnings=0 --no-warn-ignored --fix",
     "*.{json,md,yml,yaml}": "prettier --write"
   },
   "overrides": {
