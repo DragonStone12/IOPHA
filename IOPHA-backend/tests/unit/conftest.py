@@ -22,7 +22,7 @@ class _JsonCaptureHandler(logging.Handler):
         try:
             parsed = json.loads(self.format(record))
             self.records.append(parsed)
-        except (json.JSONDecodeError, Exception):
+        except Exception:
             self.handleError(record)
 
 
