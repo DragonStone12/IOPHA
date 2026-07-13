@@ -421,6 +421,29 @@ class ExpiredBookingSessionError(IOPHADomainError):
         }
 
 
+class SearchAggregatorTimeoutError(IOPHADomainError):  # noqa: N818
+    """The provider discovery aggregator failed to return within execution bounds."""
+
+    status_code = status.HTTP_504_GATEWAY_TIMEOUT
+    link = "search-aggregator-timeout"
+    title = "Search Aggregator Execution Timeout"
+    log_level = logging.ERROR
+    log_event = "search.search_aggregator_timeout"
+
+    def __init__(self, query_string: str) -> None:
+        super().__init__()
+        self.query_string = query_string
+
+    def safe_detail(self) -> str:
+        return (
+            "An internal upstream discovery microservice failed to return "
+            "parameters within execution bounds."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"queryString": self.query_string}
+
+
 class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
     """The requested provider or physician record was not found in the directory."""
 
@@ -484,6 +507,7 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     NotificationGatewayTimeoutError,
     InvalidViewTransitionError,
     ExpiredBookingSessionError,
+    SearchAggregatorTimeoutError,
     ProviderNotFoundException,
     TipNotFoundException,
 )

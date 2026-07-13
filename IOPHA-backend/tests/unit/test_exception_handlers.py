@@ -18,6 +18,7 @@ from app.exceptions import (
     OverlappingModifierConflictError,
     ProviderNotFoundException,
     RaceConditionDoubleBookingError,
+    SearchAggregatorTimeoutError,
     TimeZoneMismatchError,
     TipNotFoundException,
     UnreadNotificationInconsistencyError,
@@ -51,6 +52,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "notif": NotificationGatewayTimeoutError("pat-11", "sms"),
     "view": InvalidViewTransitionError("confirmation", "time-selection", "prov-12"),
     "expired": ExpiredBookingSessionError("slot-13", "pat-13", 600),
+    "search": SearchAggregatorTimeoutError("Cardiologist near 10001"),
     "provider": ProviderNotFoundException("prov-1"),
     "tip": TipNotFoundException("tip-1"),
 }
@@ -207,7 +209,7 @@ class TestRoutingRegistry:
     def test_every_domain_exception_is_registered(self) -> None:
         assert RaceConditionDoubleBookingError in DOMAIN_EXCEPTIONS
         assert AttachmentPayloadTooLargeError in DOMAIN_EXCEPTIONS
-        assert InvalidViewTransitionError in DOMAIN_EXCEPTIONS
+        assert SearchAggregatorTimeoutError in DOMAIN_EXCEPTIONS
         assert len(DOMAIN_EXCEPTIONS) == len(EXAMPLES)
 
 
