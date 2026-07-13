@@ -209,6 +209,7 @@ class TestRoutingRegistry:
     def test_every_domain_exception_is_registered(self) -> None:
         assert RaceConditionDoubleBookingError in DOMAIN_EXCEPTIONS
         assert AttachmentPayloadTooLargeError in DOMAIN_EXCEPTIONS
+        assert InvalidViewTransitionError in DOMAIN_EXCEPTIONS
         assert SearchAggregatorTimeoutError in DOMAIN_EXCEPTIONS
         assert len(DOMAIN_EXCEPTIONS) == len(EXAMPLES)
 
