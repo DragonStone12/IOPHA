@@ -441,7 +441,7 @@ class SearchAggregatorTimeoutError(IOPHADomainError):  # noqa: N818
         )
 
     def log_context(self) -> dict[str, object]:
-        return {"queryString": self.query_string}
+        return {}
 
 
 class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
