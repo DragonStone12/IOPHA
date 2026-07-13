@@ -45,10 +45,8 @@ def _is_async_callable(func: Callable[P, Any]) -> bool:
         return False
     # An async-protocol instance has a coroutine ``__call__``; detect it
     # via the bound method rather than ``getattr(x, "__call__")`` (B004).
-    if not inspect.iscoroutinefunction(target):
-        bound_call = target.__call__
-        return inspect.iscoroutinefunction(bound_call)
-    return True
+    bound_call = target.__call__
+    return inspect.iscoroutinefunction(bound_call)
 
 
 @overload
