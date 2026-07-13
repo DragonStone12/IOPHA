@@ -17,7 +17,7 @@ def isolate_database_layer() -> Generator[None, None, None]:
     """Swap the production repository for an in-memory double.
 
     Overrides ``get_provider_repository`` so no live datastore is touched, then
-    clears every override in teardown to prevent state leaking across tests.
+    pops only the provider key in teardown to prevent state leaking across tests.
     """
 
     class MockProviderRepository:
@@ -39,7 +39,7 @@ def isolate_database_layer() -> Generator[None, None, None]:
 
     app.dependency_overrides[get_provider_repository] = lambda: MockProviderRepository()
     yield
-    app.dependency_overrides.clear()
+    app.dependency_overrides.pop(get_provider_repository, None)
 
 
 def test_fetch_physician_endpoint_success() -> None:

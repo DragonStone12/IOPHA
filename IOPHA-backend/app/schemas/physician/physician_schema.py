@@ -9,21 +9,29 @@ class PhysicianSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., description="Unique provider system key")
-    name: str = Field(..., description="Full display name including credentials")
-    specialty: str = Field(..., description="Primary practice area designation")
+    name: str = Field(
+        ..., max_length=200, description="Full display name including credentials"
+    )
+    specialty: str = Field(
+        ..., max_length=100, description="Primary practice area designation"
+    )
     distance: str = Field(
-        ..., description="Calculated localized display distance string"
+        ..., max_length=50, description="Calculated localized display distance string"
     )
     rating: float = Field(..., description="Aggregated quality review score")
     reviewCount: int = Field(
         ..., description="Total summation of patient ratings submitted"
     )
     nextAvailable: str = Field(
-        ..., description="Human-readable timeline mapping for upcoming slot"
+        ...,
+        max_length=100,
+        description="Human-readable timeline mapping for upcoming slot",
     )
     imageUrl: Optional[str] = Field(
-        None, description="Static target server path for graphic resource profile"
+        None,
+        max_length=1000,
+        description="Static target server path for graphic resource profile",
     )
     facility: Optional[str] = Field(
-        None, description="Primary healthcare building assignment label"
+        None, max_length=200, description="Primary healthcare building assignment label"
     )

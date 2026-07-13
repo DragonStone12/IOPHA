@@ -39,6 +39,7 @@ class TimeSlotSchema(BaseModel):
     )
     label: str = Field(
         ...,
+        max_length=100,
         description="Human-readable label rendered on the slot button.",
         examples=["09:00 AM"],
     )

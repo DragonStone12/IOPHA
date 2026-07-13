@@ -105,6 +105,34 @@ class TestPhysicianSchemaValidation:
                 facility=None,
             )  # type: ignore[call-arg]
 
+    def test_rejects_name_exceeds_max_length(self) -> None:
+        with pytest.raises(ValidationError):
+            PhysicianSchema(
+                id="p-1",
+                name="Dr. " + "Smith" * 100,
+                specialty="General",
+                distance="1.0 mi",
+                rating=5.0,
+                reviewCount=10,
+                nextAvailable="Tomorrow",
+                imageUrl=None,
+                facility=None,
+            )
+
+    def test_rejects_specialty_exceeds_max_length(self) -> None:
+        with pytest.raises(ValidationError):
+            PhysicianSchema(
+                id="p-1",
+                name="Dr. Smith",
+                specialty="x" * 101,
+                distance="1.0 mi",
+                rating=5.0,
+                reviewCount=10,
+                nextAvailable="Tomorrow",
+                imageUrl=None,
+                facility=None,
+            )
+
 
 class TestProviderSchemaValidation:
     """Verify ProviderSchema enforces its contract."""
@@ -137,6 +165,34 @@ class TestProviderSchemaValidation:
         )
         assert schema.imageUrl is None
         assert schema.facility is None
+
+    def test_rejects_name_exceeds_max_length(self) -> None:
+        with pytest.raises(ValidationError):
+            ProviderSchema(
+                id="prov-1",
+                name="Clinic " + "A" * 200,
+                specialty="Dermatology",
+                distance="3.2 mi",
+                rating=4.5,
+                reviewCount=89,
+                nextAvailable="Next Week",
+                imageUrl="https://example.com/clinic.jpg",
+                facility="Downtown Clinic",
+            )
+
+    def test_rejects_facility_exceeds_max_length(self) -> None:
+        with pytest.raises(ValidationError):
+            ProviderSchema(
+                id="prov-1",
+                name="Clinic A",
+                specialty="Dermatology",
+                distance="3.2 mi",
+                rating=4.5,
+                reviewCount=89,
+                nextAvailable="Next Week",
+                imageUrl="https://example.com/clinic.jpg",
+                facility="x" * 201,
+            )
 
 
 class TestProblemDetailSchemaValidation:

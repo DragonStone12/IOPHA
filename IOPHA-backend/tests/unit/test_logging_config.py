@@ -56,7 +56,7 @@ class TestJSONLogFormatter:
         out = JSONLogFormatter().format(_record("email john@x.com phone 555-123-4567"))
         assert "john@x.com" not in out
         assert "555-123-4567" not in out
-        assert "[REDACTED]" in out
+        assert "[MASKED]" in out
 
     def test_phi_scrubbed_in_extra_context(self) -> None:
         # Names appear in logs alongside a recognizable label, not bare.
@@ -64,4 +64,4 @@ class TestJSONLogFormatter:
             _record("x", {"note": "patient: Jane Doe scheduled"})
         )
         assert "Jane Doe" not in out
-        assert "[REDACTED]" in out
+        assert "[MASKED]" in out

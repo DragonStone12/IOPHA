@@ -12,7 +12,9 @@
 | 6   | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows)                | Booking form, logging, and transport security              |
 | 7   | [Compliance & Regulatory](#compliance--regulatory)                               | HIPAA, TLS, and audit requirements                         |
 | 8   | [Structured JSON Logging Compliance](#structured-json-logging-compliance)       | PHI prevention, aggregation security, audit trail         |
-| 9   | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 9   | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
+| 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
+| 11  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -670,4 +672,6 @@ contract matches the real error object returned to clients, including the
 
 - [Technical Design](../infra/TECHNICAL_DESIGN.md)
 - [Structured JSON Logging Compliance](#structured-json-logging-compliance)
+- [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)
+- [Input Validation](INPUT_VALIDATION.md)
 - [Runbooks](RUNBOOKS.md)

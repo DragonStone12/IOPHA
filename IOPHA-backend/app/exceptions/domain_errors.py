@@ -444,6 +444,29 @@ class ProviderNotFoundException(IOPHADomainError):  # noqa: N818
         return {"providerId": self.provider_id}
 
 
+class TipNotFoundException(IOPHADomainError):  # noqa: N818
+    """The requested dynamic booking tip / advice node was not found."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    link = "tip-not-found-error"
+    title = "Onboarding Tip Resource Absent"
+    log_level = logging.WARNING
+    log_event = "tips.tip_not_found"
+
+    def __init__(self, tip_id: str) -> None:
+        super().__init__()
+        self.tip_id = tip_id
+
+    def safe_detail(self) -> str:
+        return (
+            f"The dynamic tips node index '{self.tip_id}' could not be "
+            "recovered. Verify the tip id and try again."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"tipId": self.tip_id}
+
+
 # Ordered registry of every known domain exception. Registered as a global
 # FastAPI exception handler (see app/handlers.register_exception_handlers)
 # and documented in docs/infra/TECHNICAL_DESIGN.md.
@@ -462,4 +485,5 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     InvalidViewTransitionError,
     ExpiredBookingSessionError,
     ProviderNotFoundException,
+    TipNotFoundException,
 )

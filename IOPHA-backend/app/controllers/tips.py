@@ -1,0 +1,110 @@
+from fastapi import APIRouter, Depends, Query
+
+from app.dependencies import get_tips_repository
+from app.repositories.tips_repository import TipsRepository
+from app.schemas.tip import TipSchema
+from app.services.tips_service import TipsService
+
+
+class TipsController:
+    """HTTP surface for the dynamic booking tips / advice resource.
+
+    The controller is kept free of persistence and business rules; it only
+    adapts the service result into the frontend-aligned contract.
+    """
+
+    def __init__(self, service: TipsService) -> None:
+        self._service = service
+
+    def list_tips(self, limit: int | None = None) -> list[TipSchema]:
+        """Resolve and normalize the active booking tips."""
+        return self._service.list_tips(limit)
+
+    def get_tip(self, tip_id: str) -> TipSchema:
+        """Resolve a single booking tip by id, or raise ``TipNotFoundException``."""
+        return self._service.get_tip(tip_id)
+
+
+def get_tips_controller(
+    repository: TipsRepository = Depends(get_tips_repository),  # noqa: B008
+) -> TipsController:
+    """Per-request factory that wires the tips repository into the controller."""
+    return TipsController(TipsService(repository))
+
+
+router = APIRouter(prefix="/api/tips", tags=["tips"])
+
+
+@router.get(
+    "",
+    response_model=list[TipSchema],
+    summary="List active dynamic booking tips",
+    responses={
+        200: {
+            "description": "Ordered list of active booking tips / advice cards.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "array",
+                        "items": {"$ref": "#/components/schemas/TipSchema"},
+                    }
+                }
+            },
+        },
+    },
+)
+def get_tips(
+    limit: int | None = Query(
+        default=None,
+        ge=1,
+        le=100,
+        description="Optional cap on the number of tips returned.",
+    ),
+    controller: TipsController = Depends(get_tips_controller),  # noqa: B008
+) -> list[TipSchema]:
+    """Return the active dynamic booking tips for the assistant UI.
+
+    Each tip carries an ordered ``number`` for card stacking, an actionable
+    ``title`` headline, and an elaborated ``description`` body. The optional
+    ``limit`` query parameter caps how many cards are returned.
+    """
+    return controller.list_tips(limit)
+
+
+@router.get(
+    "/{tip_id}",
+    response_model=TipSchema,
+    summary="Get a single dynamic booking tip by id",
+    responses={
+        200: {
+            "description": "The requested booking tip / advice card.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/TipSchema"}
+                }
+            },
+        },
+        404: {
+            "description": ("Tip record not found (TipNotFoundException)."),
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                }
+            },
+        },
+    },
+)
+def get_tip(
+    tip_id: str,
+    controller: TipsController = Depends(get_tips_controller),  # noqa: B008
+) -> TipSchema:
+    """Return a single dynamic booking tip identified by *tip_id*.
+
+    When no active tip matches *tip_id* the service raises
+    ``TipNotFoundException``, which the global handler projects into an
+    RFC-7807 ``ProblemDetail`` (404) with a ``help_url`` runbook link.
+    """
+    return controller.get_tip(tip_id)
+
+
+__all__ = ["TipsController", "router"]

@@ -23,7 +23,7 @@ jobs:
       run:
         working-directory: IOPHA-frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
@@ -62,7 +62,7 @@ jobs:
       run:
         working-directory: IOPHA-frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
@@ -77,7 +77,7 @@ jobs:
           working-directory: IOPHA-frontend
           command: npx cypress run --component
       - name: Upload Component Screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: component-screenshots
@@ -95,7 +95,7 @@ jobs:
       run:
         working-directory: IOPHA-frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Node.js v24 LTS
         uses: actions/setup-node@v4
         with:
@@ -114,14 +114,14 @@ jobs:
           wait-on-timeout: 120
           command: npx cypress run --e2e --browser ${{ matrix.browser }}
       - name: Upload E2E Screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: e2e-screenshots-${{ matrix.browser }}
           path: IOPHA-frontend/cypress/screenshots
           if-no-files-found: ignore
       - name: Upload Visual Diffs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: visual-diffs-${{ matrix.browser }}

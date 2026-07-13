@@ -27,8 +27,8 @@ class TestPHIScrubber:
         assert REDACTED in out
 
     def test_redacts_labeled_name(self) -> None:
-        out = PHIScrubber().scrub_message("patient: John Doe arrived")
-        assert "John Doe" not in out
+        out = PHIScrubber().scrub_message("patient: Jane Doe arrived")
+        assert "Jane Doe" not in out
         assert REDACTED in out
 
     def test_leaves_non_phi_untouched(self) -> None:
@@ -43,6 +43,28 @@ class TestPHIScrubber:
     def test_empty_string_returns_empty(self) -> None:
         assert PHIScrubber().scrub_message("") == ""
 
+    def test_redacts_key_value_credential_with_comma(self) -> None:
+        # A comma inside the value must NOT terminate the value class,
+        # otherwise the tail after the comma leaks.
+        out = PHIScrubber().scrub_message("connect secret=abc,def and go")
+        assert "secret=abc" not in out
+        assert "abc,def" not in out
+        assert ",def" not in out
+        assert REDACTED in out
+
+    def test_redacts_json_credential_with_comma(self) -> None:
+        # A JSON-style value containing commas must be fully masked.
+        out = PHIScrubber().scrub_message('payload {"token": "a,b,c"} end')
+        assert "a,b,c" not in out
+        assert '"token": "a,b,c"' not in out
+        assert REDACTED in out
+
+    def test_redacts_json_credential_quoted_key_with_comma(self) -> None:
+        out = PHIScrubber().scrub_message('{"secret": "x,y,z"}')
+        assert "x,y,z" not in out
+        assert '"secret": "x,y,z"' not in out
+        assert REDACTED in out
+
     def test_performance_minimal_overhead(self) -> None:
         scrubber = PHIScrubber()
         text = (
@@ -55,3 +77,15 @@ class TestPHIScrubber:
         per_call = (time.perf_counter() - start) / 1000
         # Well under the 5ms/line budget; generous bound avoids CI flakiness.
         assert per_call < 0.01
+
+    def test_preserves_legitimate_masked_strings(self) -> None:
+        assert (
+            PHIScrubber().scrub_message("status: [MASKED] pending")
+            == "status: [MASKED] pending"
+        )
+
+    def test_idempotent_on_already_redacted_text(self) -> None:
+        text = "email a@b.com phone 555-123-4567"
+        once = PHIScrubber().scrub_message(text)
+        twice = PHIScrubber().scrub_message(once)
+        assert once == twice

@@ -3,6 +3,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.providers import router as providers_router
 from app.controllers.timeslots import router as timeslots_router
+from app.controllers.tips import router as tips_router
 from app.core.logging_config import configure_structured_logging
 from app.exceptions.error_handlers import register_timeslot_error_handlers
 from app.middleware.tracking import RequestTrackingMiddleware
@@ -19,6 +20,7 @@ app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
 app.add_middleware(RequestTrackingMiddleware)
 app.include_router(providers_router)
 app.include_router(timeslots_router)
+app.include_router(tips_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -85,6 +87,15 @@ def _build_openapi() -> dict[str, object]:
                     "description": (
                         "Provider record not found (ProviderNotFoundException)."
                     ),
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                        }
+                    },
+                }
+            if path_key == "/api/tips/{tip_id}" and "get" in path:
+                responses["404"] = {
+                    "description": ("Tip record not found (TipNotFoundException)."),
                     "content": {
                         "application/json": {
                             "schema": {"$ref": "#/components/schemas/ProblemDetail"}
