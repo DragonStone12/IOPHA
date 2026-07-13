@@ -17,6 +17,8 @@ class TipsService:
     def list_tips(self, limit: int | None = None) -> list[TipSchema]:
         """Return active tips as API DTOs, optionally capped at *limit* items."""
         records = self._repository.get_active_tips()
+        if records is None:
+            records = []
         if limit is not None:
             records = records[:limit]
         return [
