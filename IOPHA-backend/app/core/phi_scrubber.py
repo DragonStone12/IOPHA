@@ -114,6 +114,8 @@ class PHIScrubber:
         (e.g. ``secret``), which would otherwise cascade and mangle
         the output.
         """
+        if text is None:
+            return ""
         if not text:
             return text
         # Strip any sentinel already present (from a prior call or upstream
