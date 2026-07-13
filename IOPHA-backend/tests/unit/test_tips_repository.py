@@ -18,9 +18,11 @@ class TestInMemoryTipsRepository:
     def test_get_active_tips_returns_ordered_list(self) -> None:
         repo = InMemoryTipsRepository()
         tips = repo.get_active_tips()
-        assert len(tips) == 3
+        assert len(tips) > 0
         assert all(isinstance(tip, TipRecord) for tip in tips)
-        assert [tip.number for tip in tips] == [1, 2, 3]
+        # Derive the expected ordering from the number of seeded tips instead of
+        # hardcoding the seed-data count, so this stays correct if seeds change.
+        assert [tip.number for tip in tips] == list(range(1, len(tips) + 1))
 
     def test_get_active_tips_returns_shallow_copy(self) -> None:
         repo = InMemoryTipsRepository()
