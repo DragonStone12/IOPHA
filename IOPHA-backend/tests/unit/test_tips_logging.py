@@ -78,9 +78,7 @@ class TestTipsStructuredLogging:
         # logging middleware emits a JSON line carrying the correlation id,
         # method, and path for the tips route.
         with TestClient(app) as client:
-            response = client.get(
-                "/api/v1/tips", headers={"X-Request-ID": "trace-tips-1"}
-            )
+            response = client.get("/api/tips", headers={"X-Request-ID": "trace-tips-1"})
         assert response.status_code == 200
         # Request context is read live by JsonTelemetryFormatter from the
         # request_id_ctx ContextVar; the formatter itself is covered here
@@ -91,14 +89,14 @@ class TestTipsStructuredLogging:
         try:
             parsed = _format(
                 "request.start",
-                {"method": "GET", "path": "/api/v1/tips"},
+                {"method": "GET", "path": "/api/tips"},
             )
         finally:
             request_id_ctx.reset(token)
 
         assert parsed["requestId"] == "trace-tips-1"
         assert parsed["method"] == "GET"
-        assert parsed["path"] == "/api/v1/tips"
+        assert parsed["path"] == "/api/tips"
         # Every line is valid JSON for CloudWatch/Elasticsearch ingestion.
         json.dumps(parsed)
 

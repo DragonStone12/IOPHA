@@ -1,3 +1,4 @@
+from app.exceptions import TipNotFoundException
 from app.repositories.tips_repository import TipsRepository
 from app.schemas.tip import TipSchema
 
@@ -27,6 +28,22 @@ class TipsService:
             )
             for record in records
         ]
+
+    def get_tip(self, tip_id: str) -> TipSchema:
+        """Return a single tip as an API DTO, or raise if it is absent.
+
+        Raises :class:`TipNotFoundException` (surfaced as an RFC-7807 404)
+        when no active tip matches *tip_id*.
+        """
+        record = self._repository.get_tip_by_id(tip_id)
+        if record is None:
+            raise TipNotFoundException(tip_id)
+        return TipSchema(
+            id=record.id,
+            number=record.number,
+            title=record.title,
+            description=record.description,
+        )
 
 
 __all__ = ["TipsService"]

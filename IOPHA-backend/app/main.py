@@ -93,6 +93,15 @@ def _build_openapi() -> dict[str, object]:
                         }
                     },
                 }
+            if path_key == "/api/tips/{tip_id}" and "get" in path:
+                responses["404"] = {
+                    "description": ("Tip record not found (TipNotFoundException)."),
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                        }
+                    },
+                }
     app.openapi_schema = schema
     return schema
 

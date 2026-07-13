@@ -24,6 +24,10 @@ class TipsRepository(ABC):
     def get_active_tips(self) -> list[TipRecord]:
         """Return the ordered set of active tips (may be empty)."""
 
+    @abstractmethod
+    def get_tip_by_id(self, tip_id: str) -> TipRecord | None:
+        """Return the active tip with *tip_id*, or ``None`` if absent."""
+
 
 class InMemoryTipsRepository(TipsRepository):
     """Default no-database stand-in used until a real datastore is wired.
@@ -66,6 +70,13 @@ class InMemoryTipsRepository(TipsRepository):
     def get_active_tips(self) -> list[TipRecord]:
         # Return a shallow copy so callers cannot mutate the seeded store.
         return list(self._tips)
+
+    def get_tip_by_id(self, tip_id: str) -> TipRecord | None:
+        # Linear scan over the small in-memory set; no mutation of the store.
+        for tip in self._tips:
+            if tip.id == tip_id:
+                return tip
+        return None
 
 
 __all__ = [
