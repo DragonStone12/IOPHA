@@ -28,7 +28,7 @@ def get_search_controller(
     return SearchController(orchestrator)
 
 
-router = APIRouter(prefix="/api/v1/providers", tags=["providers-search"])
+router = APIRouter(prefix="/api/providers", tags=["providers-search"])
 
 
 @router.post(

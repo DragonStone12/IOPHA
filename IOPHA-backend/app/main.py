@@ -111,7 +111,7 @@ def _build_openapi() -> dict[str, object]:
                         }
                     },
                 }
-            if path_key == "/api/v1/providers/search" and "post" in path:
+            if path_key == "/api/providers/search" and "post" in path:
                 responses["200"] = {
                     "description": (
                         "Discovery result with providers and follow-up actions."
