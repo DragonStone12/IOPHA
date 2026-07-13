@@ -56,7 +56,14 @@ module.exports = [
     },
   },
   {
-    files: ["cypress/**/*", "**/*.spec.tsx", "**/*.spec.ts", "**/*.steps.ts"],
+    files: [
+      "cypress/**/*",
+      "**/*.spec.tsx",
+      "**/*.spec.ts",
+      "**/*.steps.ts",
+      "**/*.mock.ts",
+      "**/*.mock.tsx",
+    ],
     rules: {
       "no-secrets/no-secrets": "off",
       "promise/catch-or-return": "off",
