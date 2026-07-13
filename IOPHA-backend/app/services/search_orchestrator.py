@@ -22,8 +22,8 @@ class InMemorySearchOrchestrator(SearchOrchestrator):
     is wired."""
 
     def execute_query(self, query_string: str) -> FindDoctorResponseDataSchema:
-        return FindDoctorResponseDataSchema(
-            summaryText="",
-            providers=[],
-            followUpActions=[],
+        raise RuntimeError(
+            "Discovery backend not configured. InMemorySearchOrchestrator is a "
+            "placeholder; wire a real SearchOrchestrator implementation via "
+            "app.dependency_overrides before deploying."
         )

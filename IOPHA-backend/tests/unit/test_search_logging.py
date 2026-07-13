@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
 
 from app.core.phi_scrubber import PHIScrubber
+from app.dependencies import get_search_orchestrator
 from app.main import app
+from tests.integration._search_test_utils import MockSearchOrchestrator
 from tests.unit._log_test_utils import (
     assert_any_string_contains,
     assert_no_string_contains,
@@ -19,13 +21,19 @@ class TestSearchStructuredLogging:
     def test_search_endpoint_emits_structured_json_with_request_context(
         self, json_log_records: list[dict[str, object]]
     ) -> None:
-        with TestClient(app) as client:
-            response = client.post(
-                "/api/providers/search",
-                json={"queryText": "Cardiologist"},
-                headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
-            )
-        assert response.status_code == 200
+        app.dependency_overrides[get_search_orchestrator] = lambda: (
+            MockSearchOrchestrator()
+        )
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    "/api/providers/search",
+                    json={"queryText": "Cardiologist"},
+                    headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
+                )
+            assert response.status_code == 200
+        finally:
+            app.dependency_overrides.pop(get_search_orchestrator, None)
 
         record = next(
             (r for r in json_log_records if r.get("message") == "request.start"), None
