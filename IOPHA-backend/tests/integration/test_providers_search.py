@@ -1,3 +1,4 @@
+import uuid
 from typing import Generator
 
 import pytest
@@ -118,6 +119,17 @@ class TestProviderSearchValidation:
 
 
 class TestProviderSearchContextPropagation:
+    def test_request_id_generated_when_header_absent(self) -> None:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/providers/search",
+                json={"queryText": "Cardiologist"},
+            )
+        assert response.status_code == 200
+        echoed = response.headers.get("X-Request-ID")
+        assert echoed is not None
+        uuid.UUID(echoed)
+
     def test_request_id_echoed_on_success(self) -> None:
         request_id = "123e4567-e89b-12d3-a456-426614174000"
         with TestClient(app) as client:
