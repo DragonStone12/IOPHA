@@ -71,6 +71,6 @@ module.exports = [
     },
   },
   {
-    ignores: ["node_modules/", "dist/", "**/*.mock.ts", "**/*.mock.tsx", "src/mocks/"],
+    ignores: ["node_modules/", "dist/"],
   },
 ];
