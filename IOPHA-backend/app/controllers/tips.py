@@ -20,6 +20,10 @@ class TipsController:
         """Resolve and normalize the active booking tips."""
         return self._service.list_tips(limit)
 
+    def get_tip(self, tip_id: str) -> TipSchema:
+        """Resolve a single booking tip by id, or raise ``TipNotFoundException``."""
+        return self._service.get_tip(tip_id)
+
 
 def get_tips_controller(
     repository: TipsRepository = Depends(get_tips_repository),  # noqa: B008
@@ -65,6 +69,42 @@ def get_tips(
     ``limit`` query parameter caps how many cards are returned.
     """
     return controller.list_tips(limit)
+
+
+@router.get(
+    "/{tip_id}",
+    response_model=TipSchema,
+    summary="Get a single dynamic booking tip by id",
+    responses={
+        200: {
+            "description": "The requested booking tip / advice card.",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/TipSchema"}
+                }
+            },
+        },
+        404: {
+            "description": ("Tip record not found (TipNotFoundException)."),
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                }
+            },
+        },
+    },
+)
+def get_tip(
+    tip_id: str,
+    controller: TipsController = Depends(get_tips_controller),  # noqa: B008
+) -> TipSchema:
+    """Return a single dynamic booking tip identified by *tip_id*.
+
+    When no active tip matches *tip_id* the service raises
+    ``TipNotFoundException``, which the global handler projects into an
+    RFC-7807 ``ProblemDetail`` (404) with a ``help_url`` runbook link.
+    """
+    return controller.get_tip(tip_id)
 
 
 __all__ = ["TipsController", "router"]

@@ -23,6 +23,7 @@ hyphens, and strips punctuation).
 | Invalid View Transition | 409 | [invalid-view-transition](#invalid-view-transition) |
 | Expired Booking Session | 410 | [expired-booking-session](#expired-booking-session) |
 | Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
+| Tip Not Found | 404 | [tip-not-found-error](#tip-not-found-error) |
 | Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
 | Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
@@ -226,6 +227,23 @@ record, so the service raised `ProviderNotFoundException`.
 1. Verify the `provider_id` passed by the client matches an active directory record.
 2. Confirm the provider repository is wired to the correct datasource for the environment.
 3. Return the canonical directory listing so the client can re-select a valid provider.
+
+## Tip Not Found Error
+
+**What happened:** A client requested a single dynamic booking tip / advice
+node by id (`GET /api/v1/tips/{tip_id}`) but the tips repository
+returned no matching record, so the service raised
+`TipNotFoundException`.
+
+**Common causes:**
+- A typod or stale tip id in the frontend route / cache.
+- The tip was removed or never existed in the tips source.
+- A test or integration hitting the real repository with an un-seeded id.
+
+**Mitigation:**
+1. Verify the `tip_id` passed by the client matches an active tips record.
+2. Confirm the tips repository is wired to the correct datasource for the environment.
+3. Surface a clear "tip gone" message and re-fetch the active tips list.
 
 ## Unprocessable Entity Exception
 

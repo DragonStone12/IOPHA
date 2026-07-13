@@ -367,6 +367,7 @@ stripped) or the link 404s.
 | `InvalidViewTransitionError` | 409 | `state_machine.invalid_view_transition` | `invalid-view-transition` |
 | `ExpiredBookingSessionError` | 410 | `state_machine.expired_booking_session` | `expired-booking-session` |
 | `ProviderNotFoundException` | 404 | `directory.provider_not_found` | `provider-not-found-error` |
+| `TipNotFoundException` | 404 | `tips.tip_not_found` | `tip-not-found-error` |
 
 **Global Catch-All**: A handler registered for base `Exception` returns `500`
 with a generic detail and `help_url` link `internal-server-error`. It captures
@@ -599,6 +600,69 @@ sequenceDiagram
     T->>T: request_id_ctx.reset(token)
     T-->>C: 409 (X-Request-ID echoed)
 ```
+
+## 3.8 Dynamic Booking Tips & Advice API
+
+The tips resource extends the core scheduling engine with a booking-advice
+tips endpoint, ``TipSchema`` contract, and RFC-7807 error handling.
+
+### 3.8.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| Controller | `app/controllers/tips.py` | HTTP surface for `GET /api/v1/tips` (list) and `GET /api/v1/tips/{tip_id}` (single). |
+| Service | `app/services/tips_service.py` | Lookup orchestration and domain-fault raising (`TipNotFoundException`). |
+| Repository | `app/repositories/tips_repository.py` | `TipsRepository` ABC + `InMemoryTipsRepository` no-DB stand-in. |
+| Schemas | `app/schemas/tip.py` | `TipSchema` (frontend DTO). |
+| Dependencies | `app/dependencies.py` | `get_tips_repository` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/tracking.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| Exceptions | `app/exceptions/domain_errors.py` | `TipNotFoundException` mapped to HTTP 404. |
+| Error Handlers | `app/utils/handlers.py` | RFC-7807 problem detail via `register_exception_handlers`. |
+
+### 3.8.2 TipSchema
+
+The external contract returned by the tips API (`TipSchema`):
+
+| Field | Type | Validation | Description |
+|---|---|---|---|
+| `id` | `str \| None` | Optional; e.g. `tip-001` | Unique tip reference token (absent for not-yet-persisted tips). |
+| `number` | `int` | `ge=1` | Ordered indexing digit for card stacking. |
+| `title` | `str` | `min_length=1` | Actionable summary headline. |
+| `description` | `str` | `min_length=1` | Elaborated body text with behavioral guidance. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+### 3.8.3 Route Contract
+
+- `GET /api/v1/tips` → `list[TipSchema]` (200) or RFC-7807 problem
+  (422 on invalid `limit`).
+- `GET /api/v1/tips/{tip_id}` → `TipSchema` (200) or RFC-7807 problem
+  (404 `TipNotFoundException`).
+
+The controller resolves a `TipsController` per request via the
+`get_tips_controller` factory, which wires `get_tips_repository` →
+`TipsService` → `TipsController`.
+
+### 3.8.4 Exception Hierarchy & Handling Flow
+
+`TipNotFoundException` inherits directly from `IOPHADomainError` (the same
+base as the scheduling/time-slot exceptions) and is registered in
+`DOMAIN_EXCEPTIONS`, so the single global handler in
+`app/utils/handlers.py` (`register_exception_handlers`) intercepts it
+automatically — no resource-specific registration is required.
+
+| Exception | Status | Log Event | Link |
+|---|---|---|---|
+| `TipNotFoundException` | 404 | `tips.tip_not_found` | `tip-not-found-error` |
+
+The handler emits a structured `ProblemDetail` payload (`title`, `status`,
+`detail`, `instance`, `help_url`, `requestId`) and logs `requestId`,
+`path`, and `tipId` (from `log_context()`) via the same
+`JsonTelemetryFormatter` pipeline as the request middleware. The
+`X-Request-ID` correlation id is echoed on the response header and
+matches the logged `requestId`, preserving the audit trail.
 
 ## 4. Testing Strategy
 

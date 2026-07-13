@@ -19,6 +19,7 @@ from app.exceptions import (
     ProviderNotFoundException,
     RaceConditionDoubleBookingError,
     TimeZoneMismatchError,
+    TipNotFoundException,
     UnreadNotificationInconsistencyError,
     UpstreamWebhookFailureError,
     WebSocketConnectionDropError,
@@ -51,6 +52,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "view": InvalidViewTransitionError("confirmation", "time-selection", "prov-12"),
     "expired": ExpiredBookingSessionError("slot-13", "pat-13", 600),
     "provider": ProviderNotFoundException("prov-1"),
+    "tip": TipNotFoundException("tip-1"),
 }
 
 
