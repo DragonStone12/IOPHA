@@ -236,7 +236,7 @@ returned no matching record, so the service raised
 `TipNotFoundException`.
 
 **Common causes:**
-- A typod or stale tip id in the frontend route / cache.
+- A typo or stale tip id in the frontend route / cache.
 - The tip was removed or never existed in the tips source.
 - A test or integration hitting the real repository with an un-seeded id.
 

@@ -1,3 +1,5 @@
+from typing import Callable
+
 from app.repositories.tips_repository import TipRecord, TipsRepository
 
 
@@ -14,7 +16,7 @@ class MockTipsRepository(TipsRepository):
         self,
         tips: list[TipRecord] | None = None,
         missing_ids: set[str] | None = None,
-        raise_on_get_tip: type[Exception] | None = None,
+        raise_on_get_tip: Callable[[str], Exception] | None = None,
     ) -> None:
         self._tips = (
             tips

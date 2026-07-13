@@ -44,8 +44,8 @@ def log_records() -> Generator[list[logging.LogRecord], None, None]:
 class TestTipNotFoundException:
     def test_returns_404_with_rfc7807_body(self) -> None:
         mock = MockTipsRepository(missing_ids={"corrupt-id"})
-        app.dependency_overrides[get_tips_repository] = lambda: mock
         try:
+            app.dependency_overrides[get_tips_repository] = lambda: mock
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.get(
@@ -69,8 +69,8 @@ class TestTipNotFoundException:
 
     def test_response_contains_no_leaked_data(self) -> None:
         mock = MockTipsRepository(missing_ids={"corrupt-id"})
-        app.dependency_overrides[get_tips_repository] = lambda: mock
         try:
+            app.dependency_overrides[get_tips_repository] = lambda: mock
             with TestClient(app) as client:
                 response = client.get("/api/v1/tips/corrupt-id")
             for marker in LEAK_MARKERS:
@@ -82,8 +82,8 @@ class TestTipNotFoundException:
         self, log_records: list[logging.LogRecord]
     ) -> None:
         mock = MockTipsRepository(missing_ids={"corrupt-id"})
-        app.dependency_overrides[get_tips_repository] = lambda: mock
         try:
+            app.dependency_overrides[get_tips_repository] = lambda: mock
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.get(
@@ -106,8 +106,8 @@ class TestTipNotFoundException:
 
     def test_valid_tip_returns_200(self) -> None:
         mock = MockTipsRepository()
-        app.dependency_overrides[get_tips_repository] = lambda: mock
         try:
+            app.dependency_overrides[get_tips_repository] = lambda: mock
             with TestClient(app) as client:
                 response = client.get("/api/v1/tips/tip-001")
             assert response.status_code == 200
