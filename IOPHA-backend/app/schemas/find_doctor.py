@@ -27,7 +27,7 @@ class FindDoctorResponseDataSchema(BaseModel):
         max_length=2000,
         description="Natural language system summary matching the search query result",
     )
-    providers: List[ProviderSchema] = Field(
+    providers: list[ProviderSchema] = Field(
         ...,
         description="Collection of matching verified healthcare provider entities",
     )
