@@ -33,14 +33,14 @@ def bind_tips_mock() -> Generator[None, None, None]:
     """Isolated dependency override for every test in this module.
 
     Injects a fault-capable :class:`MockTipsRepository` in place of
-    the default tips repository and clears *all* overrides in
+    the default tips repository and pops only the tips key in
     teardown so no stub leaks into other test modules.
     """
     app.dependency_overrides[get_tips_repository] = lambda: MockTipsRepository()
     try:
         yield
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_tips_repository, None)
 
 
 @pytest.fixture
@@ -91,7 +91,11 @@ class TestTipsErrorInjection:
         body = response.json()
         assert body["title"] == "Onboarding Tip Resource Absent"
         assert body["status"] == 404
+        assert body["instance"] == "/api/tips/corrupt-id"
         assert body["help_url"].endswith("#tip-not-found-error")
+        assert body["help_url"].startswith(
+            "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
+        )
         # The middleware only echoes valid UUIDs, so the client id is preserved.
         assert response.headers["X-Request-ID"] == request_id
 
@@ -142,12 +146,12 @@ class TestTipsContextPropagation:
 
 class TestTipsDependencyIsolation:
     def test_overrides_cleared_between_tests(self) -> None:
-        # The autouse fixture clears app.dependency_overrides in teardown,
+        # The autouse fixture pops only the tips key in teardown,
         # so the module-level override from this test does not leak.
         app.dependency_overrides[get_tips_repository] = lambda: MockTipsRepository(
             missing_ids={"corrupt-id"}
         )
         assert get_tips_repository in app.dependency_overrides
         # Simulate the fixture teardown that runs after this test returns.
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_tips_repository, None)
         assert get_tips_repository not in app.dependency_overrides

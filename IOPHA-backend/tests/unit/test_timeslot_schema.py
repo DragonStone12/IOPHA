@@ -67,6 +67,11 @@ class TestTimeSlotSchemaValidation:
         with pytest.raises(ValidationError):
             TimeSlotSchema(**payload)  # type: ignore[arg-type]
 
+    def test_rejects_label_exceeds_max_length(self) -> None:
+        payload = {**_valid_slot(), "label": "x" * 101}
+        with pytest.raises(ValidationError):
+            TimeSlotSchema(**payload)  # type: ignore[arg-type]
+
     def test_pattern_helpers(self) -> None:
         assert TimeSlotSchema.is_valid_time("11:30 AM")
         assert not TimeSlotSchema.is_valid_time("11:30")

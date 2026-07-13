@@ -1,8 +1,9 @@
 import pytest
 
 from app.exceptions import TipNotFoundException
-from app.repositories.tips_repository import InMemoryTipsRepository
+from app.repositories.tips_repository import InMemoryTipsRepository, TipRecord
 from app.services.tips_service import TipsService
+from tests.mocks.tips_service import MockTipsRepository
 
 
 class TestTipsServiceHappyPath:
@@ -26,19 +27,19 @@ class TestTipsServiceHappyPath:
         assert len(tips) == 1
 
     def test_get_tip_returns_schema(self) -> None:
-        service = TipsService(InMemoryTipsRepository())
+        expected = TipRecord(
+            id="tip-002",
+            number=2,
+            title="Arrive 15 Minutes Early",
+            description="Buffer for check-in paperwork.",
+        )
+        repo = MockTipsRepository(tips=[expected])
+        service = TipsService(repo)
         tip = service.get_tip("tip-002")
-        assert tip.id == "tip-002"
-        assert tip.title == "Arrive 15 Minutes Early"
-
-    def test_get_tip_covers_repo_scan(self) -> None:
-        # Drive both branches of InMemoryTipsRepository.get_tip_by_id so the
-        # linear scan (found + absent) is fully exercised.
-        repo = InMemoryTipsRepository()
-        found = repo.get_tip_by_id("tip-001")
-        assert found is not None
-        assert found.id == "tip-001"
-        assert repo.get_tip_by_id("does-not-exist") is None
+        assert tip.id == expected.id
+        assert tip.number == expected.number
+        assert tip.title == expected.title
+        assert tip.description == expected.description
 
 
 class TestTipsServiceFaultInjection:

@@ -33,12 +33,14 @@ class TipSchema(BaseModel):
     title: str = Field(
         ...,
         min_length=1,
+        max_length=200,
         description="Actionable summary headline for clinical advice",
         examples=["Hydrate Early"],
     )
     description: str = Field(
         ...,
         min_length=1,
+        max_length=2000,
         description="Elaborated body text detailing behavioral guidance",
         examples=["Drink plenty of water throughout the day."],
     )

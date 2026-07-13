@@ -115,12 +115,7 @@ class PHIScrubber:
         """
         if not text:
             return text
-        # Strip any sentinel already present (from a prior call or upstream
-        # masking) before re-applying patterns, so redaction is
-        # idempotent: a repeated call cannot re-match the sentinel
-        # and mangle prior output.
-        cleaned = text.replace(self.REDACTED, "")
-        return self._combined.sub(self.REDACTED, cleaned)
+        return self._combined.sub(self.REDACTED, text)
 
 
 __all__ = ["PHIScrubber"]

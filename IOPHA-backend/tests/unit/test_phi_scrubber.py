@@ -55,3 +55,15 @@ class TestPHIScrubber:
         per_call = (time.perf_counter() - start) / 1000
         # Well under the 5ms/line budget; generous bound avoids CI flakiness.
         assert per_call < 0.01
+
+    def test_preserves_legitimate_masked_strings(self) -> None:
+        assert (
+            PHIScrubber().scrub_message("status: [MASKED] pending")
+            == "status: [MASKED] pending"
+        )
+
+    def test_idempotent_on_already_redacted_text(self) -> None:
+        text = "email a@b.com phone 555-123-4567"
+        once = PHIScrubber().scrub_message(text)
+        twice = PHIScrubber().scrub_message(once)
+        assert once == twice

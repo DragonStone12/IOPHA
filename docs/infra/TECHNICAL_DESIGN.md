@@ -853,3 +853,11 @@ The `/metrics` endpoint exposes internal application state, endpoint names, requ
 | Frontend Host | Vercel, Netlify, Cloudflare Pages | Cold start, edge caching              |
 | Backend Host  | Railway, Fly.io, AWS Fargate      | Cost, scaling, HIPAA eligibility      |
 | Database      | Neon, Supabase, AWS RDS           | HIPAA eligibility, pgvector support   |
+
+## 7. Related Documentation
+
+- [Security Overview](../security/SECURITY.md)
+- [Sensitive Data Handling](../security/SENSITIVE_DATA_HANDLING.md)
+- [Input Validation](../security/INPUT_VALIDATION.md)
+- [Runbooks](../RUNBOOKS.md)
+- [Architecture](ARCHITECTURE.md)

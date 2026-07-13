@@ -780,3 +780,144 @@ Whenever you interpolate a variable that contains regex alternation (`|`) into a
 larger pattern, **always** wrap it in `(?:...)` so the surrounding syntax binds
 to the whole alternation, not just the last branch.
 
+## Python Testing Anti-Patterns
+
+### Things to Avoid When Writing Python Tests
+
+#### 1. Do NOT use `app.dependency_overrides.clear()` in teardown
+
+**Error:**
+
+```python
+@pytest.fixture(autouse=True)
+def bind_mock() -> Generator[None, None, None]:
+    app.dependency_overrides[get_tips_repository] = lambda: MockTipsRepository()
+    try:
+        yield
+    finally:
+        app.dependency_overrides.clear()  # WRONG — destroys all overrides
+```
+
+**Why this is wrong:**
+
+`app.dependency_overrides.clear()` removes **every** dependency override in the FastAPI app, not just the one your test set. If any other test, fixture, or `conftest.py` in the same process has overridden a different dependency (e.g., `get_provider_repository`, `get_calendar_repository`), those overrides are unexpectedly wiped out. This breaks test isolation and causes cascading failures in unrelated test modules.
+
+**Symptom:** A test in `test_providers.py` passes in isolation but fails when run after `test_tips_integration.py`, because the tips fixture cleared the provider repository override that the providers test expected to find.
+
+**Solution:** Pop only the specific key you set:
+
+```python
+@pytest.fixture(autouse=True)
+def bind_mock() -> Generator[None, None, None]:
+    app.dependency_overrides[get_tips_repository] = lambda: MockTipsRepository()
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(get_tips_repository, None)
+```
+
+**Why this works:**
+
+- `pop(key, None)` removes only the override you added, leaving all others intact.
+- The `None` default prevents `KeyError` if the key was never set (e.g., if the test skipped the override).
+- Other test modules' overrides remain untouched, preserving process-wide test isolation.
+
+**Affected files (fixed):**
+
+- `IOPHA-backend/tests/integration/test_tips_integration.py` — `bind_tips_mock` fixture and `TestTipsDependencyIsolation`
+- `IOPHA-backend/tests/unit/test_providers.py` — `isolate_database_layer` fixture
+
+**Correct pattern already in use elsewhere:**
+
+- `tests/integration/test_tips_errors.py` — uses `app.dependency_overrides.pop(get_tips_repository, None)`
+- `tests/integration/test_timeslot_full_flow.py` — uses `_clear_mock()` which calls `app.dependency_overrides.pop(get_calendar_repository, None)`
+- `tests/integration/test_timeslot_errors.py` — uses `app.dependency_overrides.pop(get_calendar_repository, None)`
+- `tests/integration/test_timeslots_success.py` — uses `app.dependency_overrides.pop(get_calendar_repository, None)`
+
+#### 2. Do NOT share mutable state between tests
+
+Never use module-level mutable objects (lists, dicts, sets) as test fixtures without resetting them. Each test must get a fresh copy:
+
+```python
+# WRONG — shared across tests
+favorites = []
+
+def test_add():
+    favorites.append("apple")
+
+def test_count():
+    assert len(favorites) == 1  # Fails if test_add ran first
+
+# RIGHT — fixture provides fresh copy
+@pytest.fixture
+def favorites():
+    return []
+
+def test_add(favorites):
+    favorites.append("apple")
+
+def test_count(favorites):
+    assert len(favorites) == 1  # Always passes
+```
+
+#### 3. Do NOT use `try/finally` without `yield` in fixtures
+
+A fixture that sets up state must `yield` to the test, then clean up in `finally`. Returning without yielding means the teardown never runs:
+
+```python
+# WRONG — teardown never runs
+@pytest.fixture
+def db():
+    db = create_db()
+    db.clear()  # Runs BEFORE the test, not after
+
+# RIGHT — yield separates setup from teardown
+@pytest.fixture
+def db():
+    db = create_db()
+    try:
+        yield db
+    finally:
+        db.clear()  # Runs AFTER the test
+```
+
+#### 4. Do NOT catch `Exception` without re-raising in tests
+
+Swallowing all exceptions hides test failures and produces false positives:
+
+```python
+# WRONG — test passes even when code raises
+try:
+    do_something()
+except Exception:
+    pass
+assert True
+
+# RIGHT — let pytest see the failure
+do_something()
+```
+
+#### 5. Do NOT use `time.sleep()` for synchronization
+
+`time.sleep()` makes tests slow and flaky. Use proper synchronization primitives or pytest fixtures:
+
+```python
+# WRONG — arbitrary wait
+time.sleep(2)
+assert db.count() == 1
+
+# RIGHT — fixture waits for condition
+@pytest.fixture
+def ready_db():
+    wait_until(lambda: db.count() == 1)
+    return db
+```
+
+## Related Documentation
+
+- [Security Overview](../docs/security/SECURITY.md)
+- [Sensitive Data Handling](../docs/security/SENSITIVE_DATA_HANDLING.md)
+- [Input Validation](../docs/security/INPUT_VALIDATION.md)
+- [Technical Design](../docs/infra/TECHNICAL_DESIGN.md)
+- [Runbooks](../docs/RUNBOOKS.md)
+

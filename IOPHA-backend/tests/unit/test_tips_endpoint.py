@@ -37,6 +37,7 @@ class TestTipsEndpointSmoke:
         body = response.json()
         # Projected into the RFC-7807 ProblemDetail contract.
         assert body["status"] == 422
+        assert body["title"] == "Unprocessable Entity"
         assert "help_url" in body
 
     def test_openapi_documents_response_model(self) -> None:

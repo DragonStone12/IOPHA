@@ -45,6 +45,16 @@ class TestTipSchemaValidation:
         with pytest.raises(ValidationError):
             TipSchema(**payload)  # type: ignore[arg-type]
 
+    def test_rejects_title_exceeds_max_length(self) -> None:
+        payload = {**_valid_tip(), "title": "x" * 201}
+        with pytest.raises(ValidationError):
+            TipSchema(**payload)  # type: ignore[arg-type]
+
+    def test_rejects_description_exceeds_max_length(self) -> None:
+        payload = {**_valid_tip(), "description": "x" * 2001}
+        with pytest.raises(ValidationError):
+            TipSchema(**payload)  # type: ignore[arg-type]
+
     @pytest.mark.parametrize("missing", ["number", "title", "description"])
     def test_rejects_missing_required_field(self, missing: str) -> None:
         payload = _valid_tip()
@@ -60,3 +70,14 @@ class TestTipSchemaValidation:
     def test_serializes_to_expected_json(self) -> None:
         tip = TipSchema(**_valid_tip())  # type: ignore[arg-type]
         assert tip.model_dump() == _valid_tip()
+
+    def test_serializes_without_id(self) -> None:
+        payload = _valid_tip()
+        payload.pop("id")
+        tip = TipSchema(**payload)  # type: ignore[arg-type]
+        assert tip.id is None
+        dumped = tip.model_dump()
+        assert dumped["id"] is None
+        assert dumped["number"] == 1
+        assert dumped["title"] == "Hydrate Early"
+        assert dumped["description"] == "Drink plenty of water throughout the day."

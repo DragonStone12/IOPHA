@@ -1,8 +1,10 @@
 import json
 import logging
+from collections.abc import Mapping, Sequence
 
 from fastapi.testclient import TestClient
 
+from app.core.context import request_id_ctx
 from app.core.logging_config import JSONLogFormatter
 from app.core.phi_scrubber import PHIScrubber
 from app.main import app
@@ -23,6 +25,41 @@ def _format(msg: str, extra: dict[str, object] | None = None) -> dict[str, objec
     if extra is not None:
         rec.extra_context = extra
     return json.loads(JSONLogFormatter().format(rec))
+
+
+def _assert_no_string_contains(value: object, forbidden: str) -> None:
+    """Recursively assert no string value in *value* contains *forbidden*."""
+    if isinstance(value, str):
+        assert forbidden not in value, f"Leaked '{forbidden}' in {value!r}"
+    elif isinstance(value, Mapping):
+        for key, val in value.items():
+            _assert_no_string_contains(key, forbidden)
+            _assert_no_string_contains(val, forbidden)
+    elif isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        for item in value:
+            _assert_no_string_contains(item, forbidden)
+
+
+def _assert_any_string_contains(value: object, expected: str) -> None:
+    """Recursively assert at least one string value in *value* contains *expected*."""
+    found = False
+
+    def _walk(v: object) -> None:
+        nonlocal found
+        if found:
+            return
+        if isinstance(v, str):
+            if expected in v:
+                found = True
+        elif isinstance(v, Mapping):
+            for val in v.values():
+                _walk(val)
+        elif isinstance(v, Sequence) and not isinstance(v, (bytes, bytearray)):
+            for item in v:
+                _walk(item)
+
+    _walk(value)
+    assert found, f"Expected substring {expected!r} not found in any string"
 
 
 class TestCredentialScrubbing:
@@ -83,8 +120,6 @@ class TestTipsStructuredLogging:
         # Request context is read live by JsonTelemetryFormatter from the
         # request_id_ctx ContextVar; the formatter itself is covered here
         # by formatting a record under a bound id.
-        from app.core.context import request_id_ctx
-
         token = request_id_ctx.set("trace-tips-1")
         try:
             parsed = _format(
@@ -97,10 +132,10 @@ class TestTipsStructuredLogging:
         assert parsed["requestId"] == "trace-tips-1"
         assert parsed["method"] == "GET"
         assert parsed["path"] == "/api/tips"
-        # Every line is valid JSON for CloudWatch/Elasticsearch ingestion.
-        json.dumps(parsed)
+        # Every line must round-trip through JSON for CloudWatch/Elasticsearch.
+        assert json.loads(json.dumps(parsed)) == parsed
 
     def test_credentials_scrubbed_in_tips_log_output(self) -> None:
         parsed = _format("token=supersecret emitted during tips fetch")
-        assert "supersecret" not in json.dumps(parsed)
-        assert REDACTED in json.dumps(parsed)
+        _assert_no_string_contains(parsed, "supersecret")
+        _assert_any_string_contains(parsed, REDACTED)
