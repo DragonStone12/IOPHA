@@ -239,18 +239,18 @@ sequenceDiagram
     participant Svc as SearchOrchestrator
     participant H as GlobalExceptionHandler
 
-    C->>T: POST /api/providers/search (X-Request-ID?)
-    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
-    T->>L: call_next(request)
-    L->>L: log request.start (requestId from context)
+    C->>T: "POST /api/providers/search (X-Request-ID?)"
+    T->>T: "req_id = header or uuid4(); request_id_ctx.set(req_id)"
+    T->>L: "call_next(request)"
+    L->>L: "log request.start (requestId from context)"
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: execute_query(queryText)
-    Svc-->>H: SearchAggregatorTimeoutError
-    H->>H: log ERROR with requestId + queryString
-    H-->>T: RFC-7807 504
-    T->>T: response.headers["X-Request-ID"] = req_id
-    T->>T: request_id_ctx.reset(token)
-    T-->>C: 504 (X-Request-ID echoed)
+    Ctrl->>Svc: "execute_query(queryText)"
+    Svc-->>H: "SearchAggregatorTimeoutError"
+    H->>H: "log ERROR with requestId + queryString"
+    H-->>T: "RFC-7807 504"
+    T->>T: "response.headers['X-Request-ID'] = req_id"
+    T->>T: "request_id_ctx.reset(token)"
+    T-->>C: "504 (X-Request-ID echoed)"
 ```
 
 **Testing Strategy:**
