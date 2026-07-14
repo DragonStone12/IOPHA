@@ -154,7 +154,7 @@ SQLAlchemy backend described in §1):
 | ingestion_jobs | Document processing status              |
 
 - Indexes: GIN indexes for full-text search on text columns; IVFFlat/HNSW index for vector similarity search on embeddings.
-- `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small).
+- `PGVECTOR_DIMENSION` default: 1536 (AWS Bedrock Titan embedding model).
 
 ### 3.2 Provider Discovery API
 
@@ -239,18 +239,18 @@ sequenceDiagram
     participant Svc as SearchOrchestrator
     participant H as GlobalExceptionHandler
 
-    C->>T: "POST /api/providers/search (X-Request-ID?)"
-    T->>T: "req_id = header or uuid4(); request_id_ctx.set(req_id)"
-    T->>L: "call_next(request)"
-    L->>L: "log request.start (requestId from context)"
+    C->>T: POST /api/providers/search (X-Request-ID?)
+    T->>T: req_id = header or uuid4()<br/>request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: "execute_query(queryText)"
-    Svc-->>H: "SearchAggregatorTimeoutError"
-    H->>H: "log ERROR with requestId + queryString"
-    H-->>T: "RFC-7807 504"
-    T->>T: "response.headers['X-Request-ID'] = req_id"
-    T->>T: "request_id_ctx.reset(token)"
-    T-->>C: "504 (X-Request-ID echoed)"
+    Ctrl->>Svc: execute_query(queryText)
+    Svc-->>H: SearchAggregatorTimeoutError
+    H->>H: log ERROR with requestId + queryString
+    H-->>T: RFC-7807 504
+    T->>T: response.headers['X-Request-ID'] = req_id
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 504 (X-Request-ID echoed)
 ```
 
 **Testing Strategy:**
@@ -375,7 +375,7 @@ sequenceDiagram
 
 **Embedding Model**:
 
-- `text-embedding-3-small` (OpenAI) or equivalent
+- Amazon Titan Embeddings (`amazon.titan-embed-text-v2:0`) via AWS Bedrock
 
 **Retrieval Flow**:
 
