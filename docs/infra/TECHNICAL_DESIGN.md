@@ -22,29 +22,27 @@
 
 ## 1. Technology Stack
 
-| Layer              | Technology                        | Version | Status      |
-| ------------------ | --------------------------------- | ------- | ----------- |
-| Frontend Framework | React                             | 18      | In use      |
-| Language           | TypeScript                        | 5       | In use      |
-| Build Tool         | Vite                              | 8       | In use      |
-| Styling            | Tailwind CSS                      | v4      | In use      |
-| Component Library  | shadcn/ui + Radix UI              | Confirmed | In use    |
-| Backend Framework  | FastAPI                           | 0.139   | In use      |
-| ASGI Server        | Uvicorn                           | 0.51    | In use      |
-| Language           | Python                            | 3.11    | In use      |
-| Validation         | Pydantic (v2)                     | 2.13    | In use      |
-| Metrics            | prometheus-fastapi-instrumentator | 8.0     | In use      |
-| HTTP Client (test) | httpx                             | 0.28    | In use      |
-| ORM                | SQLAlchemy                        | Latest  | Pending     |
-| Database           | PostgreSQL + pgvector             | 15      | Pending\*   |
-| Testing (Backend)  | pytest                            | 9.1     | In use      |
-| Async Tests        | pytest-asyncio                    | 1.4     | In use      |
-| Coverage           | pytest-cov                        | 7.1     | In use      |
-| Linting            | Ruff                              | 0.15    | In use      |
-| Type Checking      | Mypy (strict)                     | 2.2     | In use      |
-| SAST               | Bandit                            | 1.9     | In use      |
-| Testing (E2E)      | Cypress                           | Latest  | In use      |
-| Load Testing       | Locust                            | Latest  | Planned     |
+| Layer      | Technology                        | Version | Status      |
+| ---------- | --------------------------------- | ------- | ----------- |
+| Frontend   | React                             | 18      | In use      |
+| Frontend   | TypeScript                        | 5       | In use      |
+| Frontend   | Vite                              | 8       | In use      |
+| Frontend   | Tailwind CSS                      | v4      | In use      |
+| Frontend   | Cypress                           | Latest  | In use      |
+| Backend    | FastAPI                           | 0.139   | In use      |
+| Backend    | Uvicorn                           | 0.51    | In use      |
+| Backend    | Python                            | 3.11    | In use      |
+| Backend    | Pydantic (v2)                     | 2.13    | In use      |
+| Backend    | prometheus-fastapi-instrumentator | 8.0     | In use      |
+| Backend    | httpx                             | 0.28    | In use      |
+| Backend    | SQLAlchemy                        | Latest  | Pending     |
+| Backend    | pytest                            | 9.1     | In use      |
+| Backend    | pytest-asyncio                    | 1.4     | In use      |
+| Backend    | pytest-cov                        | 7.1     | In use      |
+| Backend    | Ruff                              | 0.15    | In use      |
+| Backend    | Mypy (strict)                     | 2.2     | In use      |
+| Backend    | Bandit                            | 1.9     | In use      |
+| Datasource | PostgreSQL + pgvector             | 15      | Pending\*   |
 
 \*Pending: persistence is abstracted behind the `ProviderRepository`
 interface; the default `InMemoryProviderRepository` ships today and no
@@ -105,7 +103,7 @@ Environment behavior:
 Strategy:
 
 - Server state: React Query (TanStack Query) or SWR for caching, background updates
-- Client state: React Context or Zustand for UI state
+- Client state: React Context
 
 ### 2.4 Performance Monitoring
 
