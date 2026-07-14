@@ -51,57 +51,6 @@ interface; the default `InMemoryProviderRepository` ships today and no
 relational datastore is wired. A SQLAlchemy + PostgreSQL + pgvector backend
 will replace the in-memory default behind the same interface (see §3.1).
 
-```
-/IOPHA
-├── /IOPHA-frontend
-│   ├── /src
-│   │   ├── /components        # React components (each in own directory)
-│   │   │   ├── /LandingPage/
-│   │   │   ├── /RiskProfileSidebar/
-│   │   │   ├── /ChatArea/
-│   │   │   └── /ui/           # shadcn/ui primitives (copied from IOPHA Resources)
-│   │   ├── /hooks             # Custom hooks (useLogRenders, usePerformanceTracking)
-│   │   ├── /utils
-│   │   │   ├── logger.ts      # Custom Logger class
-│   │   │   └── performance.js # Performance monitoring utilities
-│   │   ├── /services          # API client wrappers
-│   │   ├── /types             # TypeScript interfaces
-│   │   └── App.tsx
-│   ├── cypress.config.ts
-│   └── package.json
-├── /IOPHA-backend
-│   ├── /app
-│   │   ├── main.py                # FastAPI entry point — wiring only
-│   │   ├── dependencies.py        # FastAPI dependency factories
-│   │   ├── /controllers           # HTTP route controllers (one per resource)
-│   │   │   └── providers.py       # GET /api/providers/{provider_id}
-│   │   ├── /services              # Business logic / orchestration
-│   │   │   └── provider_service.py
-│   │   ├── /repositories          # Persistence abstractions (ABC + in-memory)
-│   │   │   └── provider_repository.py
-│   │   ├── /schemas               # Pydantic contracts + internal relational shapes
-│   │   │   ├── /physician/        # PhysicianSchema (frontend DTO)
-│   │   │   └── /provider/         # ProviderRecord, mappers
-│   │   ├── /middleware            # ASGI interceptors (request tracing)
-│   │   │   └── request_tracing.py
-│   │   ├── /exceptions            # Domain exceptions + registry
-│   │   │   └── domain_errors.py
-│   │   └── /utils                 # Cross-cutting utilities
-│   │       ├── context.py         # contextvars request-id correlation
-│   │       ├── handlers.py        # Global RFC-7807 exception handlers
-│   │       └── logging.py         # JsonTelemetryFormatter + logging middleware
-│   ├── /tests                     # pytest suites (isolated via dependency_overrides)
-│   │   ├── /helpers               # dependency_overrides utilities
-│   │   ├── conftest.py
-│   │   ├── test_providers.py
-│   │   ├── test_request_tracing.py
-│   │   ├── test_exception_handlers.py
-│   │   └── test_structured_logging.py
-│   ├── pyproject.toml             # ruff / mypy / bandit / pytest / coverage config
-│   └── requirements.txt
-├── /docs                          # Architecture & security documentation
-└── /infra                        # Terraform/CDK configurations
-```
 ## 2. Frontend Implementation Details
 
 ### 2.1 Styling with Tailwind CSS
@@ -402,21 +351,21 @@ sequenceDiagram
     participant Svc as ProviderService
     participant Repo as ProviderRepository
 
-    C->>T: GET /api/providers/{id} (X-Request-ID?)
-    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
-    T->>L: call_next(request)
-    L->>L: log request.start (requestId from context)
+    C->>T: GET /api/providers/{id} X-Request-ID optional
+    T->>T: req_id = header or uuid4 and set request_id_ctx
+    T->>L: call_next request
+    L->>L: log request.start with requestId from context
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: get_physician(id)
-    Svc->>Repo: find_by_id(id)
-    Repo-->>Svc: ProviderRecord | None
-    Svc-->>Ctrl: PhysicianSchema | ProviderNotFoundException
+    Ctrl->>Svc: get_physician id
+    Svc->>Repo: find_by_id id
+    Repo-->>Svc: ProviderRecord or None
+    Svc-->>Ctrl: PhysicianSchema or ProviderNotFoundException
     Ctrl-->>L: response
-    L->>L: log request.complete (requestId from context)
+    L->>L: log request.complete with requestId from context
     L-->>T: response
-    T->>T: response.headers["X-Request-ID"] = req_id
-    T->>T: request_id_ctx.reset(token)
-    T-->>C: 200 / 404 (X-Request-ID echoed)
+    T->>T: echo X-Request-ID response header
+    T->>T: request_id_ctx reset token
+    T-->>C: 200 or 404 with X-Request-ID echoed
 ```
 
 ### 3.5 RAG Pipeline Logic
@@ -500,7 +449,7 @@ gracefully when `X-Request-ID` or `user-agent` headers are missing
 error payloads are scrubbed of credentials and sensitive trace data before
 client delivery; raw stack traces exist only in server logs.
 
-## 3.6 Provider / Physician Scheduling Core API
+## 3.7 Provider / Physician Scheduling Core API
 
 The scheduling resource pipeline establishes the core FastAPI routing engine,
 Pydantic contracts, and isolated test scaffolding for the physician/provider
@@ -552,7 +501,7 @@ flowchart LR
 - Structural identifiers and credentials are never placed in the response body
   or in `extra_context` log payloads.
 
-## 3.7 Time Slot Availability API
+## 3.8 Time Slot Availability API
 
 The time-slot resource pipeline extends the core scheduling engine with a
 provider-availability endpoint, Pydantic slot contracts, request-tracing
@@ -678,21 +627,21 @@ sequenceDiagram
     participant Svc as TimeSlotService
     participant Repo as CalendarRepository
 
-    C->>T: GET /api/providers/{id}/slots (X-Request-ID?)
-    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
-    T->>L: call_next(request)
-    L->>L: log request.start (requestId from context)
+    C->>T: GET /api/providers/{id}/slots X-Request-ID optional
+    T->>T: req_id = header or uuid4 and set request_id_ctx
+    T->>L: call_next request
+    L->>L: log request.start with requestId from context
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: get_slots(provider_id)
-    Svc->>Repo: get_provider / get_slots
-    Repo-->>Svc: TimeSlotRecord[]
-    Svc-->>Ctrl: list[TimeSlotSchema]
+    Ctrl->>Svc: get_slots provider_id
+    Svc->>Repo: get_provider then get_slots
+    Repo-->>Svc: TimeSlotRecord list
+    Svc-->>Ctrl: list of TimeSlotSchema
     Ctrl-->>L: response
-    L->>L: log request.complete (requestId from context)
+    L->>L: log request.complete with requestId from context
     L-->>T: response
-    T->>T: response.headers["X-Request-ID"] = req_id
-    T->>T: request_id_ctx.reset(token)
-    T-->>C: 200 (X-Request-ID echoed)
+    T->>T: echo X-Request-ID response header
+    T->>T: request_id_ctx reset token
+    T-->>C: 200 with X-Request-ID echoed
 ```
 
 On fault:
@@ -715,7 +664,7 @@ sequenceDiagram
     T-->>C: 409 (X-Request-ID echoed)
 ```
 
-## 3.8 Dynamic Booking Tips & Advice API
+## 3.9 Dynamic Booking Tips & Advice API
 
 The tips resource extends the core scheduling engine with a booking-advice
 tips endpoint, ``TipSchema`` contract, and RFC-7807 error handling.
