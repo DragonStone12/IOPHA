@@ -981,7 +981,7 @@ npm run lint
 
 **Prometheus Instrumentation**:
 
-- Library: `Prometheus FastAPI Instrumentator`
+- Library: `prometheus-fastapi-instrumentator`
 - Endpoint: `/metrics`
 - Configuration choices:
   - `handle_unhandled_paths=False` — prevents cardinality explosion from undefined routes
