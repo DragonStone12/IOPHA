@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends
 
 from app.dependencies import get_nutrition_calculator
@@ -6,6 +8,8 @@ from app.schemas.nutrition_response import (
     NutritionResponseDataSchema,
 )
 from app.services.nutrition_service import NutritionCalculator
+
+logger = logging.getLogger("iopha.backend")
 
 
 class NutritionController:
@@ -20,6 +24,7 @@ class NutritionController:
 
     def evaluate(self, profile_id: str) -> NutritionResponseDataSchema:
         """Resolve and normalize the nutrition response for *profile_id*."""
+        logger.info("nutrition.evaluate")
         return self._calculator.evaluate(profile_id)
 
 
