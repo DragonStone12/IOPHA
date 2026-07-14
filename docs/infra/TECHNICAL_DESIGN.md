@@ -797,8 +797,46 @@ The handler emits a structured `ProblemDetail` payload (`title`, `status`,
 `path`, and any non-sensitive identifiers from `log_context()` via the
 same `JsonTelemetryFormatter` pipeline as the request middleware.
 
+#### 3.10.5 Context-Tracing Flow
 
+The nutrition endpoint rides the **shared** request-tracing infrastructure
+rather than declaring its own middleware:
 
+1. `RequestTrackingMiddleware` (`app/middleware/tracking.py`)
+   reads the inbound `X-Request-ID` header (minting a UUID when
+   absent), binds it to the `request_id_ctx` `contextvars.ContextVar`,
+   and echoes it back on the response header. Every downstream log
+   line reads the same correlation id without parameter threading.
+2. `CentralizedLoggingMiddleware` (`app/utils/logging.py`) logs
+   `request.start` / `request.complete` with `requestId` sourced
+   live from `request_id_ctx` by `JsonTelemetryFormatter`.
+3. `NutritionController.evaluate` enriches the nutrition-specific
+   `nutrition.evaluate` log with `requestId` (via `get_request_id()`
+   from `app/utils/context.py`) and the non-sensitive `profileId`,
+   so the event correlates to the same request trace as the
+   middleware/exception records.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTrackingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as NutritionController
+    participant Svc as NutritionCalculator
+    participant H as GlobalExceptionHandler
+
+    C->>T: POST /api/nutrition/evaluate<br/>X-Request-ID: req-123
+    T->>T: req_id = header or uuid4()<br/>request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: evaluate(profileId)
+    Svc-->>Ctrl: NutritionResponseDataSchema | NutritionEvaluationEngineError
+    Ctrl->>L: log nutrition.evaluate (requestId from context)
+    L-->>T: response
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 200 / 500 (X-Request-ID echoed)
+```
 ### 4.1 Unit Tests
 
 - Framework: pytest
