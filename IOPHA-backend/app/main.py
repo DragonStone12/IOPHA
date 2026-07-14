@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.controllers.nutrition import router as nutrition_router
 from app.controllers.providers import router as providers_router
 from app.controllers.providers_search import router as providers_search_router
 from app.controllers.timeslots import router as timeslots_router
@@ -23,6 +24,7 @@ app.include_router(providers_router)
 app.include_router(providers_search_router)
 app.include_router(timeslots_router)
 app.include_router(tips_router)
+app.include_router(nutrition_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -54,6 +56,7 @@ def _build_openapi() -> dict[str, object]:
     from fastapi.openapi.utils import get_openapi
 
     from app.schemas.find_doctor import FindDoctorResponseDataSchema
+    from app.schemas.nutrition_response import NutritionResponseDataSchema
     from app.schemas.problem.problem_detail import ProblemDetail
 
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
@@ -70,6 +73,11 @@ def _build_openapi() -> dict[str, object]:
 
     components_schemas["FindDoctorResponseDataSchema"] = (
         FindDoctorResponseDataSchema.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+    )
+    components_schemas["NutritionResponseDataSchema"] = (
+        NutritionResponseDataSchema.model_json_schema(
             ref_template="#/components/schemas/{model}"
         )
     )
@@ -121,6 +129,22 @@ def _build_openapi() -> dict[str, object]:
                             "schema": {
                                 "$ref": (
                                     "#/components/schemas/FindDoctorResponseDataSchema"
+                                )
+                            }
+                        }
+                    },
+                }
+            if path_key == "/api/nutrition/evaluate" and "post" in path:
+                responses["200"] = {
+                    "description": (
+                        "Nutrition response with exactly 3 tips and an "
+                        "optional physician recommendation."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": (
+                                    "#/components/schemas/NutritionResponseDataSchema"
                                 )
                             }
                         }

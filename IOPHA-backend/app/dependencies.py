@@ -10,6 +10,10 @@ from app.repositories.tips_repository import (
     InMemoryTipsRepository,
     TipsRepository,
 )
+from app.services.nutrition_service import (
+    InMemoryNutritionCalculator,
+    NutritionCalculator,
+)
 from app.services.search_orchestrator import (
     InMemorySearchOrchestrator,
     SearchOrchestrator,
@@ -50,3 +54,12 @@ def get_search_orchestrator() -> SearchOrchestrator:
     injectable double without touching any live discovery backend.
     """
     return InMemorySearchOrchestrator()
+
+
+def get_nutrition_calculator() -> NutritionCalculator:
+    """FastAPI dependency factory yielding the active nutrition calculator.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fault-
+    injectable double without touching any live nutrition backend.
+    """
+    return InMemoryNutritionCalculator()

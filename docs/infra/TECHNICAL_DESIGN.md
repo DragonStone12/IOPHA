@@ -723,7 +723,81 @@ The handler emits a structured `ProblemDetail` payload (`title`, `status`,
 `X-Request-ID` correlation id is echoed on the response header and
 matches the logged `requestId`, preserving the audit trail.
 
-## 4. Testing Strategy
+### 3.10 Nutrition Response API
+
+The nutrition resource extends the core scheduling engine with a nutrition
+evaluation endpoint, the `NutritionResponseDataSchema` contract, a
+field validator enforcing an exact tip cardinality, and RFC-7807 error
+handling via the shared global exception pipeline.
+
+#### 3.10.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/nutrition.py` | HTTP surface for `POST /api/nutrition/evaluate`; validates the request body and returns `NutritionResponseDataSchema`. |
+| Service | `app/services/nutrition_service.py` | `NutritionCalculator` ABC + `InMemoryNutritionCalculator` no-backend stand-in. |
+| Schemas | `app/schemas/nutrition_response.py` | `NutritionResponseDataSchema` (frontend DTO) + `NutritionEvaluateRequest` (inbound). |
+| Dependencies | `app/dependencies.py` | `get_nutrition_calculator` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/tracking.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware`. |
+| Exceptions | `app/exceptions/nutrition_exceptions.py` | `NutritionEvaluationEngineError` mapped to HTTP 500. |
+| Error Handlers | `app/utils/handlers.py` | RFC-7807 problem detail via `register_exception_handlers`. |
+
+#### 3.10.2 NutritionResponseDataSchema
+
+The external contract returned by the nutrition API (`NutritionResponseDataSchema`):
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `introText` | `str` | `max_length=2000` | Introductory clinical overview for the nutrition response. |
+| `tips` | `list[TipSchema]` | **exactly 3 entries** | Ordered behavioral dietary tip cards. |
+| `physician` | `PhysicianSchema \| None` | optional | Optional physician recommendation. |
+| `followUpChips` | `list[str]` | required | Actionable workflow chips. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+**Cardinality validator** (`_validate_exact_tip_count`):
+
+```python
+@field_validator("tips")
+@classmethod
+def _validate_exact_tip_count(cls, value: list[TipSchema]) -> list[TipSchema]:
+    if len(value) != 3:
+        raise ValueError("Tips collection must contain exactly 3 entries")
+    return value
+```
+
+The validator enforces the **exact-tip-count** contract: the response
+carries precisely three `TipSchema` cards. A payload arriving with two or
+four tips fails validation and is rejected with the RFC-7807
+`unprocessable-entity-error` problem (422) before any serialization.
+
+#### 3.10.3 Route Contract
+
+- `POST /api/nutrition/evaluate` → `NutritionResponseDataSchema` (200) or RFC-7807 problem (422 validation error, 500 `NutritionEvaluationEngineError`).
+- The controller resolves a `NutritionController` per request via the
+  `get_nutrition_controller` factory, which wires
+  `get_nutrition_calculator` → `NutritionCalculator` → `NutritionController`.
+
+#### 3.10.4 Exception Hierarchy & Handling Flow
+
+`NutritionEvaluationEngineError` inherits directly from `IOPHADomainError`
+(the same base as the scheduling/time-slot/tips exceptions) and is
+registered in `DOMAIN_EXCEPTIONS`, so the single global handler in
+`app/utils/handlers.py` (`register_exception_handlers`) intercepts it
+automatically — no resource-specific registration is required.
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `NutritionEvaluationEngineError` | 500 | `nutrition.evaluation_engine_error` | `nutrition-evaluation-error` |
+
+The handler emits a structured `ProblemDetail` payload (`title`, `status`,
+`detail`, `instance`, `help_url`, `requestId`) and logs `requestId`,
+`path`, and any non-sensitive identifiers from `log_context()` via the
+same `JsonTelemetryFormatter` pipeline as the request middleware.
+
+
 
 ### 4.1 Unit Tests
 
@@ -894,12 +968,47 @@ The `/metrics` endpoint exposes internal application state, endpoint names, requ
 | Path grouping          | `should_group_status_codes=True` and `should_ignore_untemplated=True` reduce metric cardinality |
 
 **Risks of exposure**:
-
 - Endpoint enumeration: Attackers can discover internal API routes and naming conventions
 - Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
 - Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
 
-## 6. Decision Points (Pending)
+### 5.3 Versioning Strategy
+
+IOPHA does **not** use the URI for API versioning. No route carries
+a `/v1/`, `/v2/`, etc. segment (e.g. the nutrition endpoint is
+`/api/nutrition/evaluate`, not `/api/v1/nutrition/evaluate`). URI
+versioning would have forced every partner integration to rewrite
+their request URLs on each breaking change, so we version through
+request **headers** instead.
+
+**Header-Based Routing via CloudFront + Lambda@Edge**:
+
+Instead of URI versioning (`/v1/patients`, `/v2/patients`), clients
+declare the desired contract version through the `Accept` header:
+
+```http
+Accept: application/vnd.healthapi.v1+json   # Legacy clients
+Accept: application/vnd.healthapi.v2+json   # New clients
+```
+
+A `Lambda@Edge` function intercepts each request at the CloudFront
+edge. It reads the `Accept` header, looks up the target API Gateway
+stage (`v1` or `v2`) in a DynamoDB mapping table, and rewrites
+the `Origin` and `Host` headers accordingly. CloudFront then forwards
+the request to the correct backend without the client being aware of
+which stage served it.
+
+**Backend isolation**:
+
+- `v1` stage: original Lambda function, original DynamoDB query, original
+  response shape.
+- `v2` stage: new Lambda function, transformed response, consent
+  validation.
+
+This keeps the public URI stable while allowing independent
+evolution of each API version behind the edge.
+
+
 
 | Component     | Options                           | Criteria                              |
 | ------------- | --------------------------------- | ------------------------------------- |
