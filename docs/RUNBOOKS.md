@@ -27,6 +27,7 @@ hyphens, and strips punctuation).
 | Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
 | Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
+| Nutrition Evaluation Error | 500 | [nutrition-evaluation-error](#nutrition-evaluation-error) |
 | Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
@@ -310,6 +311,26 @@ does not conform to the expected `YYYY-MM-DD-h:MM AM/PM` format.
 2. Correct the slot id to match the `TimeSlotSchema.id` pattern before retrying.
 3. Ensure client-side formatting uses the same 12-hour civil time pattern
    (`0[1-9]|1[0-2]:[0-5][0-9] (AM|PM)`) as the backend validator.
+
+## Nutrition Evaluation Error
+
+**What happened:** The nutrition evaluation engine failed to produce a
+structured `NutritionResponseDataSchema` for the requested profile, so
+the endpoint returned 500 instead of a populated response.
+
+**Common causes:**
+- The profile payload was corrupted or failed downstream validation.
+- The evaluation engine dependency raised during processing.
+- A fault-injected test double raised to exercise the error path.
+
+**Mitigation:**
+1. Inspect the structured server logs for the `requestId` and the
+   `nutrition.evaluation_engine_error` event to identify the offending
+   `profileId`.
+2. Check the health of the nutrition evaluation dependency and retry
+   with a narrower or corrected profile if possible.
+3. If the engine is degraded, surface the clear 500 message to the
+   client and suggest retrying later.
 
 ## Search Aggregator Timeout
 

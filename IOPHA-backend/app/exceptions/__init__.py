@@ -8,6 +8,7 @@ from app.exceptions.domain_errors import (
     InvalidViewTransitionError,
     IOPHADomainError,
     NotificationGatewayTimeoutError,
+    NutritionEvaluationEngineError,
     OutOfOrderMessageDeliveryError,
     OverlappingModifierConflictError,
     ProviderNotFoundException,
@@ -48,4 +49,5 @@ __all__ = [
     "UnreadNotificationInconsistencyError",
     "UpstreamWebhookFailureError",
     "WebSocketConnectionDropError",
+    "NutritionEvaluationEngineError",
 ]

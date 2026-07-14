@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.exceptions import NutritionEvaluationEngineError
 from app.schemas.nutrition_response import NutritionResponseDataSchema
 
 _NUTRITION_SAMPLE: dict = {
@@ -34,4 +35,6 @@ class InMemoryNutritionCalculator(NutritionCalculator):
     """No-backend stand-in that returns a deterministic sample payload."""
 
     def evaluate(self, profile_id: str) -> NutritionResponseDataSchema:
+        if profile_id == "corrupt-profile":
+            raise NutritionEvaluationEngineError(profile_id)
         return NutritionResponseDataSchema.model_validate(_NUTRITION_SAMPLE)
