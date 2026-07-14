@@ -490,6 +490,29 @@ class TipNotFoundException(IOPHADomainError):  # noqa: N818
         return {"tipId": self.tip_id}
 
 
+class NutritionEvaluationEngineError(IOPHADomainError):  # noqa: N818
+    """The nutrition evaluation engine failed to produce a response."""
+
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    link = "nutrition-evaluation-error"
+    title = "Nutritional Evaluation Processing Failure"
+    log_level = logging.ERROR
+    log_event = "nutrition.evaluation_engine_error"
+
+    def __init__(self, profile_id: str) -> None:
+        super().__init__()
+        self.profile_id = profile_id
+
+    def safe_detail(self) -> str:
+        return (
+            "The nutrition evaluation engine could not process the "
+            "request. It will be retried automatically."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"profileId": self.profile_id}
+
+
 # Ordered registry of every known domain exception. Registered as a global
 # FastAPI exception handler (see app/handlers.register_exception_handlers)
 # and documented in docs/infra/TECHNICAL_DESIGN.md.
@@ -510,4 +533,5 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     SearchAggregatorTimeoutError,
     ProviderNotFoundException,
     TipNotFoundException,
+    NutritionEvaluationEngineError,
 )
