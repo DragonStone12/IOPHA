@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.providers import router as providers_router
+from app.controllers.providers_search import router as providers_search_router
 from app.controllers.timeslots import router as timeslots_router
 from app.controllers.tips import router as tips_router
 from app.core.logging_config import configure_structured_logging
@@ -19,6 +20,7 @@ logger = configure_structured_logging()
 app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
 app.add_middleware(RequestTrackingMiddleware)
 app.include_router(providers_router)
+app.include_router(providers_search_router)
 app.include_router(timeslots_router)
 app.include_router(tips_router)
 
@@ -51,6 +53,7 @@ def _build_openapi() -> dict[str, object]:
         return app.openapi_schema  # type: ignore[return-value]
     from fastapi.openapi.utils import get_openapi
 
+    from app.schemas.find_doctor import FindDoctorResponseDataSchema
     from app.schemas.problem.problem_detail import ProblemDetail
 
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
@@ -64,6 +67,12 @@ def _build_openapi() -> dict[str, object]:
     components_schemas.update(definitions)
     components_schemas.pop("HTTPValidationError", None)
     components_schemas.pop("ValidationError", None)
+
+    components_schemas["FindDoctorResponseDataSchema"] = (
+        FindDoctorResponseDataSchema.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+    )
 
     for path_key, path in schema.get("paths", {}).items():
         for operation in path.values():
@@ -99,6 +108,21 @@ def _build_openapi() -> dict[str, object]:
                     "content": {
                         "application/json": {
                             "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                        }
+                    },
+                }
+            if path_key == "/api/providers/search" and "post" in path:
+                responses["200"] = {
+                    "description": (
+                        "Discovery result with providers and follow-up actions."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": (
+                                    "#/components/schemas/FindDoctorResponseDataSchema"
+                                )
+                            }
                         }
                     },
                 }

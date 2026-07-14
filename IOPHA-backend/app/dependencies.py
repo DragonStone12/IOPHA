@@ -10,6 +10,10 @@ from app.repositories.tips_repository import (
     InMemoryTipsRepository,
     TipsRepository,
 )
+from app.services.search_orchestrator import (
+    InMemorySearchOrchestrator,
+    SearchOrchestrator,
+)
 
 
 def get_provider_repository() -> ProviderRepository:
@@ -37,3 +41,12 @@ def get_tips_repository() -> TipsRepository:
     (or fault-injectable) double without touching any live datastore.
     """
     return InMemoryTipsRepository()
+
+
+def get_search_orchestrator() -> SearchOrchestrator:
+    """FastAPI dependency factory yielding the active search orchestrator.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fault-
+    injectable double without touching any live discovery backend.
+    """
+    return InMemorySearchOrchestrator()

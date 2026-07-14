@@ -7,92 +7,48 @@
 | 1   | [Technology Stack](#1-technology-stack)                       | Frontend, backend, database, and testing technologies  |
 | 2   | [Frontend Implementation](#2-frontend-implementation-details) | Styling, logging, state management, performance        |
 | 3   | [Backend Implementation](#3-backend-implementation-details)   | Database schema, PII/PHI sanitization, logging, RAG pipeline, global exception handling |
+| 3.1 | [Data Access & Persistence](#31-data-access--persistence)     | Repository pattern, in-memory stand-ins, planned SQLAlchemy backend |
+| 3.2 | [Provider Discovery API](#32-provider-discovery-api)         | FindDoctorResponseDataSchema, search orchestration, follow-up actions |
+| 3.3 | [PII/PHI Sanitization Architecture](#33-piiphi-sanitization-architecture) | Defense-in-depth sanitization across HTTP, logging, and DTO layers |
+| 3.4 | [Structured JSON Logging & Auditing](#34-structured-json-logging--auditing) | JSON log format, middleware order, context tracing |
+| 3.5 | [RAG Pipeline Logic](#35-rag-pipeline-logic) | Chunking, embeddings, retrieval flow |
+| 3.6 | [Global Exception Handling & Runbook Mappings](#36-global-exception-handling--runbook-mappings) | RFC-7807 problem detail, runbook deep-links, exception registry |
+| 3.7 | [Provider / Physician Scheduling Core API](#37-provider--physician-scheduling-core-api) | Provider lookup, PhysicianSchema, data conversion |
+| 3.8 | [Time Slot Availability API](#38-time-slot-availability-api) | TimeSlotSchema, reservation flow, slot validation |
+| 3.9 | [Dynamic Booking Tips & Advice API](#39-dynamic-booking-tips--advice-api) | TipSchema, tips lookup, error handling |
 | 4   | [Testing Strategy](#4-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
 | 5   | [CI/CD & Deployment](#5-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
 | 6   | [Decision Points](#6-decision-points-pending)                 | Pending architectural decisions                        |
 
 ## 1. Technology Stack
 
-| Layer              | Technology                        | Version | Status      |
-| ------------------ | --------------------------------- | ------- | ----------- |
-| Frontend Framework | React                             | 18      | In use      |
-| Language           | TypeScript                        | 5       | In use      |
-| Build Tool         | Vite                              | 8       | In use      |
-| Styling            | Tailwind CSS                      | v4      | In use      |
-| Component Library  | shadcn/ui + Radix UI              | Confirmed | In use    |
-| Backend Framework  | FastAPI                           | 0.139   | In use      |
-| ASGI Server        | Uvicorn                           | 0.51    | In use      |
-| Language           | Python                            | 3.11    | In use      |
-| Validation         | Pydantic (v2)                     | 2.13    | In use      |
-| Metrics            | prometheus-fastapi-instrumentator | 8.0     | In use      |
-| HTTP Client (test) | httpx                             | 0.28    | In use      |
-| ORM                | SQLAlchemy                        | Latest  | Pending     |
-| Database           | PostgreSQL + pgvector             | 15      | Pending\*   |
-| Testing (Backend)  | pytest                            | 9.1     | In use      |
-| Async Tests        | pytest-asyncio                    | 1.4     | In use      |
-| Coverage           | pytest-cov                        | 7.1     | In use      |
-| Linting            | Ruff                              | 0.15    | In use      |
-| Type Checking      | Mypy (strict)                     | 2.2     | In use      |
-| SAST               | Bandit                            | 1.9     | In use      |
-| Testing (E2E)      | Cypress                           | Latest  | In use      |
-| Load Testing       | Locust                            | Latest  | Planned     |
+| Layer      | Technology                        | Version | Status      |
+| ---------- | --------------------------------- | ------- | ----------- |
+| Frontend   | React                             | 18      | In use      |
+| Frontend   | TypeScript                        | 5       | In use      |
+| Frontend   | Vite                              | 8       | In use      |
+| Frontend   | Tailwind CSS                      | v4      | In use      |
+| Frontend   | Cypress                           | Latest  | In use      |
+| Backend    | FastAPI                           | 0.139   | In use      |
+| Backend    | Uvicorn                           | 0.51    | In use      |
+| Backend    | Python                            | 3.11    | In use      |
+| Backend    | Pydantic (v2)                     | 2.13    | In use      |
+| Backend    | prometheus-fastapi-instrumentator | 8.0     | In use      |
+| Backend    | httpx                             | 0.28    | In use      |
+| Backend    | SQLAlchemy                        | Latest  | Pending     |
+| Backend    | pytest                            | 9.1     | In use      |
+| Backend    | pytest-asyncio                    | 1.4     | In use      |
+| Backend    | pytest-cov                        | 7.1     | In use      |
+| Backend    | Ruff                              | 0.15    | In use      |
+| Backend    | Mypy (strict)                     | 2.2     | In use      |
+| Backend    | Bandit                            | 1.9     | In use      |
+| Datasource | PostgreSQL + pgvector             | 15      | Pending\*   |
 
 \*Pending: persistence is abstracted behind the `ProviderRepository`
 interface; the default `InMemoryProviderRepository` ships today and no
 relational datastore is wired. A SQLAlchemy + PostgreSQL + pgvector backend
 will replace the in-memory default behind the same interface (see §3.1).
 
-```
-/IOPHA
-├── /IOPHA-frontend
-│   ├── /src
-│   │   ├── /components        # React components (each in own directory)
-│   │   │   ├── /LandingPage/
-│   │   │   ├── /RiskProfileSidebar/
-│   │   │   ├── /ChatArea/
-│   │   │   └── /ui/           # shadcn/ui primitives (copied from IOPHA Resources)
-│   │   ├── /hooks             # Custom hooks (useLogRenders, usePerformanceTracking)
-│   │   ├── /utils
-│   │   │   ├── logger.ts      # Custom Logger class
-│   │   │   └── performance.js # Performance monitoring utilities
-│   │   ├── /services          # API client wrappers
-│   │   ├── /types             # TypeScript interfaces
-│   │   └── App.tsx
-│   ├── cypress.config.ts
-│   └── package.json
-├── /IOPHA-backend
-│   ├── /app
-│   │   ├── main.py                # FastAPI entry point — wiring only
-│   │   ├── dependencies.py        # FastAPI dependency factories
-│   │   ├── /controllers           # HTTP route controllers (one per resource)
-│   │   │   └── providers.py       # GET /api/providers/{provider_id}
-│   │   ├── /services              # Business logic / orchestration
-│   │   │   └── provider_service.py
-│   │   ├── /repositories          # Persistence abstractions (ABC + in-memory)
-│   │   │   └── provider_repository.py
-│   │   ├── /schemas               # Pydantic contracts + internal relational shapes
-│   │   │   ├── /physician/        # PhysicianSchema (frontend DTO)
-│   │   │   └── /provider/         # ProviderRecord, mappers
-│   │   ├── /middleware            # ASGI interceptors (request tracing)
-│   │   │   └── request_tracing.py
-│   │   ├── /exceptions            # Domain exceptions + registry
-│   │   │   └── domain_errors.py
-│   │   └── /utils                 # Cross-cutting utilities
-│   │       ├── context.py         # contextvars request-id correlation
-│   │       ├── handlers.py        # Global RFC-7807 exception handlers
-│   │       └── logging.py         # JsonTelemetryFormatter + logging middleware
-│   ├── /tests                     # pytest suites (isolated via dependency_overrides)
-│   │   ├── /helpers               # dependency_overrides utilities
-│   │   ├── conftest.py
-│   │   ├── test_providers.py
-│   │   ├── test_request_tracing.py
-│   │   ├── test_exception_handlers.py
-│   │   └── test_structured_logging.py
-│   ├── pyproject.toml             # ruff / mypy / bandit / pytest / coverage config
-│   └── requirements.txt
-├── /docs                          # Architecture & security documentation
-└── /infra                        # Terraform/CDK configurations
-```
 ## 2. Frontend Implementation Details
 
 ### 2.1 Styling with Tailwind CSS
@@ -103,8 +59,6 @@ The frontend uses Tailwind CSS v4 with the IOPHA brand theme (copied from IOPHA 
 - Accent color: `#D95B3B` (orange)
 - Background: `#F3F1EC` (warm off-white)
 - All component styling uses Tailwind utility classes via the `cn()` helper (clsx + tailwind-merge)
-
-UI components are sourced from IOPHA Resources (shadcn/ui primitives) and copied into `src/components/ui/`. Components use Radix UI primitives under the hood (`@radix-ui/react-*` packages).
 
 ### 2.2 Logging & Observability
 
@@ -147,7 +101,7 @@ Environment behavior:
 Strategy:
 
 - Server state: React Query (TanStack Query) or SWR for caching, background updates
-- Client state: React Context or Zustand for UI state
+- Client state: React Context
 
 ### 2.4 Performance Monitoring
 
@@ -198,9 +152,114 @@ SQLAlchemy backend described in §1):
 | ingestion_jobs | Document processing status              |
 
 - Indexes: GIN indexes for full-text search on text columns; IVFFlat/HNSW index for vector similarity search on embeddings.
-- `PGVECTOR_DIMENSION` default: 1536 (text-embedding-3-small).
+- `PGVECTOR_DIMENSION` default: 1536 (AWS Bedrock Titan embedding model).
 
-### 3.2 PII/PHI Sanitization Architecture
+### 3.2 Provider Discovery API
+
+The provider discovery pipeline exposes a natural-language search endpoint that
+returns a compound response: a human-readable `summaryText`, a list of matching
+`ProviderSchema` records, and a list of `FollowUpActionSchema` chips for
+client-side funnel routing.
+
+**Layered Architecture:**
+
+| Layer | Module | Responsibility |
+|---|---|---|
+| Controller | `app/controllers/providers_search.py` | HTTP surface for `POST /api/providers/search`; validates request, delegates to orchestrator, returns `FindDoctorResponseDataSchema`. |
+| Service | `app/services/search_orchestrator.py` | `SearchOrchestrator` ABC + `InMemorySearchOrchestrator` no-backend stand-in. Tests override via `app.dependency_overrides`. |
+| Schemas | `app/schemas/find_doctor.py`, `app/schemas/workflows/follow_up_action.py` | `FindDoctorResponseDataSchema`, `ProviderSearchRequest`, `FollowUpActionSchema`. |
+| Dependencies | `app/dependencies.py` | `get_search_orchestrator` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| Exceptions | `app/exceptions/domain_errors.py` | `SearchAggregatorTimeoutError` mapped to HTTP 504. |
+
+**FindDoctorResponseDataSchema:**
+
+| Field | Type | Validation | Description |
+|---|---|---|---|
+| `summaryText` | `str` | `max_length=2000` | Natural language system summary matching the search query result. |
+| `providers` | `list[ProviderSchema]` | required | Collection of matching verified healthcare provider entities. |
+| `followUpActions` | `list[FollowUpActionSchema]` | required | Action chips coordinating target client funnel redirects. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+**FollowUpActionSchema:**
+
+| Field | Type | Validation | Description |
+|---|---|---|---|
+| `label` | `str` | `max_length=200` | Action chip display text rendered on the client. |
+| `actionType` | `str` | `max_length=100` | Enumeration target routing directive for client funnel. |
+| `providerId` | `str` | `max_length=100` | Target provider system key binding for action routing. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")`.
+
+**ProviderSearchRequest:**
+
+| Field | Type | Validation | Description |
+|---|---|---|---|
+| `queryText` | `str` | `min_length=1`, `max_length=500` | Natural language search query string. |
+
+**Route Contract:**
+
+- `POST /api/providers/search` → `FindDoctorResponseDataSchema` (200) or
+  RFC-7807 problem (504 `SearchAggregatorTimeoutError`, 422 validation error).
+
+The controller resolves a `SearchController` per request via the
+`get_search_controller` factory, which wires
+`get_search_orchestrator` → `SearchOrchestrator` → `SearchController`.
+
+**Mock Object Mapping Pattern:**
+
+Tests inject a `MockSearchOrchestrator` via `app.dependency_overrides`. The
+mock implements the same `SearchOrchestrator` ABC so the controller remains
+oblivious to the test double. The mock supports a `timeout_query` parameter
+that raises `SearchAggregatorTimeoutError` for fault-injection tests, and
+returns a deterministic `FindDoctorResponseDataSchema` payload for happy-path
+tests. The shared mock lives in `tests/integration/_search_test_utils.py` to
+avoid duplication across test modules.
+
+**Data Conversion Pathway:**
+
+`MockSearchOrchestrator.execute_query()` returns a plain `dict` that FastAPI
+serializes through the `FindDoctorResponseDataSchema` response model. No
+internal structural identifiers are emitted because the mock payload contains
+only frontend-safe fields.
+
+**Error Handling Flow:**
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTrackingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as SearchController
+    participant Svc as SearchOrchestrator
+    participant H as GlobalExceptionHandler
+
+    C->>T: POST /api/providers/search (X-Request-ID?)
+    T->>T: req_id = header or uuid4()<br/>request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: execute_query(queryText)
+    Svc-->>H: SearchAggregatorTimeoutError
+    H->>H: log ERROR with requestId + queryString
+    H-->>T: RFC-7807 504
+    T->>T: response.headers['X-Request-ID'] = req_id
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 504 (X-Request-ID echoed)
+```
+
+**Testing Strategy:**
+
+- **Happy path**: `MockSearchOrchestrator` returns a fixed `FindDoctorResponseDataSchema`; assertions verify status 200, schema keys, and nested `ProviderSchema`/`FollowUpActionSchema` fields.
+- **Validation**: Missing `queryText` returns 422 with `ProblemDetail`.
+- **Context propagation**: `X-Request-ID` is echoed on success and error responses.
+- **Leak prevention**: Response bodies are scanned for `Traceback`, `Exception(`, `0x`, `password`, `secret`, `Bearer `, `postgresql`.
+- **Dependency isolation**: `app.dependency_overrides` is explicitly cleared in test teardown to prevent stub leakage.
+
+### 3.3 PII/PHI Sanitization Architecture
 
 A defense-in-depth sanitization strategy is implemented across three layers to prevent accidental PHI exposure in logs, metrics, and API responses.
 
@@ -228,7 +287,7 @@ A defense-in-depth sanitization strategy is implemented across three layers to p
 **Rationale for DTO Separation**:
 Applying `@field_serializer` to internal domain models would mask data needed for database writes and internal business logic. By separating internal models from external DTOs, we ensure serializers only apply at the API boundary.
 
-### 3.3 Structured JSON Logging & Auditing
+### 3.4 Structured JSON Logging & Auditing
 
 The backend emits structured JSON logs for every HTTP transaction, enabling direct ingestion by CloudWatch and Elasticsearch without custom parsers.
 
@@ -288,24 +347,24 @@ sequenceDiagram
     participant Svc as ProviderService
     participant Repo as ProviderRepository
 
-    C->>T: GET /api/providers/{id} (X-Request-ID?)
-    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
-    T->>L: call_next(request)
-    L->>L: log request.start (requestId from context)
+    C->>T: GET /api/providers/{id} X-Request-ID optional
+    T->>T: req_id = header or uuid4 and set request_id_ctx
+    T->>L: call_next request
+    L->>L: log request.start with requestId from context
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: get_physician(id)
-    Svc->>Repo: find_by_id(id)
-    Repo-->>Svc: ProviderRecord | None
-    Svc-->>Ctrl: PhysicianSchema | ProviderNotFoundException
+    Ctrl->>Svc: get_physician id
+    Svc->>Repo: find_by_id id
+    Repo-->>Svc: ProviderRecord or None
+    Svc-->>Ctrl: PhysicianSchema or ProviderNotFoundException
     Ctrl-->>L: response
-    L->>L: log request.complete (requestId from context)
+    L->>L: log request.complete with requestId from context
     L-->>T: response
-    T->>T: response.headers["X-Request-ID"] = req_id
-    T->>T: request_id_ctx.reset(token)
-    T-->>C: 200 / 404 (X-Request-ID echoed)
+    T->>T: echo X-Request-ID response header
+    T->>T: request_id_ctx reset token
+    T-->>C: 200 or 404 with X-Request-ID echoed
 ```
 
-### 3.4 RAG Pipeline Logic
+### 3.5 RAG Pipeline Logic
 
 **Chunking Strategy**:
 
@@ -314,7 +373,7 @@ sequenceDiagram
 
 **Embedding Model**:
 
-- `text-embedding-3-small` (OpenAI) or equivalent
+- Amazon Titan Embeddings (`amazon.titan-embed-text-v2:0`) via AWS Bedrock
 
 **Retrieval Flow**:
 
@@ -323,7 +382,7 @@ sequenceDiagram
 3. Top-K results retrieved
 4. Fallback to full-text search if vector search fails
 
-### 3.5 Global Exception Handling & Runbook Mappings
+### 3.6 Global Exception Handling & Runbook Mappings
 
 The backend installs application-wide FastAPI exception handlers
 (`app/utils/handlers.register_exception_handlers`) that intercept domain-specific
@@ -386,13 +445,13 @@ gracefully when `X-Request-ID` or `user-agent` headers are missing
 error payloads are scrubbed of credentials and sensitive trace data before
 client delivery; raw stack traces exist only in server logs.
 
-## 3.6 Provider / Physician Scheduling Core API
+## 3.7 Provider / Physician Scheduling Core API
 
 The scheduling resource pipeline establishes the core FastAPI routing engine,
 Pydantic contracts, and isolated test scaffolding for the physician/provider
 directory modules.
 
-### 3.6.1 Layered Architecture
+### 3.7.1 Layered Architecture
 
 | Layer | Module | Responsibility |
 |---|---|---|
@@ -404,14 +463,14 @@ directory modules.
 | Tracing | `app/middleware/request_tracing.py`, `app/utils/context.py` | `X-Request-ID` correlation via `contextvars`. |
 | Logging | `app/utils/logging.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware`. |
 
-### 3.6.2 Route Contract
+### 3.7.2 Route Contract
 
 - `GET /api/providers/{provider_id}` → `PhysicianSchema` (200) or RFC-7807 problem (404).
 - The controller resolves a `ProviderController` per request via the
   `get_provider_controller` factory, which wires `get_provider_repository` →
   `ProviderService` → `ProviderController`.
 
-### 3.6.3 Data Conversion Pathway (Relational → Frontend)
+### 3.7.3 Data Conversion Pathway (Relational → Frontend)
 
 Internal datastore rows arrive as `ProviderRecord` (a `@dataclass` carrying the
 relational shape, including the `db_primary_key` structural identifier used only
@@ -429,7 +488,7 @@ flowchart LR
     DTO -->|response_model| API[GET /api/providers/:id]
 ```
 
-### 3.6.4 Transaction Schema Rules
+### 3.7.4 Transaction Schema Rules
 
 - Frontend DTOs use camelCase field names dictated by the API contract
   (`reviewCount`, `nextAvailable`, `imageUrl`); these are intentional and
@@ -438,14 +497,14 @@ flowchart LR
 - Structural identifiers and credentials are never placed in the response body
   or in `extra_context` log payloads.
 
-## 3.7 Time Slot Availability API
+## 3.8 Time Slot Availability API
 
 The time-slot resource pipeline extends the core scheduling engine with a
 provider-availability endpoint, Pydantic slot contracts, request-tracing
 middleware, structured JSON logging, PHI scrubbing, and RFC-7807 error
 handling.
 
-### 3.7.1 Layered Architecture
+### 3.8.1 Layered Architecture
 
 | Layer | Module | Responsibility |
 |---|---|---|
@@ -460,7 +519,7 @@ handling.
 | Exceptions | `app/exceptions/timeslot_exceptions.py` | Domain exceptions mapped to HTTP status codes. |
 | Error Handlers | `app/api/error_handlers.py` | RFC-7807 problem detail responses with runbook deep-links. |
 
-### 3.7.2 TimeSlotSchema
+### 3.8.2 TimeSlotSchema
 
 The external contract returned by the availability API (`TimeSlotSchema`):
 
@@ -479,7 +538,7 @@ Validation helpers:
 - `TimeSlotSchema.is_valid_time(value) -> bool` — validates civil time pattern.
 - `TimeSlotSchema.is_valid_slot_id(value) -> bool` — validates composite slot-id pattern.
 
-### 3.7.3 Route Contract
+### 3.8.3 Route Contract
 
 - `GET /api/providers/{provider_id}/slots` → `list[TimeSlotSchema]` (200) or
   RFC-7807 problem (404 `ProviderNotFoundException`).
@@ -491,7 +550,7 @@ The controller resolves a `TimeSlotController` per request via the
 `get_timeslot_controller` factory, which wires
 `get_calendar_repository` → `TimeSlotService` → `TimeSlotController`.
 
-### 3.7.4 Data Conversion Pathway
+### 3.8.4 Data Conversion Pathway
 
 `TimeSlotRecord` (internal repository shape with `id`, `time`, `label`,
 `available`) is projected into `TimeSlotSchema` inside
@@ -508,7 +567,7 @@ flowchart LR
     DTO -->|response_model| API[GET /slots]
 ```
 
-### 3.7.5 Middleware & Logging Stack
+### 3.8.5 Middleware & Logging Stack
 
 The availability API runs inside the same middleware stack as the directory
 API, with the ticket-named `RequestTrackingMiddleware` subclass registered
@@ -531,7 +590,7 @@ under the availability resource.
 1. `JsonTelemetryFormatter` / `JSONLogFormatter` — serializes logs as compact
    JSON, scrubbing PHI via `PHIScrubber`.
 
-### 3.7.6 Exception Hierarchy & Handling Flow
+### 3.8.6 Exception Hierarchy & Handling Flow
 
 All availability exceptions inherit from `AppBaseException`, which itself
 inherits from `IOPHADomainError`. The base class provides `status_code = 500`,
@@ -553,7 +612,7 @@ The global catch-all handler (`Exception`) returns 500 with a generic detail
 and `help_url` link `internal-server-error`; raw traces are captured
 server-side only via `exc_info=True` and never exposed to the client.
 
-### 3.7.7 Request Tracking Lifecycle
+### 3.8.7 Request Tracking Lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -564,21 +623,21 @@ sequenceDiagram
     participant Svc as TimeSlotService
     participant Repo as CalendarRepository
 
-    C->>T: GET /api/providers/{id}/slots (X-Request-ID?)
-    T->>T: req_id = header or uuid4(); request_id_ctx.set(req_id)
-    T->>L: call_next(request)
-    L->>L: log request.start (requestId from context)
+    C->>T: GET /api/providers/{id}/slots X-Request-ID optional
+    T->>T: req_id = header or uuid4 and set request_id_ctx
+    T->>L: call_next request
+    L->>L: log request.start with requestId from context
     L->>Ctrl: dispatch endpoint
-    Ctrl->>Svc: get_slots(provider_id)
-    Svc->>Repo: get_provider / get_slots
-    Repo-->>Svc: TimeSlotRecord[]
-    Svc-->>Ctrl: list[TimeSlotSchema]
+    Ctrl->>Svc: get_slots provider_id
+    Svc->>Repo: get_provider then get_slots
+    Repo-->>Svc: TimeSlotRecord list
+    Svc-->>Ctrl: list of TimeSlotSchema
     Ctrl-->>L: response
-    L->>L: log request.complete (requestId from context)
+    L->>L: log request.complete with requestId from context
     L-->>T: response
-    T->>T: response.headers["X-Request-ID"] = req_id
-    T->>T: request_id_ctx.reset(token)
-    T-->>C: 200 (X-Request-ID echoed)
+    T->>T: echo X-Request-ID response header
+    T->>T: request_id_ctx reset token
+    T-->>C: 200 with X-Request-ID echoed
 ```
 
 On fault:
@@ -601,12 +660,12 @@ sequenceDiagram
     T-->>C: 409 (X-Request-ID echoed)
 ```
 
-## 3.8 Dynamic Booking Tips & Advice API
+## 3.9 Dynamic Booking Tips & Advice API
 
 The tips resource extends the core scheduling engine with a booking-advice
 tips endpoint, ``TipSchema`` contract, and RFC-7807 error handling.
 
-### 3.8.1 Layered Architecture
+### 3.9.1 Layered Architecture
 
 | Layer | Module | Responsibility |
 |---|---|---|
@@ -620,7 +679,7 @@ tips endpoint, ``TipSchema`` contract, and RFC-7807 error handling.
 | Exceptions | `app/exceptions/domain_errors.py` | `TipNotFoundException` mapped to HTTP 404. |
 | Error Handlers | `app/utils/handlers.py` | RFC-7807 problem detail via `register_exception_handlers`. |
 
-### 3.8.2 TipSchema
+### 3.9.2 TipSchema
 
 The external contract returned by the tips API (`TipSchema`):
 
@@ -634,7 +693,7 @@ The external contract returned by the tips API (`TipSchema`):
 Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
 fields can cross the API boundary.
 
-### 3.8.3 Route Contract
+### 3.9.3 Route Contract
 
 - `GET /api/tips` → `list[TipSchema]` (200) or RFC-7807 problem
   (422 on invalid `limit`).
@@ -645,7 +704,7 @@ The controller resolves a `TipsController` per request via the
 `get_tips_controller` factory, which wires `get_tips_repository` →
 `TipsService` → `TipsController`.
 
-### 3.8.4 Exception Hierarchy & Handling Flow
+### 3.9.4 Exception Hierarchy & Handling Flow
 
 `TipNotFoundException` inherits directly from `IOPHADomainError` (the same
 base as the scheduling/time-slot exceptions) and is registered in
@@ -692,12 +751,7 @@ matches the logged `requestId`, preserving the audit trail.
 - Artifacts: `cypress-visual-screenshots/`, `cypress-visual-report/`
 - Auto-excluded via `.gitignore`
 
-### 4.5 Performance Tests
-
-- Tool: Locust
-- Target: 100 concurrent users, <2s p95 latency
-
-### 4.6 Testing Infrastructure
+### 4.5 Testing Infrastructure
 
 **Test Dependencies**:
 - **pytest**: Test runner with plugin ecosystem
@@ -746,7 +800,7 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 - Target coverage: 80%
 - Coverage scope: `--cov=app` (application package)
 
-### 4.7 Code Quality & Linting
+### 4.6 Code Quality & Linting
 
 **Backend Linting & Type Checking**:
 

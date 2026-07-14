@@ -61,7 +61,7 @@ graph TD
 | Compute       | ECS Fargate or Lambda        | Decision Pending | Criteria: Cold start tolerance, cost, scaling needs |
 | Storage       | S3                           | Confirmed        | For guideline document storage                      |
 | Database      | RDS PostgreSQL + pgvector    | Decision Pending | Alternative: Neon, Supabase                         |
-| AI/ML         | Amazon Bedrock or OpenAI API | Decision Pending | Alternative: Azure OpenAI, self-hosted model        |
+| AI/ML         | Amazon Bedrock               | Confirmed        | AWS-native embeddings/inference                     |
 | Orchestration | EventBridge → Lambda         | Confirmed        | For Textract processing triggers                    |
 
 ## 5. Data Flow Overview
