@@ -72,7 +72,7 @@ class TestTimeSlotUnavailableException:
         assert body["help_url"].startswith(
             "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
         )
-        assert "type" not in body
+        assert body["type"] == "about:blank"
         assert body["requestId"] is not None
         assert "2024-01-15-09:00 AM" in body["detail"]
 
@@ -102,7 +102,7 @@ class TestProviderNotFoundException:
         assert body["status"] == 404
         assert body["instance"] == "/providers/ghost-provider"
         assert body["help_url"].endswith("#provider-not-found-error")
-        assert "type" not in body
+        assert body["type"] == "about:blank"
         assert body["requestId"] is not None
         assert "ghost-provider" in body["detail"]
 
@@ -121,7 +121,7 @@ class TestInvalidTimeSlotFormatException:
         assert body["status"] == 400
         assert body["instance"] == "/format"
         assert body["help_url"].endswith("#invalid-time-slot-format")
-        assert "type" not in body
+        assert body["type"] == "about:blank"
         assert body["requestId"] is not None
         assert "time-only" in body["detail"]
 
