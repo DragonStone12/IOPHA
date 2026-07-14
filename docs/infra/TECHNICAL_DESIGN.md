@@ -33,7 +33,7 @@
 | Backend    | Uvicorn                           | 0.51    | In use      |
 | Backend    | Python                            | 3.11    | In use      |
 | Backend    | Pydantic (v2)                     | 2.13    | In use      |
-| Backend    | prometheus-fastapi-instrumentator | 8.0     | In use      |
+| Backend    | prometheus_fastapi_instrumentator | 8.0     | In use      |
 | Backend    | httpx                             | 0.28    | In use      |
 | Backend    | SQLAlchemy                        | Latest  | Pending     |
 | Backend    | pytest                            | 9.1     | In use      |
@@ -981,7 +981,7 @@ npm run lint
 
 **Prometheus Instrumentation**:
 
-- Library: `prometheus-fastapi-instrumentator`
+- Library: `prometheus_fastapi_instrumentator`
 - Endpoint: `/metrics`
 - Configuration choices:
   - `handle_unhandled_paths=False` — prevents cardinality explosion from undefined routes
