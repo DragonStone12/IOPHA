@@ -61,7 +61,7 @@ class TestTimeSlotUnavailableException:
                 == "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve"
             )
             assert body["help_url"].endswith("#time-slot-unavailable")
-            assert "type" not in body
+            assert body["type"] == "about:blank"
             assert response.headers["X-Request-ID"] == request_id
         finally:
             app.dependency_overrides.pop(get_calendar_repository, None)

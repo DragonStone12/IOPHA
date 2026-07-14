@@ -68,7 +68,7 @@ def _assert_problem_detail(
 ) -> None:
     assert body["status"] == status
     assert body["title"] == title
-    assert "type" not in body
+    assert body["type"] == "about:blank"
     assert body["help_url"].endswith(f"#{link}")
     assert body["instance"].startswith("/api/providers/")
 
@@ -238,7 +238,7 @@ class TestTimeSlotFullRequestFlow:
 
         assert response.status_code == 409
         body = response.json()
-        assert "type" not in body
+        assert body["type"] == "about:blank"
         assert body["status"] == 409
         assert body["help_url"].endswith("#time-slot-unavailable")
         assert response.headers.get("X-Request-ID") is not None
