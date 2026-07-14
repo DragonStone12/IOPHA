@@ -810,11 +810,13 @@ rather than declaring its own middleware:
 2. `CentralizedLoggingMiddleware` (`app/utils/logging.py`) logs
    `request.start` / `request.complete` with `requestId` sourced
    live from `request_id_ctx` by `JsonTelemetryFormatter`.
-3. `NutritionController.evaluate` enriches the nutrition-specific
-   `nutrition.evaluate` log with `requestId` (via `get_request_id()`
-   from `app/utils/context.py`) and the non-sensitive `profileId`,
-   so the event correlates to the same request trace as the
-   middleware/exception records.
+3. `NutritionController.evaluate` emts the nutrition-specific
+   `nutrition.evaluate` log; the `JsonTelemetryFormatter` attaches
+   `requestId` from the propagated `request_id_ctx` automatically, so
+   the event correlates to the same request trace as the
+   middleware/exception records. **No patient/profile identifier is
+   logged** (HIPAA minimum-necessary: raw `profileId` is never
+   written to logs).
 
 ```mermaid
 sequenceDiagram
@@ -832,7 +834,7 @@ sequenceDiagram
     L->>Ctrl: dispatch endpoint
     Ctrl->>Svc: evaluate(profileId)
     Svc-->>Ctrl: NutritionResponseDataSchema | NutritionEvaluationEngineError
-    Ctrl->>L: log nutrition.evaluate (requestId from context)
+    Ctrl->>Ctrl: log nutrition.evaluate via formatter
     L-->>T: response
     T->>T: request_id_ctx.reset(token)
     T-->>C: 200 / 500 (X-Request-ID echoed)

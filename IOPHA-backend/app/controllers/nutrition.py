@@ -8,7 +8,6 @@ from app.schemas.nutrition_response import (
     NutritionResponseDataSchema,
 )
 from app.services.nutrition_service import NutritionCalculator
-from app.utils.context import get_request_id
 
 logger = logging.getLogger("iopha.backend")
 
@@ -25,15 +24,7 @@ class NutritionController:
 
     def evaluate(self, profile_id: str) -> NutritionResponseDataSchema:
         """Resolve and normalize the nutrition response for *profile_id*."""
-        logger.info(
-            "nutrition.evaluate",
-            extra={
-                "extra_context": {
-                    "requestId": get_request_id(),
-                    "profileId": profile_id,
-                }
-            },
-        )
+        logger.info("nutrition.evaluate")
         return self._calculator.evaluate(profile_id)
 
 
