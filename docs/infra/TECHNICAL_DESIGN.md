@@ -60,8 +60,6 @@ The frontend uses Tailwind CSS v4 with the IOPHA brand theme (copied from IOPHA 
 - Background: `#F3F1EC` (warm off-white)
 - All component styling uses Tailwind utility classes via the `cn()` helper (clsx + tailwind-merge)
 
-UI components are sourced from IOPHA Resources (shadcn/ui primitives) and copied into `src/components/ui/`. Components use Radix UI primitives under the hood (`@radix-ui/react-*` packages).
-
 ### 2.2 Logging & Observability
 
 **Custom Logger Class** (`src/utils/logger.ts`):
@@ -753,12 +751,7 @@ matches the logged `requestId`, preserving the audit trail.
 - Artifacts: `cypress-visual-screenshots/`, `cypress-visual-report/`
 - Auto-excluded via `.gitignore`
 
-### 4.5 Performance Tests
-
-- Tool: Locust
-- Target: 100 concurrent users, <2s p95 latency
-
-### 4.6 Testing Infrastructure
+### 4.5 Testing Infrastructure
 
 **Test Dependencies**:
 - **pytest**: Test runner with plugin ecosystem
@@ -807,7 +800,7 @@ pytest tests --doctest-modules --junitxml=junit/test-results.xml --cov=app --cov
 - Target coverage: 80%
 - Coverage scope: `--cov=app` (application package)
 
-### 4.7 Code Quality & Linting
+### 4.6 Code Quality & Linting
 
 **Backend Linting & Type Checking**:
 
