@@ -15,10 +15,6 @@ class ProblemDetail(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    type: str = Field(
-        default="about:blank",
-        description="URI reference identifying the problem type (RFC 7807).",
-    )
     title: str = Field(..., description="Short, human-readable summary of the problem.")
     status: int = Field(
         ..., description="HTTP status code generated for this response."

@@ -118,7 +118,6 @@ def test_nutrition_evaluation_missing_profile_returns_422() -> None:
     assert body["status"] == 422
     assert body["title"] == "Unprocessable Entity"
     assert body["instance"] == "/api/nutrition/evaluate"
-    assert body["type"] == "about:blank"
     assert body["help_url"].endswith("#unprocessable-entity-error")
     assert body["help_url"].startswith(
         "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
@@ -142,7 +141,6 @@ def test_nutrition_evaluation_fault_injection(
     assert body["status"] == 500
     assert body["title"] == "Nutritional Evaluation Processing Failure"
     assert body["instance"] == "/api/nutrition/evaluate"
-    assert body["type"] == "about:blank"
     assert body["help_url"].endswith("#nutrition-evaluation-error")
     assert body["help_url"].startswith(
         "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
