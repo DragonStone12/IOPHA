@@ -24,8 +24,8 @@ $RUFF check IOPHA-backend/ && $RUFF format --check IOPHA-backend/
 resolve_mypy() {
   # Priority: the project's venv (IOPHA-backend/venv), where the backend
   # dependencies (e.g. python-stdnum) are actually installed. Falling back to
-  # a PATH mypy (e.g. anaconda) would type-check against a different
-  # environment that lacks those deps and fail loudly for the wrong reason.
+  # a PATH mypy would type-check against a different environment that lacks
+  # those deps and fail loudly for the wrong reason.
   if [ -x IOPHA-backend/venv/bin/mypy ]; then
     echo "IOPHA-backend/venv/bin/mypy"
     return 0

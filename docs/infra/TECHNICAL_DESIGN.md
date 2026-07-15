@@ -846,8 +846,7 @@ The patient-intake resource extends the core scheduling engine with a patient
 demographics intake endpoint, the `PatientDemographicsSchema` / `PatientIntakeRequest`
 contracts, a `PatientRepository` persistence boundary, and RFC-7807 error
 handling via the shared global exception pipeline. It is the foundational
-component of the Patient Intake Form system (functional decomposition
-branch `73-patient-demographics`).
+component of the Patient Intake Form system.
 
 #### 3.11.1 Layered Architecture
 

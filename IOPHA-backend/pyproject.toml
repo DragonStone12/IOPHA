@@ -59,6 +59,13 @@ check_untyped_defs = false
 disallow_untyped_defs = false
 warn_return_any = false
 
+# python-stdnum ships without type stubs; tolerate its absence in the
+# type-check environment (the hook's mypy resolution may not have it
+# installed). The import is exercised by the test suite.
+[[tool.mypy.overrides]]
+module = ["stdnum.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests/unit", "tests/e2e", "tests/integration"]
 python_files = ["test_*.py"]

@@ -1,7 +1,4 @@
 #!/bin/sh
-# Resolve a working `ruff` invocation, prioritizing the project venv
-# (IOPHA-backend/venv) where the backend dependencies are actually
-# installed, falling back to a PATH ruff only if the venv is absent.
 
 if [ -x "IOPHA-backend/venv/bin/ruff" ]; then
   echo "IOPHA-backend/venv/bin/ruff"

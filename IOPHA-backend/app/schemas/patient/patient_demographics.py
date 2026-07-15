@@ -230,7 +230,7 @@ def map_record_to_demographics(record: PatientRecord) -> PatientDemographicsSche
         firstName=record.first_name,
         lastName=record.last_name,
         dateOfBirth=record.date_of_birth,
-        gender=record.gender,
+        gender=Gender(record.gender),
         address=AddressSchema(
             street=record.address.street,
             city=record.address.city,
