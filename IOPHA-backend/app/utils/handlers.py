@@ -73,8 +73,12 @@ def _problem_response(  # noqa: PLR0913
         instance=request.url.path,
         help_url=_help_url(link),
         errors=errors,
+        requestId=request.headers.get("X-Request-ID"),
     )
-    return JSONResponse(status_code=status_code, content=payload.model_dump())
+    return JSONResponse(
+        status_code=status_code,
+        content=payload.model_dump(exclude_none=True),
+    )
 
 
 async def _domain_handler(request: Request, exc: Exception) -> JSONResponse:

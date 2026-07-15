@@ -46,8 +46,8 @@ def format_problem_detail(  # noqa: PLR0913
         requestId=request_id,
         errors=None,
     )
-    # ``type`` and ``errors`` default to None; exclude them so we don't emit
-    # redundant ``"type": null`` / ``"errors": null`` keys in every response.
+    # ``errors`` defaults to None; exclude it so we don't emit a redundant
+    # ``"errors": null`` key in every response.
     return JSONResponse(
         status_code=status_code, content=payload.model_dump(exclude_none=True)
     )

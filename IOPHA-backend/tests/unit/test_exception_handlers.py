@@ -14,6 +14,7 @@ from app.exceptions import (
     InvalidViewTransitionError,
     IOPHADomainError,
     NotificationGatewayTimeoutError,
+    NutritionEvaluationEngineError,
     OutOfOrderMessageDeliveryError,
     OverlappingModifierConflictError,
     ProviderNotFoundException,
@@ -55,6 +56,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "search": SearchAggregatorTimeoutError("Cardiologist near 10001"),
     "provider": ProviderNotFoundException("prov-1"),
     "tip": TipNotFoundException("tip-1"),
+    "nutrition": NutritionEvaluationEngineError("corrupt-profile"),
 }
 
 

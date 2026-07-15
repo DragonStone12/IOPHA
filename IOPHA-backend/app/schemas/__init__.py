@@ -1,4 +1,8 @@
 from app.schemas.find_doctor import FindDoctorResponseDataSchema, ProviderSearchRequest
+from app.schemas.nutrition_response import (
+    NutritionEvaluateRequest,
+    NutritionResponseDataSchema,
+)
 from app.schemas.physician.physician_schema import PhysicianSchema
 from app.schemas.provider.mappers import map_provider_to_physician
 from app.schemas.provider.provider_record import ProviderRecord
@@ -10,6 +14,8 @@ from app.schemas.workflows.follow_up_action import FollowUpActionSchema
 __all__ = [
     "FindDoctorResponseDataSchema",
     "FollowUpActionSchema",
+    "NutritionEvaluateRequest",
+    "NutritionResponseDataSchema",
     "PhysicianSchema",
     "ProviderRecord",
     "ProviderSchema",
