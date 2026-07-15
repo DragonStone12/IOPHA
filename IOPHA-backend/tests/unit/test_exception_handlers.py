@@ -9,6 +9,7 @@ from app.exceptions import (
     DOMAIN_EXCEPTIONS,
     AttachmentPayloadTooLargeError,
     AvailabilityDriftError,
+    DuplicatePatientError,
     ExpiredBookingSessionError,
     ExternalCalendarSyncDisconnectedError,
     InvalidViewTransitionError,
@@ -17,6 +18,7 @@ from app.exceptions import (
     NutritionEvaluationEngineError,
     OutOfOrderMessageDeliveryError,
     OverlappingModifierConflictError,
+    PatientNotFoundException,
     ProviderNotFoundException,
     RaceConditionDoubleBookingError,
     SearchAggregatorTimeoutError,
@@ -57,6 +59,8 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "provider": ProviderNotFoundException("prov-1"),
     "tip": TipNotFoundException("tip-1"),
     "nutrition": NutritionEvaluationEngineError("corrupt-profile"),
+    "patient_not_found": PatientNotFoundException("pat-1"),
+    "duplicate_patient": DuplicatePatientError("123-45-6789"),
 }
 
 

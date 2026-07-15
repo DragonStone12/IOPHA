@@ -839,6 +839,96 @@ sequenceDiagram
     T->>T: request_id_ctx.reset(token)
     T-->>C: 200 / 500 (X-Request-ID echoed)
 ```
+
+### 3.11 Patient Intake (Demographics) API
+
+The patient-intake resource extends the core scheduling engine with a patient
+demographics intake endpoint, the `PatientDemographicsSchema` / `PatientIntakeRequest`
+contracts, a `PatientRepository` persistence boundary, and RFC-7807 error
+handling via the shared global exception pipeline. It is the foundational
+component of the Patient Intake Form system (functional decomposition
+branch `73-patient-demographics`).
+
+#### 3.11.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/patient_intake.py` | HTTP surface for `POST /api/patients/intake` and `GET /api/patients/{patient_id}`; delegates to the service and returns the frontend DTO. No business rules. |
+| Service | `app/services/patient_service.py` | `PatientIntakeService` ABC + `InMemoryPatientIntakeService` no-backend stand-in. Validates, performs SSN duplicate detection, persists, and projects the record. |
+| Repository | `app/repositories/patient_repository.py` | `PatientRepository` ABC + `InMemoryPatientRepository` no-DB stand-in. |
+| Schemas | `app/schemas/patient/patient_demographics.py` | `PatientIntakeRequest` (inbound), `PatientDemographicsSchema` (frontend DTO), internal `PatientRecord` + `AddressRecord` / `EmergencyContactRecord`, and `map_record_to_demographics`. |
+| Dependencies | `app/dependencies.py` | `get_patient_repository`, `get_patient_intake_service` (wires repo → service → controller), overridden in tests. |
+| Tracing | `app/middleware/tracking.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware`. |
+| Exceptions | `app/exceptions/domain_errors.py` | `DuplicatePatientError` (409), `PatientNotFoundException` (404) — both registered in `DOMAIN_EXCEPTIONS` and handled by the global `_domain_handler`. |
+
+#### 3.11.2 PatientIntakeRequest (inbound)
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `firstName` | `str` | `min_length=1`, `max_length=100` | Legal first name. |
+| `lastName` | `str` | `min_length=1`, `max_length=100` | Legal last name. |
+| `dateOfBirth` | `date` | ISO 8601; required | Patient date of birth. |
+| `ssn` | `str` | `max_length=11`, pattern `^\d{3}-\d{2}-\d{4}$` | Social security number (collected for duplicate detection; **never** echoed to the client). |
+| `gender` | `str` | `min_length=1`, `max_length=20` | Self-reported gender. |
+| `address` | `AddressSchema` | required | `street`, `city`, `state` (`max_length=50`), `postalCode` (`max_length=20`), `country` (`max_length=100`); all `extra="forbid"`. |
+| `phoneNumber` | `str` | `max_length=20`, North-American phone pattern | Contact phone. |
+| `email` | `str` | `max_length=320`, email pattern | Contact email. |
+| `emergencyContact` | `EmergencyContactSchema` | required | `name` (`max_length=200`), `relationship` (`max_length=100`), `phoneNumber` (phone pattern). |
+| `preferredCommunication` | `list[str]` | `min_length=1` | Ordered preferred contact methods. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+field can cross the API boundary.
+
+#### 3.11.3 PatientDemographicsSchema (outbound)
+
+The same fields as the request **minus** `ssn` (the social security number is
+deliberately omitted from the response DTO so sensitive identity data is never
+re-exposed on the wire). It adds a server-generated `patientId`
+(`max_length=64`). Configuration: `model_config = ConfigDict(extra="forbid")`.
+
+`map_record_to_demographics()` projects the internal `PatientRecord` (which
+retains `ssn` for the store) into the DTO, dropping `ssn` — mirroring the
+provider `map_provider_to_physician()` drop of `db_primary_key`.
+
+#### 3.11.4 Route Contract
+
+- `POST /api/patients/intake` → `PatientDemographicsSchema` (**201**) or RFC-7807 problem:
+  - 422 `Unprocessable Entity` (Pydantic `RequestValidationError`, projected by `ProblemAPIRoute`).
+  - 409 `DuplicatePatientError` (duplicate SSN; runbook link `duplicate-patient-error`).
+- `GET /api/patients/{patient_id}` → `PatientDemographicsSchema` (**200**) or RFC-7807 problem:
+  - 404 `PatientNotFoundException` (runbook link `patient-not-found-error`).
+
+The controller resolves a `PatientIntakeController` per request via the
+`get_patient_intake_controller` factory, which wires
+`get_patient_intake_service` → `PatientIntakeService` → `PatientIntakeController`.
+The patient repository is a single shared in-memory store per process (FastAPI
+resolves `Depends` per request, so the dependency returns a shared instance
+rather than a fresh one) so a record created by `POST /intake` is retrievable
+by a later `GET /{patient_id}`.
+
+#### 3.11.5 Exception Hierarchy & Handling Flow
+
+`DuplicatePatientError` and `PatientNotFoundException` inherit directly from
+`IOPHADomainError` (the same base as the scheduling/tips/nutrition exceptions)
+and are registered in `DOMAIN_EXCEPTIONS`, so the single global handler in
+`app/utils/handlers.py` (`register_exception_handlers`) intercepts them
+automatically — no resource-specific registration is required.
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `DuplicatePatientError` | 409 | `patient.duplicate` | `duplicate-patient-error` |
+| `PatientNotFoundException` | 404 | `patient.not_found` | `patient-not-found-error` |
+
+The handler emits a structured `ProblemDetail` payload (`title`, `status`,
+`detail`, `instance`, `help_url`, `requestId`) and logs `requestId`, `path`,
+and any non-sensitive identifiers from `log_context()` via the same
+`JsonTelemetryFormatter` pipeline as the request middleware. Per HIPAA
+minimum-necessary, **the SSN is never logged**: `DuplicatePatientError`
+records only `duplicateDetected: True` in `log_context()` and omits the value
+from both `safe_detail()` and logs. The `X-Request-ID` correlation id is
+echoed on the response header and matches the logged `requestId`.
+
 ### 4.1 Unit Tests
 
 - Framework: pytest

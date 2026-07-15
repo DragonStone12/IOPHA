@@ -28,6 +28,8 @@ hyphens, and strips punctuation).
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
 | Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
 | Nutrition Evaluation Error | 500 | [nutrition-evaluation-error](#nutrition-evaluation-error) |
+| Duplicate Patient Record | 409 | [duplicate-patient-error](#duplicate-patient-error) |
+| Patient Not Found | 404 | [patient-not-found-error](#patient-not-found-error) |
 | Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
@@ -246,6 +248,38 @@ returned no matching record, so the service raised
 1. Verify the `tip_id` passed by the client matches an active tips record.
 2. Confirm the tips repository is wired to the correct datasource for the environment.
 3. Surface a clear "tip gone" message and re-fetch the active tips list.
+
+## Duplicate Patient Error
+
+**What happened:** A patient submitted a new intake, but the social security
+number supplied already maps to an existing patient record in the intake store,
+so the create write was rejected to prevent a duplicate identity.
+
+**Common causes:**
+- The same patient submitted the intake form more than once without reusing their existing record.
+- A returning patient started a fresh intake instead of resuming the prior one.
+- A test or integration seeded the same SSN twice.
+
+**Mitigation:**
+1. Surface a clear "patient already exists" message and offer to reuse the existing intake.
+2. Detect duplicates by SSN before persisting, using an idempotency key on the client.
+3. Log only the fact that a duplicate was detected — never the SSN or any other PHI.
+
+## Patient Not Found
+
+**What happened:** A client requested a patient record by id
+(`GET /api/patients/{patient_id}`) but the intake store returned no matching
+record, so the service raised `PatientNotFoundException`.
+
+**Common causes:**
+- A typo'd or stale patient id in the frontend route / cache.
+- The patient record was never created or was purged from the in-memory store.
+- A test or integration hitting the real repository with an un-seeded id.
+
+**Mitigation:**
+1. Verify the `patient_id` passed by the client matches an active intake record.
+2. Confirm the patient repository is wired to the correct datasource for the environment.
+3. Surface a clear "patient not found" message and prompt re-entry of the identifier.
 
 ## Unprocessable Entity Exception
 

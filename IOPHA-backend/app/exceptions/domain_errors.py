@@ -490,6 +490,55 @@ class TipNotFoundException(IOPHADomainError):  # noqa: N818
         return {"tipId": self.tip_id}
 
 
+class DuplicatePatientError(IOPHADomainError):  # noqa: N818
+    """A patient record with the supplied social security number already exists."""
+
+    status_code = status.HTTP_409_CONFLICT
+    link = "duplicate-patient-error"
+    title = "Patient Record Already Exists"
+    log_level = logging.WARNING
+    log_event = "patient.duplicate"
+
+    def __init__(self, ssn: str) -> None:
+        super().__init__()
+        self.ssn = ssn
+
+    def safe_detail(self) -> str:
+        return (
+            "A patient record with this social security number already "
+            "exists. Reuse the existing intake instead of submitting a "
+            "duplicate."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        # The SSN is deliberately omitted from logs (HIPAA minimum-necessary):
+        # only the fact that a duplicate was detected is recorded.
+        return {"duplicateDetected": True}
+
+
+class PatientNotFoundException(IOPHADomainError):  # noqa: N818
+    """The requested patient record was not found in the intake store."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    link = "patient-not-found-error"
+    title = "Patient Record Absent"
+    log_level = logging.WARNING
+    log_event = "patient.not_found"
+
+    def __init__(self, patient_id: str) -> None:
+        super().__init__()
+        self.patient_id = patient_id
+
+    def safe_detail(self) -> str:
+        return (
+            f"The requested patient record '{self.patient_id}' was not found. "
+            "Verify the patient identifier and try again."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"patientId": self.patient_id}
+
+
 class NutritionEvaluationEngineError(IOPHADomainError):  # noqa: N818
     """The nutrition evaluation engine failed to produce a response."""
 
@@ -534,4 +583,6 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     ProviderNotFoundException,
     TipNotFoundException,
     NutritionEvaluationEngineError,
+    PatientNotFoundException,
+    DuplicatePatientError,
 )

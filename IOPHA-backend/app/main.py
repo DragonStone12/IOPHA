@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.nutrition import router as nutrition_router
+from app.controllers.patient_intake import router as patient_intake_router
 from app.controllers.providers import router as providers_router
 from app.controllers.providers_search import router as providers_search_router
 from app.controllers.timeslots import router as timeslots_router
@@ -25,6 +26,7 @@ app.include_router(providers_search_router)
 app.include_router(timeslots_router)
 app.include_router(tips_router)
 app.include_router(nutrition_router)
+app.include_router(patient_intake_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -57,6 +59,9 @@ def _build_openapi() -> dict[str, object]:
 
     from app.schemas.find_doctor import FindDoctorResponseDataSchema
     from app.schemas.nutrition_response import NutritionResponseDataSchema
+    from app.schemas.patient.patient_demographics import (
+        PatientDemographicsSchema,
+    )
     from app.schemas.problem.problem_detail import ProblemDetail
 
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
@@ -78,6 +83,11 @@ def _build_openapi() -> dict[str, object]:
     )
     components_schemas["NutritionResponseDataSchema"] = (
         NutritionResponseDataSchema.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+    )
+    components_schemas["PatientDemographicsSchema"] = (
+        PatientDemographicsSchema.model_json_schema(
             ref_template="#/components/schemas/{model}"
         )
     )
@@ -147,6 +157,54 @@ def _build_openapi() -> dict[str, object]:
                                     "#/components/schemas/NutritionResponseDataSchema"
                                 )
                             }
+                        }
+                    },
+                }
+            if path_key == "/api/patients/intake" and "post" in path:
+                responses["201"] = {
+                    "description": (
+                        "Created patient demographics record (SSN excluded)."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": (
+                                    "#/components/schemas/PatientDemographicsSchema"
+                                )
+                            }
+                        }
+                    },
+                }
+                responses["409"] = {
+                    "description": (
+                        "Duplicate patient record (DuplicatePatientError)."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                        }
+                    },
+                }
+            if path_key == "/api/patients/{patient_id}" and "get" in path:
+                responses["200"] = {
+                    "description": "Resolved patient demographics.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": (
+                                    "#/components/schemas/PatientDemographicsSchema"
+                                )
+                            }
+                        }
+                    },
+                }
+                responses["404"] = {
+                    "description": (
+                        "Patient record not found (PatientNotFoundException)."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
                         }
                     },
                 }
