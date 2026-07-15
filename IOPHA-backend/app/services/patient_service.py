@@ -2,7 +2,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 
-from app.exceptions import DuplicatePatientError, PatientNotFoundException
+from app.exceptions import PatientNotFoundException
 from app.repositories.patient_repository import PatientRepository
 from app.schemas.patient.patient_demographics import (
     AddressRecord,
@@ -40,9 +40,9 @@ class InMemoryPatientIntakeService(PatientIntakeService):
         self._repository = repository
 
     def submit_intake(self, payload: PatientIntakeRequest) -> PatientDemographicsSchema:
-        if self._repository.exists_by_ssn(payload.ssn):
-            raise DuplicatePatientError(payload.ssn)
-
+        # Duplicate detection is performed atomically inside the repository's
+        # ``create`` (check + write in one call) so concurrent submissions with
+        # the same SSN cannot both pass the guard before either writes.
         record = PatientRecord(
             patient_id=_generate_patient_id(),
             first_name=payload.firstName,

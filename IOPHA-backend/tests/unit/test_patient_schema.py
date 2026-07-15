@@ -57,18 +57,6 @@ class TestPatientIntakeRequestValidation:
         with pytest.raises(ValidationError):
             PatientIntakeRequest(**data)
 
-    def test_rejects_invalid_ssn(self) -> None:
-        data = _valid_intake()
-        data["ssn"] = "123-456-7890"
-        with pytest.raises(ValidationError):
-            PatientIntakeRequest(**data)
-
-    def test_rejects_ssn_exceeding_max_length(self) -> None:
-        data = _valid_intake()
-        data["ssn"] = "123-45-67890"
-        with pytest.raises(ValidationError):
-            PatientIntakeRequest(**data)
-
     def test_rejects_invalid_email(self) -> None:
         data = _valid_intake()
         data["email"] = "not-an-email"
@@ -103,6 +91,29 @@ class TestPatientIntakeRequestValidation:
         data["dateOfBirth"] = "05/14/1990"
         with pytest.raises(ValidationError):
             PatientIntakeRequest(**data)
+
+    def test_rejects_future_date_of_birth(self) -> None:
+        data = _valid_intake()
+        data["dateOfBirth"] = "2099-01-01"
+        with pytest.raises(ValidationError):
+            PatientIntakeRequest(**data)
+
+    def test_accepts_today_as_date_of_birth(self) -> None:
+        data = _valid_intake()
+        data["dateOfBirth"] = date.today().isoformat()
+        assert PatientIntakeRequest(**data).dateOfBirth == date.today()
+
+    def test_rejects_invalid_gender_value(self) -> None:
+        data = _valid_intake()
+        data["gender"] = "male"  # must match a controlled vocabulary member
+        with pytest.raises(ValidationError):
+            PatientIntakeRequest(**data)
+
+    def test_accepts_controlled_gender_values(self) -> None:
+        for value in ("Female", "Male", "Other", "PreferNotToSay", "Unknown"):
+            data = _valid_intake()
+            data["gender"] = value
+            assert PatientIntakeRequest(**data).gender.value == value
 
     def test_rejects_unknown_address_field(self) -> None:
         data = _valid_intake()

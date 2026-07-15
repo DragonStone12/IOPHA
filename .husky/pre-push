@@ -22,12 +22,16 @@ $RUFF check IOPHA-backend/ && $RUFF format --check IOPHA-backend/
 
 # Guard: ensure the Python backend passes mypy before pushing (mirrors CI).
 resolve_mypy() {
-  if command -v mypy >/dev/null 2>&1; then
-    echo "mypy"
+  # Priority: the project's venv (IOPHA-backend/venv), where the backend
+  # dependencies (e.g. python-stdnum) are actually installed. Falling back to
+  # a PATH mypy (e.g. anaconda) would type-check against a different
+  # environment that lacks those deps and fail loudly for the wrong reason.
+  if [ -x IOPHA-backend/venv/bin/mypy ]; then
+    echo "IOPHA-backend/venv/bin/mypy"
     return 0
   fi
-  if [ -x venv/bin/mypy ]; then
-    echo "venv/bin/mypy"
+  if command -v mypy >/dev/null 2>&1; then
+    echo "mypy"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1 && python3 -m mypy --version >/dev/null 2>&1; then
@@ -48,12 +52,13 @@ fi
 
 # Guard: ensure the Python backend passes bandit before pushing (mirrors CI).
 resolve_bandit() {
-  if command -v bandit >/dev/null 2>&1; then
-    echo "bandit"
+  # Check from repo root, output path valid from repo root
+  if [ -x "IOPHA-backend/venv/bin/bandit" ]; then
+    echo "IOPHA-backend/venv/bin/bandit"
     return 0
   fi
-  if [ -x venv/bin/bandit ]; then
-    echo "venv/bin/bandit"
+  if command -v bandit >/dev/null 2>&1; then
+    echo "bandit"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1 && python3 -m bandit --version >/dev/null 2>&1; then
@@ -74,12 +79,13 @@ fi
 
 # Guard: ensure the Python backend meets the 80% test coverage threshold before pushing.
 resolve_pytest() {
-  if command -v pytest >/dev/null 2>&1; then
-    echo "pytest"
+  # Check from repo root, but output path valid AFTER 'cd IOPHA-backend'
+  if [ -x "IOPHA-backend/venv/bin/pytest" ]; then
+    echo "venv/bin/pytest"
     return 0
   fi
-  if [ -x venv/bin/pytest ]; then
-    echo "venv/bin/pytest"
+  if command -v pytest >/dev/null 2>&1; then
+    echo "pytest"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1 && python3 -m pytest --version >/dev/null 2>&1; then

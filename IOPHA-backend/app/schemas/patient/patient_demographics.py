@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from typing import List
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from stdnum.exceptions import ValidationError as StdnumValidationError
+from stdnum.us import ssn
 
 # Bounded-field validation:
 #  * Every string carries a `max_length` to prevent DoS via oversized payloads
@@ -15,6 +18,24 @@ from pydantic import BaseModel, ConfigDict, Field
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 PHONE_PATTERN = r"^\+?\d{1,3}[-.\s]?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$"
 SSN_PATTERN = r"^\d{3}-\d{2}-\d{4}$"
+
+# Upper bound on a plausible patient age; guards against obviously corrupt
+# date-of-birth PHI while still admitting supercentenarians in legitimate records.
+MAX_REASONABLE_AGE = 120
+
+
+class Gender(str, Enum):
+    """Controlled vocabulary for the patient ``gender`` field.
+
+    Restricting gender to an explicit enum prevents free-text drift
+    (e.g. ``"Male"`` vs ``"male"`` vs ``"M"``) from polluting stored data.
+    """
+
+    FEMALE = "Female"
+    MALE = "Male"
+    OTHER = "Other"
+    PREFER_NOT_TO_SAY = "PreferNotToSay"
+    UNKNOWN = "Unknown"
 
 
 class AddressSchema(BaseModel):
@@ -57,14 +78,18 @@ class PatientIntakeRequest(BaseModel):
 
     firstName: str = Field(..., min_length=1, max_length=100)
     lastName: str = Field(..., min_length=1, max_length=100)
-    dateOfBirth: date = Field(..., description="Patient date of birth (ISO 8601)")
+    dateOfBirth: date = Field(
+        ...,
+        le=date.today(),
+        description="Patient date of birth (ISO 8601, not in the future)",
+    )
     ssn: str = Field(
         ...,
         max_length=11,
         pattern=SSN_PATTERN,
         description="Social security number in NNN-NN-NNNN format",
     )
-    gender: str = Field(..., min_length=1, max_length=20)
+    gender: Gender = Field(..., description="Controlled gender vocabulary")
     address: AddressSchema
     phoneNumber: str = Field(
         ...,
@@ -85,6 +110,34 @@ class PatientIntakeRequest(BaseModel):
         description="Ordered list of preferred contact methods",
     )
 
+    @field_validator("dateOfBirth")
+    @classmethod
+    def _validate_birthdate(cls, value: date) -> date:
+        # Pydantic's `le` rejects future dates; here we additionally guard
+        # against implausible ages to keep stored PHI sane.
+        today = date.today()
+        age = (
+            today.year
+            - value.year
+            - ((today.month, today.day) < (value.month, value.day))
+        )
+        if age > MAX_REASONABLE_AGE:
+            raise ValueError("Birthdate exceeds maximum reasonable age.")
+        return value
+
+    @field_validator("ssn")
+    @classmethod
+    def _validate_ssn(cls, value: str) -> str:
+        # All SSN validation is delegated to python-stdnum, which encodes the
+        # SSA's rules: reserved area numbers (000, 666, 900-999), group 00,
+        # serial 0000, and the required NNN-NN-NNNN format. The `pattern`
+        # above still enforces the dashed format at the boundary.
+        try:
+            ssn.validate(value)
+        except StdnumValidationError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
+
 
 class PatientDemographicsSchema(BaseModel):
     """Compound patient demographics returned by the intake API.
@@ -102,7 +155,7 @@ class PatientDemographicsSchema(BaseModel):
     firstName: str = Field(..., min_length=1, max_length=100)
     lastName: str = Field(..., min_length=1, max_length=100)
     dateOfBirth: date = Field(..., description="Patient date of birth (ISO 8601)")
-    gender: str = Field(..., min_length=1, max_length=20)
+    gender: Gender = Field(..., description="Controlled gender vocabulary")
     address: AddressSchema
     phoneNumber: str = Field(
         ...,
