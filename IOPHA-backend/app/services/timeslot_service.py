@@ -1,9 +1,12 @@
+from datetime import date
+
 from app.exceptions.timeslot_exceptions import (
     InvalidTimeSlotFormatException,
     ProviderNotFoundException,
     TimeSlotUnavailableException,
 )
 from app.repositories.calendar_repository import CalendarRepository
+from app.schemas.booking import CalendarSlotsResponseSchema
 from app.schemas.timeslot import TimeSlotSchema
 
 
@@ -32,6 +35,32 @@ class TimeSlotService:
             )
             for record in records
         ]
+
+    def get_calendar_slots_for_date(
+        self,
+        provider_id: str,
+        query_date: date,
+    ) -> CalendarSlotsResponseSchema:
+        """Return day-scoped slot availability for *provider_id* on *query_date*."""
+        if self._repository.get_provider(provider_id) is None:
+            raise ProviderNotFoundException(provider_id)
+
+        iso_prefix = query_date.isoformat()
+        records = [
+            record
+            for record in self._repository.get_slots(provider_id)
+            if record.id.startswith(iso_prefix)
+        ]
+        slots = [
+            TimeSlotSchema(
+                id=record.id,
+                time=record.time,
+                label=record.label,
+                available=record.available,
+            )
+            for record in records
+        ]
+        return CalendarSlotsResponseSchema(date=query_date, slots=slots)
 
     def reserve_slot(self, provider_id: str, slot_id: str) -> bool:
         """Attempt to reserve *slot_id* for *provider_id*.

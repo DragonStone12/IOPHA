@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.controllers.booking import router as booking_router
 from app.controllers.intake import router as intake_router
 from app.controllers.nutrition import router as nutrition_router
 from app.controllers.providers import router as providers_router
@@ -27,6 +28,7 @@ app.include_router(timeslots_router)
 app.include_router(tips_router)
 app.include_router(nutrition_router)
 app.include_router(intake_router)
+app.include_router(booking_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -57,6 +59,10 @@ def _build_openapi() -> dict[str, object]:
         return app.openapi_schema  # type: ignore[return-value]
     from fastapi.openapi.utils import get_openapi
 
+    from app.schemas.booking import (
+        BookingResponseSchema,
+        CalendarSlotsResponseSchema,
+    )
     from app.schemas.find_doctor import FindDoctorResponseDataSchema
     from app.schemas.nutrition_response import NutritionResponseDataSchema
     from app.schemas.problem.problem_detail import ProblemDetail
@@ -80,6 +86,16 @@ def _build_openapi() -> dict[str, object]:
     )
     components_schemas["NutritionResponseDataSchema"] = (
         NutritionResponseDataSchema.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+    )
+    components_schemas["BookingResponseSchema"] = (
+        BookingResponseSchema.model_json_schema(
+            ref_template="#/components/schemas/{model}"
+        )
+    )
+    components_schemas["CalendarSlotsResponseSchema"] = (
+        CalendarSlotsResponseSchema.model_json_schema(
             ref_template="#/components/schemas/{model}"
         )
     )
@@ -163,6 +179,32 @@ def _build_openapi() -> dict[str, object]:
                                     "status": {"type": "string"},
                                     "id": {"type": "string"},
                                 },
+                            }
+                        }
+                    },
+                }
+            if path_key == "/api/providers/{provider_id}/slots" and "get" in path:
+                responses["200"] = {
+                    "description": (
+                        "Day-scoped calendar availability for the provider."
+                    ),
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": (
+                                    "#/components/schemas/CalendarSlotsResponseSchema"
+                                )
+                            }
+                        }
+                    },
+                }
+            if path_key == "/api/bookings" and "post" in path:
+                responses["201"] = {
+                    "description": "Booking created successfully.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookingResponseSchema"
                             }
                         }
                     },

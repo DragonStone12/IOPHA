@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Generator
 
 import pytest
@@ -43,23 +44,27 @@ class TestTimeSlotSuccessPaths:
     def test_returns_200_with_valid_schema(
         self, mock_calendar: MockCalendarService, log_records: list[logging.LogRecord]
     ) -> None:
+        query_date = date.today().isoformat()
         with TestClient(app) as client:
-            response = client.get("/api/providers/prov-123/slots")
+            response = client.get(f"/api/providers/prov-123/slots?date={query_date}")
         assert response.status_code == 200
         body = response.json()
-        assert isinstance(body, list)
-        assert len(body) > 0
-        slot = body[0]
+        assert "date" in body
+        assert "slots" in body
+        assert isinstance(body["slots"], list)
+        assert len(body["slots"]) > 0
+        slot = body["slots"][0]
         assert set(slot.keys()) == {"id", "time", "label", "available"}
         assert slot["id"].endswith(slot["time"])
 
     def test_response_includes_request_id_header(
         self, mock_calendar: MockCalendarService
     ) -> None:
+        query_date = date.today().isoformat()
         request_id = "123e4567-e89b-12d3-a456-426614174000"
         with TestClient(app) as client:
             response = client.get(
-                "/api/providers/prov-123/slots",
+                f"/api/providers/prov-123/slots?date={query_date}",
                 headers={"X-Request-ID": request_id},
             )
         assert response.headers["X-Request-ID"] == request_id
@@ -67,8 +72,9 @@ class TestTimeSlotSuccessPaths:
     def test_logs_contain_request_context(
         self, mock_calendar: MockCalendarService, log_records: list[logging.LogRecord]
     ) -> None:
+        query_date = date.today().isoformat()
         with TestClient(app) as client:
-            client.get("/api/providers/prov-123/slots")
+            client.get(f"/api/providers/prov-123/slots?date={query_date}")
         record = next((r for r in log_records if r.msg == "request.start"), None)
         assert record is not None
         ctx = record.__dict__["extra_context"]
@@ -78,13 +84,14 @@ class TestTimeSlotSuccessPaths:
     def test_concurrent_requests_isolate_context(
         self, mock_calendar: MockCalendarService
     ) -> None:
+        query_date = date.today().isoformat()
         with TestClient(app) as client:
             response1 = client.get(
-                "/api/providers/prov-123/slots",
+                f"/api/providers/prov-123/slots?date={query_date}",
                 headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
             )
             response2 = client.get(
-                "/api/providers/prov-123/slots",
+                f"/api/providers/prov-123/slots?date={query_date}",
                 headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174001"},
             )
         assert response1.headers["X-Request-ID"] == (

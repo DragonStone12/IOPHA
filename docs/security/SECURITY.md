@@ -15,7 +15,8 @@
 | 9   | [Provider Discovery API Security](#provider-discovery-api-security)            | Search schema validation, mock-object isolation, timeout error hygiene |
 | 10  | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
 | 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
-| 11  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 11  | [Booking Orchestration API Security](#booking-orchestration-api-security)        | Composite booking payload validation and PII logging rules |
+| 12  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -762,6 +763,59 @@ the test double.
 **Isolation rules:**
 - The mock is injected per-test via a fixture that clears the override in
   teardown using `app.dependency_overrides.pop(get_intake_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+### Booking Orchestration API Security
+
+#### Validation Schemas
+
+The booking endpoints enforce strict Pydantic contracts at the API boundary:
+
+| Schema | Field | Validation | Purpose |
+| --- | --- | --- | --- |
+| `BookingRequestSchema` | `providerId` | required | Opaque target provider identifier. |
+| `BookingRequestSchema` | `slotId` | required | Composite slot key validated against `TimeSlotSchema.SLOT_ID_PATTERN`. |
+| `BookingRequestSchema` | `patientData` | `PatientDataSchema` | Nested PII/PHI sub-block with name, email, phone, and reason validation. |
+| `CalendarSlotsResponseSchema` | `date` | ISO `date` | Day-scoped calendar discovery date. |
+| `CalendarSlotsResponseSchema` | `slots` | `list[TimeSlotSchema]` | Availability nodes for the requested date. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary.
+
+#### Log Metadata Sanitation
+
+The booking endpoints run inside the same `CentralizedLoggingMiddleware` stack as
+the scheduling, tips, nutrition, and intake APIs. The `booking.created` event
+logs only operational identifiers (`bookingId`, `providerId`, `slotId`) and the
+request path. The nested `PatientDataSchema` fields (`name`, `email`, `phone`,
+`reason`) are never attached to log context.
+
+| Boundary | Rule | Enforcement |
+| --- | --- | --- |
+| Patient identifiers | `name`, `email`, `phone`, and `reason` are never logged directly; only opaque `bookingId`, `providerId`, and `slotId` appear in the `booking.created` event | `app/services/booking_service.py` |
+| Credential scrubbing | `PHIScrubber` redacts passwords, API keys, tokens, secrets, and labeled PHI from all log strings before serialization | `app/core/phi_scrubber.py` |
+| Context isolation | `request_id_ctx` is reset in a `finally` block after every request | `app/middleware/request_tracing.py` |
+| Error context | Domain handlers log only non-sensitive identifiers (`slotId`, `providerId`, `details`); no patient data is attached | `app/exceptions/error_handlers.py` |
+
+#### Race-Condition Protection
+
+The booking service validates slot existence and availability before attempting
+an atomic reservation. If `CalendarRepository.reserve_slot` returns `False`, the
+service raises `ScheduleLockConflictException` (HTTP 409), preventing silent
+double-bookings and surfacing a structured RFC-7807 problem to the client.
+
+#### Mock-Object Mapping Patterns
+
+Tests inject a mock `BookingService` via `app.dependency_overrides`. The mock
+implements the same `BookingService` ABC so the controller remains oblivious to
+the test double.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_booking_service, None)`.
 - No real patient data, PII, or downstream service credentials are
   embedded in the mock payload.
 - The mock supports fault injection to verify that the global exception

@@ -1,3 +1,9 @@
+from app.schemas.booking import (
+    BookingRequestSchema,
+    BookingResponseSchema,
+    BookingSummarySchema,
+    CalendarSlotsResponseSchema,
+)
 from app.schemas.find_doctor import FindDoctorResponseDataSchema, ProviderSearchRequest
 from app.schemas.nutrition_response import (
     NutritionEvaluateRequest,
@@ -13,6 +19,10 @@ from app.schemas.tip import TipSchema
 from app.schemas.workflows.follow_up_action import FollowUpActionSchema
 
 __all__ = [
+    "BookingRequestSchema",
+    "BookingResponseSchema",
+    "BookingSummarySchema",
+    "CalendarSlotsResponseSchema",
     "FindDoctorResponseDataSchema",
     "FollowUpActionSchema",
     "NutritionEvaluateRequest",

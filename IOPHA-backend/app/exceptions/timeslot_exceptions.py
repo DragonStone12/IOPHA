@@ -85,9 +85,34 @@ class InvalidTimeSlotFormatException(AppBaseException):
         return {"details": self.details}
 
 
+class ScheduleLockConflictException(AppBaseException):
+    """The selected slot was reserved by another transaction during confirmation."""
+
+    status_code = status.HTTP_409_CONFLICT
+    link = "schedule-lock-conflict"
+    title = "Schedule Lock Conflict"
+    log_level = logging.WARNING
+    log_event = "scheduling.lock_conflict"
+
+    def __init__(self, slot_id: str, provider_id: str) -> None:
+        super().__init__()
+        self.slot_id = slot_id
+        self.provider_id = provider_id
+
+    def safe_detail(self) -> str:
+        return (
+            f"The slot '{self.slot_id}' was just reserved by another patient. "
+            "Please select a different time."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {"slotId": self.slot_id, "providerId": self.provider_id}
+
+
 __all__ = [
     "AppBaseException",
     "InvalidTimeSlotFormatException",
     "ProviderNotFoundException",
+    "ScheduleLockConflictException",
     "TimeSlotUnavailableException",
 ]
