@@ -720,6 +720,53 @@ lives in `tests/integration/_search_test_utils.py` and implements the same
   global exception handler returns a scrubbed RFC-7807 payload with a runbook
   `help_url`.
 
+### Patient Intake Profile API Security
+
+#### Validation Schemas
+
+The patient intake endpoint (`POST /api/patients/intake`) enforces strict
+Pydantic contracts at the API boundary:
+
+| Schema | Field | Validation | Purpose |
+| --- | --- | --- | --- |
+| `PatientDataSchema` | `name` | `min_length=1`, `max_length=100` | Prevents empty or oversized name payloads. |
+| `PatientDataSchema` | `email` | regex pattern | Validates standard email format; prevents malformed contact vectors. |
+| `PatientDataSchema` | `phone` | field validator | Enforces exactly 10 numerical digits; strips non-digit characters before validation. |
+| `PatientDataSchema` | `reason` | `max_length=500` | Optional intake reason; bounded to prevent oversized payloads. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary. The phone validator normalizes
+formatted inputs (e.g. `(555) 123-4567` → `5551234567`) before length
+validation, ensuring consistent sanitization without losing data.
+
+#### Log Metadata Sanitation
+
+The intake endpoint runs inside the same `CentralizedLoggingMiddleware` stack as
+the scheduling, tips, and nutrition APIs. All request/response log lines carry
+`requestId` sourced live from `request_id_ctx` by `JsonTelemetryFormatter`. The
+following sanitization boundaries apply:
+
+| Boundary | Rule | Enforcement |
+| --- | --- | --- |
+| Patient identifiers | `name`, `email`, `phone`, and `reason` are never logged directly; only the structured `request.start` / `request.complete` events are emitted | `CentralizedLoggingMiddleware` |
+| Credential scrubbing | `PHIScrubber` redacts passwords, API keys, tokens, and secrets from all log strings before serialization | `app/core/phi_scrubber.py` |
+| Context isolation | `request_id_ctx` is reset in a `finally` block after every request | `app/middleware/request_tracing.py` |
+| Error context | `IntakeProcessingException.log_context()` returns an empty dict; no PII is attached to error logs | `app/exceptions/intake_exceptions.py` |
+
+#### Mock-Object Mapping Patterns
+
+Tests inject a mock `IntakeService` via `app.dependency_overrides`. The mock
+implements the same `IntakeService` ABC so the controller remains oblivious to
+the test double.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_intake_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
 **Related Documentation:**
 
 - [Technical Design](../infra/TECHNICAL_DESIGN.md)

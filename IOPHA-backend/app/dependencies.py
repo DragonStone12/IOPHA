@@ -10,6 +10,7 @@ from app.repositories.tips_repository import (
     InMemoryTipsRepository,
     TipsRepository,
 )
+from app.services.intake_service import InMemoryIntakeService, IntakeService
 from app.services.nutrition_service import (
     InMemoryNutritionCalculator,
     NutritionCalculator,
@@ -63,3 +64,12 @@ def get_nutrition_calculator() -> NutritionCalculator:
     injectable double without touching any live nutrition backend.
     """
     return InMemoryNutritionCalculator()
+
+
+def get_intake_service() -> IntakeService:
+    """FastAPI dependency factory yielding the active intake service.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fault-
+    injectable double without touching any live intake backend.
+    """
+    return InMemoryIntakeService()

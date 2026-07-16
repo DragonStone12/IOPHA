@@ -29,6 +29,7 @@ hyphens, and strips punctuation).
 | Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
 | Nutrition Evaluation Error | 500 | [nutrition-evaluation-error](#nutrition-evaluation-error) |
 | Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
+| Intake Processing Failure | 422 | [intake-processing-error](#intake-processing-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -267,6 +268,32 @@ into a single RFC-7807 `ProblemDetail` payload.
 2. Correct the payload according to the API schema before retrying.
 3. Validate client-side against the OpenAPI `ProblemDetail` contract so the
    frontend surfaces field-level errors before the request is sent.
+
+## Intake Processing Failure
+
+**What happened:** The patient intake profile pipeline failed to validate or
+ingest the submitted profile. The global handler projected the failure into an
+RFC-7807 `ProblemDetail` payload with a `help_url` runbook link.
+
+**Common causes:**
+- Phone number did not contain exactly 10 numerical digits after stripping
+  non-digit characters.
+- Email address did not match the expected format.
+- Required field (`name`, `email`, or `phone`) was missing from the payload.
+- An unplanned field was included in the request body (the schema enforces
+  `extra="forbid"`).
+- The intake service raised `IntakeProcessingException` after schema validation
+  passed (e.g., downstream processing constraint violation).
+
+**Mitigation:**
+1. Inspect the `errors` array in the response for the exact field and message.
+2. Correct the payload according to the `PatientDataSchema` contract before
+   retrying.
+3. Ensure the phone field contains exactly 10 digits and the email matches the
+   standard format.
+4. If the failure persists after payload correction, check the structured
+   server logs for the `requestId` and the `intake.processing_failure` event
+   to identify the offending request.
 
 ## Internal Server Error
 
