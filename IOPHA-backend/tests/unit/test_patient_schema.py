@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.schemas.patient.patient_demographics import (
     AddressRecord,
     EmergencyContactRecord,
+    Gender,
     PatientDemographicsSchema,
     PatientIntakeRequest,
     PatientRecord,
@@ -149,7 +150,7 @@ class TestMapper:
             last_name="Doe",
             date_of_birth=date(1990, 5, 14),
             ssn="123-45-6789",
-            gender="Female",
+            gender=Gender("Female"),
             address=AddressRecord("123 Main St", "Dallas", "TX", "75201", "USA"),
             phone_number="+12145550123",
             email="jane.doe@example.com",
