@@ -516,7 +516,7 @@ class NutritionEvaluationEngineError(IOPHADomainError):  # noqa: N818
 class IntakeProcessingException(IOPHADomainError):  # noqa: N818
     """The intake processing pipeline failed to validate or ingest the profile."""
 
-    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     link = "intake-processing-error"
     title = "Intake Processing Failure"
     log_level = logging.WARNING

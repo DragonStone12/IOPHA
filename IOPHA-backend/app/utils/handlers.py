@@ -124,7 +124,7 @@ async def _validation_error_handler(
     )
     return _problem_response(
         request=request,
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         title="Unprocessable Entity",
         detail="The request failed input validation. Inspect 'errors' "
         "for field-level details.",
