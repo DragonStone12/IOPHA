@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from app.controllers.intake import router as intake_router
 from app.controllers.nutrition import router as nutrition_router
 from app.controllers.providers import router as providers_router
 from app.controllers.providers_search import router as providers_search_router
@@ -25,6 +26,7 @@ app.include_router(providers_search_router)
 app.include_router(timeslots_router)
 app.include_router(tips_router)
 app.include_router(nutrition_router)
+app.include_router(intake_router)
 
 instrumentator = Instrumentator(
     should_group_status_codes=True,
@@ -146,6 +148,21 @@ def _build_openapi() -> dict[str, object]:
                                 "$ref": (
                                     "#/components/schemas/NutritionResponseDataSchema"
                                 )
+                            }
+                        }
+                    },
+                }
+            if path_key == "/api/patients/intake" and "post" in path:
+                responses["200"] = {
+                    "description": "Intake profile processed successfully.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "status": {"type": "string"},
+                                    "id": {"type": "string"},
+                                },
                             }
                         }
                     },

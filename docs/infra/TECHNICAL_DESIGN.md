@@ -16,6 +16,8 @@
 | 3.7 | [Provider / Physician Scheduling Core API](#37-provider--physician-scheduling-core-api) | Provider lookup, PhysicianSchema, data conversion |
 | 3.8 | [Time Slot Availability API](#38-time-slot-availability-api) | TimeSlotSchema, reservation flow, slot validation |
 | 3.9 | [Dynamic Booking Tips & Advice API](#39-dynamic-booking-tips--advice-api) | TipSchema, tips lookup, error handling |
+| 3.10 | [Nutrition Response API](#310-nutrition-response-api) | Nutrition evaluation endpoint, NutritionResponseDataSchema, error handling |
+| 3.11 | [Patient Intake Profile API](#311-patient-intake-profile-api) | Patient intake endpoint, PatientDataSchema, context tracing, error handling |
 | 4   | [Testing Strategy](#4-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
 | 5   | [CI/CD & Deployment](#5-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
 | 6   | [Decision Points](#6-decision-points-pending)                 | Pending architectural decisions                        |
@@ -839,6 +841,144 @@ sequenceDiagram
     T->>T: request_id_ctx.reset(token)
     T-->>C: 200 / 500 (X-Request-ID echoed)
 ```
+
+### 3.11 Patient Intake Profile API
+
+The patient intake profile pipeline establishes the core FastAPI routing
+mechanics, Pydantic validation contracts, and isolated test scaffolding for
+the appointment intake forms. It processes highly sensitive customer
+attributes (names, contact vectors, medical visit reasoning) and must apply
+rigorous sanitation filters before any diagnostic traces are emitted.
+
+#### 3.11.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/intake.py` | HTTP surface for `POST /api/patients/intake`; validates request, delegates to service, returns processing status. |
+| Service | `app/services/intake_service.py` | `IntakeService` ABC + `InMemoryIntakeService` no-backend stand-in. Tests override via `app.dependency_overrides`. |
+| Schemas | `app/schemas/patient/patient_data.py` | `PatientDataSchema` (inbound Pydantic contract with strict validation). |
+| Dependencies | `app/dependencies.py` | `get_intake_service` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| Exceptions | `app/exceptions/intake_exceptions.py` | `IntakeProcessingException` mapped to HTTP 422. |
+| Error Handlers | `app/utils/handlers.py` | RFC-7807 problem detail via `register_exception_handlers`. |
+
+#### 3.11.2 PatientDataSchema
+
+The external inbound contract for the intake endpoint (`PatientDataSchema`):
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `name` | `str` | `min_length=1`, `max_length=100` | Full name of the submitting patient. |
+| `email` | `str` | regex pattern | Valid email format (standard communications target). |
+| `reason` | `str \| None` | `max_length=500` | Optional patient-provided intake reason context. |
+| `phone` | `str` | field validator | 10-digit primary telephone contact key; non-digit characters are stripped before validation. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+**Phone validator** (`validate_ten_digit_phone`):
+
+```python
+@field_validator("phone")
+@classmethod
+def validate_ten_digit_phone(cls, value: str) -> str:
+    cleaned = re.sub(r"\D", "", value)
+    if len(cleaned) != PHONE_DIGIT_COUNT:
+        raise ValueError("Phone number must contain exactly 10 numerical digits.")
+    return cleaned
+```
+
+The validator enforces clean text constraints over incoming phone attributes,
+ensuring that exactly 10 digits are supplied without characters or spacers.
+Non-digit characters are stripped before length validation so formatted inputs
+(e.g. `(555) 123-4567`) are normalized.
+
+#### 3.11.3 Route Contract
+
+- `POST /api/patients/intake` → `dict` (200) or RFC-7807 problem
+  (422 `IntakeProcessingException`, 422 validation error).
+
+The controller resolves a `PatientController` per request via the
+`get_patient_controller` factory, which wires
+`get_intake_service` → `IntakeService` → `PatientController`.
+
+#### 3.11.4 Exception Hierarchy & Handling Flow
+
+`IntakeProcessingException` inherits directly from `IOPHADomainError` (the
+same base as the scheduling/time-slot/tips/nutrition exceptions) and is
+registered in `DOMAIN_EXCEPTIONS`, so the single global handler in
+`app/utils/handlers.py` (`register_exception_handlers`) intercepts it
+automatically — no resource-specific registration is required.
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `IntakeProcessingException` | 422 | `intake.processing_failure` | `intake-processing-error` |
+
+The handler emits a structured `ProblemDetail` payload (`title`, `status`,
+`detail`, `instance`, `help_url`, `requestId`) and logs `requestId`,
+`path` via the same `JsonTelemetryFormatter` pipeline as the request
+middleware. The `X-Request-ID` correlation id is echoed on the response
+header and matches the logged `requestId`, preserving the audit trail.
+
+#### 3.11.5 Context-Tracing Flow
+
+The intake endpoint rides the **shared** request-tracing infrastructure
+rather than declaring its own middleware:
+
+1. `RequestTracingMiddleware` (`app/middleware/request_tracing.py`)
+   reads the inbound `X-Request-ID` header (minting a UUID when
+   absent), binds it to the `request_id_ctx` `contextvars.ContextVar`,
+   and echoes it back on the response header. Every downstream log
+   line reads the same correlation id without parameter threading.
+2. `CentralizedLoggingMiddleware` (`app/utils/logging.py`) logs
+   `request.start` / `request.complete` with `requestId` sourced
+   live from `request_id_ctx` by `JsonTelemetryFormatter`.
+3. `PatientController.submit_intake` emits the intake-specific
+   `intake.submitted` log; the `JsonTelemetryFormatter` attaches
+   `requestId` from the propagated `request_id_ctx` automatically, so
+   the event correlates to the same request trace as the
+   middleware/exception records. No patient/profile identifier is
+   logged (HIPAA minimum-necessary: raw PII is never written to logs).
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTracingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as PatientController
+    participant Svc as IntakeService
+    participant H as GlobalExceptionHandler
+
+    C->>T: POST /api/patients/intake<br/>X-Request-ID: req-123
+    T->>T: req_id = header or uuid4()<br/>request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: submit_intake(payload)
+    Svc-->>Ctrl: dict | IntakeProcessingException
+    Ctrl->>Ctrl: log intake.submitted via formatter
+    L-->>T: response
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 200 / 422 (X-Request-ID echoed)
+```
+
+#### 3.11.6 Mock-Object Mapping Patterns
+
+Tests inject a mock `IntakeService` via `app.dependency_overrides`. The
+mock implements the same `IntakeService` ABC so the controller remains
+oblivious to the test double. The mock supports a fault-injection path
+that raises `IntakeProcessingException` for error-handling tests, and
+returns a deterministic success payload for happy-path tests.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_intake_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
 ### 4.1 Unit Tests
 
 - Framework: pytest

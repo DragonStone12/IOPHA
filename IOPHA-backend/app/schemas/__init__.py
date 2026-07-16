@@ -3,6 +3,7 @@ from app.schemas.nutrition_response import (
     NutritionEvaluateRequest,
     NutritionResponseDataSchema,
 )
+from app.schemas.patient.patient_data import PatientDataSchema
 from app.schemas.physician.physician_schema import PhysicianSchema
 from app.schemas.provider.mappers import map_provider_to_physician
 from app.schemas.provider.provider_record import ProviderRecord
@@ -16,6 +17,7 @@ __all__ = [
     "FollowUpActionSchema",
     "NutritionEvaluateRequest",
     "NutritionResponseDataSchema",
+    "PatientDataSchema",
     "PhysicianSchema",
     "ProviderRecord",
     "ProviderSchema",
