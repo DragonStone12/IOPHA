@@ -116,9 +116,9 @@ def test_nutrition_evaluation_missing_profile_returns_422() -> None:
     assert response.status_code == 422
     body = response.json()
     assert body["status"] == 422
-    assert body["title"] == "Unprocessable Entity"
+    assert body["title"] == "Unprocessable Content"
     assert body["instance"] == "/api/nutrition/evaluate"
-    assert body["help_url"].endswith("#unprocessable-entity-error")
+    assert body["help_url"].endswith("#unprocessable-content-error")
     assert body["help_url"].startswith(
         "https://github.com/DragonStone12/IOPHA/blob/main/docs/RUNBOOKS.md#"
     )

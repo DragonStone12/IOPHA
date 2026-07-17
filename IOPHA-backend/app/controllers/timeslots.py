@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends
+from datetime import date
+
+from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import get_calendar_repository
 from app.repositories.calendar_repository import CalendarRepository
+from app.schemas.booking import CalendarSlotsResponseSchema
 from app.schemas.timeslot import TimeSlotSchema
 from app.services.timeslot_service import TimeSlotService
 
@@ -19,6 +22,14 @@ class TimeSlotController:
     def list_slots(self, provider_id: str) -> list[TimeSlotSchema]:
         """Resolve and normalize a provider's available time slots."""
         return self._service.get_slots(provider_id)
+
+    def get_calendar_slots(
+        self,
+        provider_id: str,
+        query_date: date,
+    ) -> CalendarSlotsResponseSchema:
+        """Resolve day-scoped calendar availability for a provider."""
+        return self._service.get_calendar_slots_for_date(provider_id, query_date)
 
     def reserve_slot(self, provider_id: str, slot_id: str) -> dict[str, str]:
         """Reserve a slot on behalf of the patient."""
@@ -40,22 +51,34 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
 
 @router.get(
     "/{provider_id}/slots",
-    response_model=list[TimeSlotSchema],
-    summary="List available time slots for a provider",
+    response_model=CalendarSlotsResponseSchema,
+    summary="List available time slots for a provider on a specific date",
     responses={
         200: {
-            "description": "List of available and booked time slots for the provider.",
+            "description": (
+                "Day-scoped map of available and booked time slots for the provider."
+            ),
             "content": {
                 "application/json": {
                     "schema": {
-                        "type": "array",
-                        "items": {"$ref": "#/components/schemas/TimeSlotSchema"},
+                        "$ref": "#/components/schemas/CalendarSlotsResponseSchema"
                     }
                 }
             },
         },
         404: {
-            "description": "Provider not found.",
+            "description": "Provider record was not found (ProviderNotFoundException)",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                }
+            },
+        },
+        422: {
+            "description": (
+                "Query parameter validation failed; the date must be formatted "
+                "as YYYY-MM-DD (RequestValidationError)"
+            ),
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -66,15 +89,15 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
 )
 def get_provider_slots(
     provider_id: str,
+    date: date = Query(..., description="Target query date formatted as YYYY-MM-DD"),  # noqa: B008
     controller: TimeSlotController = Depends(get_timeslot_controller),  # noqa: B008
-) -> list[TimeSlotSchema]:
-    """Return the time-slot availability calendar for the given provider.
+) -> CalendarSlotsResponseSchema:
+    """Return the day-scoped time-slot availability calendar for the provider.
 
-    Each slot carries a unique ``id`` (ISO date + civil time), the display
-    ``time``/``label``, and an ``available`` flag the booking UI uses to
-    enable or disable the slot button.
+    The response groups every calendar node for the requested ISO date so the
+    booking UI can render the date header and slot grid from a single payload.
     """
-    return controller.list_slots(provider_id)
+    return controller.get_calendar_slots(provider_id, date)
 
 
 @router.post(
@@ -96,7 +119,7 @@ def get_provider_slots(
             },
         },
         400: {
-            "description": "Invalid time slot format.",
+            "description": "Invalid time slot format (InvalidTimeSlotFormatException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -104,7 +127,7 @@ def get_provider_slots(
             },
         },
         404: {
-            "description": "Provider not found.",
+            "description": "Provider record was not found (ProviderNotFoundException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -112,7 +135,7 @@ def get_provider_slots(
             },
         },
         409: {
-            "description": "Time slot unavailable.",
+            "description": "Time slot unavailable (TimeSlotUnavailableException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}

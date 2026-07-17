@@ -80,12 +80,15 @@ class TestTimeSlotFullRequestFlow:
     def test_get_slots_full_lifecycle(
         self, log_records: list[logging.LogRecord]
     ) -> None:
+        from datetime import date
+
         mock = MockCalendarService()
         _apply_mock(mock)
+        query_date = date.today().isoformat()
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.get(
-                    "/api/providers/prov-123/slots",
+                    f"/api/providers/prov-123/slots?date={query_date}",
                     headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174000"},
                 )
         finally:
@@ -93,8 +96,9 @@ class TestTimeSlotFullRequestFlow:
 
         assert response.status_code == 200
         body = response.json()
-        assert isinstance(body, list) and len(body) > 0
-        slot = body[0]
+        assert body["date"] == query_date
+        assert isinstance(body["slots"], list) and len(body["slots"]) > 0
+        slot = body["slots"][0]
         assert set(slot.keys()) == {"id", "time", "label", "available"}
         assert (
             response.headers["X-Request-ID"] == "123e4567-e89b-12d3-a456-426614174000"
@@ -156,7 +160,7 @@ class TestTimeSlotFullRequestFlow:
             (
                 MockCalendarService(),
                 "get",
-                "/api/providers/does-not-exist/slots",
+                "/api/providers/does-not-exist/slots?date=2024-01-15",
                 404,
                 "Provider Not Found",
                 "provider-not-found-error",
@@ -213,7 +217,9 @@ class TestTimeSlotFullRequestFlow:
             assert record is not None, f"Missing log event {expected_log_event}"
             ctx = getattr(record, "extra_context", {})
             assert ctx["requestId"] == request_id
-            assert ctx["path"] == path
+            # The logged path is the URL path without query parameters.
+            logged_path = ctx["path"]
+            assert logged_path == path.split("?", 1)[0]
             if expected_slot_or_provider_id is not None:
                 if link == "time-slot-unavailable":
                     assert ctx["slotId"] == expected_slot_or_provider_id
@@ -243,12 +249,15 @@ class TestTimeSlotFullRequestFlow:
         _assert_no_leaks(response.text)
 
     def test_request_id_persists_through_all_layers(self) -> None:
+        from datetime import date
+
         mock = MockCalendarService()
         _apply_mock(mock)
+        query_date = date.today().isoformat()
         try:
             with TestClient(app, raise_server_exceptions=False) as client:
                 response = client.get(
-                    "/api/providers/prov-123/slots",
+                    f"/api/providers/prov-123/slots?date={query_date}",
                     headers={"X-Request-ID": "123e4567-e89b-12d3-a456-426614174002"},
                 )
         finally:
@@ -258,8 +267,9 @@ class TestTimeSlotFullRequestFlow:
             response.headers["X-Request-ID"] == "123e4567-e89b-12d3-a456-426614174002"
         )
         body = response.json()
-        assert isinstance(body, list)
-        assert len(body) > 0
+        assert "slots" in body
+        assert isinstance(body["slots"], list)
+        assert len(body["slots"]) > 0
 
     def test_no_dependency_override_leak_between_tests(self) -> None:
         assert get_calendar_repository not in app.dependency_overrides

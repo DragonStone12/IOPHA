@@ -45,7 +45,7 @@ class TestPatientIntakeEndpoint:
         assert response.status_code == 422
         body = response.json()
         assert body["status"] == 422
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
         assert "help_url" in body
 
     def test_intake_fault_injection_returns_422_with_runbook(

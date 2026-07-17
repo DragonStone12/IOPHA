@@ -773,7 +773,7 @@ def _validate_exact_tip_count(cls, value: list[TipSchema]) -> list[TipSchema]:
 The validator enforces the **exact-tip-count** contract: the response
 carries precisely three `TipSchema` cards. A payload arriving with two or
 four tips fails validation and is rejected with the RFC-7807
-`unprocessable-entity-error` problem (422) before any serialization.
+`unprocessable-content-error` problem (422) before any serialization.
 
 #### 3.10.3 Route Contract
 
@@ -978,6 +978,149 @@ returns a deterministic success payload for happy-path tests.
   embedded in the mock payload.
 - The mock supports fault injection to verify that the global exception
   handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+### 3.12 Booking Orchestration & Calendar Slots Discovery API
+
+The booking orchestration layer converges the aggregate slot locator and the
+stateful allocation writer endpoint. It exposes a composite request schema that
+nests :class:`PatientDataSchema`, a day-scoped calendar discovery response, and
+a structured booking creation response.
+
+#### 3.12.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/booking.py` | HTTP surface for `POST /api/bookings`; validates composite payload, delegates to service, returns `BookingResponseSchema`. |
+| Controller | `app/controllers/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots`; parses `date` query, delegates to service, returns `CalendarSlotsResponseSchema`. |
+| Service | `app/services/booking_service.py` | `BookingService` ABC + `InMemoryBookingService` no-backend stand-in. Orchestrates provider lookup, slot validation, atomic reservation, and booking persistence. |
+| Repository | `app/repositories/booking_repository.py` | `BookingRepository` ABC + `InMemoryBookingRepository` no-DB stand-in for confirmed bookings. |
+| Schemas | `app/schemas/booking.py` | `BookingRequestSchema`, `BookingResponseSchema`, `BookingSummarySchema`, `CalendarSlotsResponseSchema`. |
+| Dependencies | `app/dependencies.py` | `get_booking_service`, `get_booking_repository` FastAPI dependencies, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| PHI Scrubbing | `app/core/phi_scrubber.py` | Redacts PII/PHI from log messages before serialization. |
+| Exceptions | `app/exceptions/timeslot_exceptions.py` | `ScheduleLockConflictException` mapped to HTTP 409. |
+| Error Handlers | `app/exceptions/error_handlers.py` | RFC-7807 problem detail responses with runbook deep-links. |
+
+#### 3.12.2 Booking Schemas
+
+**BookingRequestSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `providerId` | `str` | required | Target provider entity reference identifier. |
+| `slotId` | `str` | required | Selected time slot allocation block key. |
+| `patientData` | `PatientDataSchema` | required | Nested PII/PHI intake attributes validation sub-block. |
+
+**BookingResponseSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `bookingId` | `str` | required | Centralized database reservation primary key reference. |
+| `summary` | `BookingSummarySchema` | required | Nested metadata block characterizing the confirmed event. |
+
+**BookingSummarySchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `physician` | `PhysicianSchema` | required | Sanitized provider profile summary mapping. |
+| `date` | `date` | required | Confirmed appointment date component. |
+| `time` | `str` | required | Display format of the confirmed slot time, e.g. "04:00 PM". |
+
+**CalendarSlotsResponseSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `date` | `date` | required | Target query date formatted as YYYY-MM-DD. |
+| `slots` | `list[TimeSlotSchema]` | required | Array of historical and active calendar node availabilities. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary.
+
+#### 3.12.3 Route Contract
+
+- `POST /api/bookings` → `BookingResponseSchema` (201) or RFC-7807 problem
+  (400 invalid slot format, 404 provider not found, 409 slot unavailable or
+  schedule lock conflict, 422 validation error).
+- `GET /api/providers/{provider_id}/slots?date=YYYY-MM-DD` →
+  `CalendarSlotsResponseSchema` (200) or RFC-7807 problem (404 provider not
+  found, 422 invalid date).
+
+The booking controller resolves a `BookingController` per request via the
+`get_booking_controller` factory, which wires `get_booking_service` →
+`BookingService` → `BookingController`.
+
+The time-slot controller resolves a `TimeSlotController` per request via the
+`get_timeslot_controller` factory, which wires `get_calendar_repository` →
+`TimeSlotService` → `TimeSlotController`.
+
+#### 3.12.4 Data Conversion Pathway
+
+For booking creation, the service:
+
+1. Validates the composite `slotId` against `TimeSlotSchema.SLOT_ID_PATTERN`.
+2. Resolves the provider via `ProviderRepository`.
+3. Confirms the slot exists and is available in the calendar.
+4. Attempts an atomic reservation through `CalendarRepository.reserve_slot`.
+5. Persists the booking via `BookingRepository.create`.
+6. Maps the internal `ProviderRecord` to `PhysicianSchema` and returns the
+   `BookingResponseSchema`.
+
+If `reserve_slot` returns `False` (race condition), the service raises
+`ScheduleLockConflictException`, which the dedicated handler maps to a 409
+RFC-7807 problem with a `schedule-lock-conflict` runbook link.
+
+For calendar discovery, the service filters the provider's calendar slots to
+those whose composite `id` starts with the requested ISO date and returns them
+wrapped in `CalendarSlotsResponseSchema`.
+
+#### 3.12.5 Middleware & Logging Stack
+
+Both endpoints ride the shared request-tracing and structured logging
+infrastructure:
+
+1. `RequestTrackingMiddleware` / `RequestTracingMiddleware` — outermost. Reads
+   inbound `X-Request-ID` or mints a UUID; binds to `request_id_ctx`;
+   echoes on response header; resets in `finally`.
+2. `CentralizedLoggingMiddleware` — logs `request.start` and
+   `request.complete` with method, path, status, and duration.
+3. `ProblemAPIRoute` — catches `RequestValidationError` and projects it into
+   a `ProblemDetail` (RFC-7807) payload.
+4. `register_timeslot_error_handlers` + global `register_exception_handlers` —
+   map domain exceptions to their corresponding HTTP status codes and problem
+   payloads.
+
+The booking service emits a `booking.created` structured log event carrying
+`bookingId`, `providerId`, and `slotId`. Patient PII (`name`, `email`, `phone`,
+`reason`) is never included in the log context; the `JsonTelemetryFormatter`
+also runs the message through `PHIScrubber` as a defense-in-depth measure.
+
+#### 3.12.6 Exception Hierarchy & Handling Flow
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `InvalidTimeSlotFormatException` | 400 | `timeslot.invalid_format` | `invalid-time-slot-format` |
+| `ProviderNotFoundException` | 404 | `directory.provider_not_found` | `provider-not-found-error` |
+| `TimeSlotUnavailableException` | 409 | `timeslot.unavailable` | `time-slot-unavailable` |
+| `ScheduleLockConflictException` | 409 | `scheduling.lock_conflict` | `schedule-lock-conflict` |
+
+#### 3.12.7 Testing Strategy
+
+- **Happy path**: `POST /api/bookings` with a valid composite payload returns
+  201 with `bookingId` and `summary`.
+- **Calendar discovery**: `GET /api/providers/{provider_id}/slots?date=...`
+  returns 200 with `date` and `slots`.
+- **Validation**: Missing `patientData`, invalid email, or malformed `slotId`
+  returns 422/400 RFC-7807 problems.
+- **Fault injection**: Mock `BookingService` raises `TimeSlotUnavailableException`,
+  `ProviderNotFoundException`, and `ScheduleLockConflictException`; the global
+  handlers return scrubbed RFC-7807 payloads with runbook `help_url` and echo
+  `X-Request-ID`.
+- **Double-booking**: Shared in-memory repositories demonstrate that a second
+  booking attempt on the same slot fails with 409.
+- **Leak prevention**: Response bodies and captured log records are scanned for
+  patient PII and leak markers (`Traceback`, `Exception(`, `0x`, `password`,
+  `secret`, `Bearer `, `postgresql`).
 
 ### 4.1 Unit Tests
 

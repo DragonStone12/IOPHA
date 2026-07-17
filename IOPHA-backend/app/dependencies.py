@@ -1,3 +1,7 @@
+from app.repositories.booking_repository import (
+    BookingRepository,
+    InMemoryBookingRepository,
+)
 from app.repositories.calendar_repository import (
     CalendarRepository,
     InMemoryCalendarRepository,
@@ -10,6 +14,7 @@ from app.repositories.tips_repository import (
     InMemoryTipsRepository,
     TipsRepository,
 )
+from app.services.booking_service import BookingService, InMemoryBookingService
 from app.services.intake_service import InMemoryIntakeService, IntakeService
 from app.services.nutrition_service import (
     InMemoryNutritionCalculator,
@@ -73,3 +78,25 @@ def get_intake_service() -> IntakeService:
     injectable double without touching any live intake backend.
     """
     return InMemoryIntakeService()
+
+
+def get_booking_repository() -> BookingRepository:
+    """FastAPI dependency factory yielding the active booking repository.
+
+    Tests override this via ``app.dependency_overrides`` to inject an in-memory
+    double without touching any live datastore.
+    """
+    return InMemoryBookingRepository()
+
+
+def get_booking_service() -> BookingService:
+    """FastAPI dependency factory yielding the active booking service.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fault-
+    injectable double without touching any live scheduling backend.
+    """
+    return InMemoryBookingService(
+        calendar_repository=InMemoryCalendarRepository(),
+        provider_repository=InMemoryProviderRepository(),
+        booking_repository=InMemoryBookingRepository(),
+    )
