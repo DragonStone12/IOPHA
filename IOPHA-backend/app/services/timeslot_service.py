@@ -45,12 +45,16 @@ class TimeSlotService:
         if self._repository.get_provider(provider_id) is None:
             raise ProviderNotFoundException(provider_id)
 
-        iso_prefix = query_date.isoformat()
-        records = [
-            record
-            for record in self._repository.get_slots(provider_id)
-            if record.id.startswith(iso_prefix)
-        ]
+        records = []
+        for record in self._repository.get_slots(provider_id):
+            # Compare on the parsed date segment rather than a raw string
+            # prefix so only well-formed slot ids for *query_date* match.
+            try:
+                slot_date, _ = TimeSlotSchema.split_slot_id(record.id)
+            except ValueError:
+                continue
+            if slot_date == query_date:
+                records.append(record)
         slots = [
             TimeSlotSchema(
                 id=record.id,

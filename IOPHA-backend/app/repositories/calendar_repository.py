@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from app.repositories.seed_data import seed_providers
 from app.schemas import ProviderRecord
 
 # Civil 12-hour clock labels produced for the booking UI, e.g. "09:00 AM".
@@ -55,26 +56,14 @@ class CalendarRepository(ABC):
 class InMemoryCalendarRepository(CalendarRepository):
     """Default no-database stand-in used until a real calendar is wired.
 
-    Seeds a deterministic set of slots for a handful of known provider ids so
-    the availability endpoint returns realistic data without external state.
+    Seeds a deterministic set of slots for the shared seed providers from
+    :mod:`app.repositories.seed_data` so the availability endpoint returns
+    realistic data without external state.
     """
 
     def __init__(self, days_ahead: int = 7) -> None:
         self._days_ahead = days_ahead
-        self._providers = {
-            "prov-123": ProviderRecord(
-                id="prov-123",
-                name="Dr. Emily Chen, MD",
-                specialty="Cardiology",
-                distance="1.8 miles",
-                rating=4.9,
-                reviewCount=120,
-                nextAvailable="Today, 3:30 PM",
-                imageUrl="https://cdn.example.com/emily.jpg",
-                facility="Northside Medical Center",
-                db_primary_key=42,
-            ),
-        }
+        self._providers = seed_providers()
         # Slot ids that have been reserved and are no longer bookable.
         self._reserved: set[str] = set()
         # Every slot id this repository can actually produce, across all

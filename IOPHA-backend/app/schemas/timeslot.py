@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,9 +8,16 @@ from pydantic import BaseModel, ConfigDict, Field
 # followed by the same time token so a single slot is uniquely addressable
 # across a provider's calendar (matches the frontend `TimeSlot.id` contract in
 # IOPHA-frontend/src/components/booking/TimeSelector.tsx).
+_DATE_CORE = r"\d{4}-\d{2}-\d{2}"
 _TIME_CORE = r"(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)"
 TIME_PATTERN = r"^" + _TIME_CORE + r"$"
-SLOT_ID_PATTERN = r"^\d{4}-\d{2}-\d{2}-" + _TIME_CORE + r"$"
+SLOT_ID_PATTERN = r"^" + _DATE_CORE + r"-" + _TIME_CORE + r"$"
+
+# Parsing regex derived from the same building blocks as SLOT_ID_PATTERN so
+# that splitting a slot id can never drift apart from validating it.
+_SLOT_ID_RE = re.compile(
+    r"^(?P<date>" + _DATE_CORE + r")-(?P<time>" + _TIME_CORE + r")$"
+)
 
 
 class TimeSlotSchema(BaseModel):
@@ -57,3 +65,19 @@ class TimeSlotSchema(BaseModel):
     def is_valid_slot_id(cls, value: str) -> bool:
         """Return ``True`` only if *value* matches the composite slot id pattern."""
         return bool(re.match(SLOT_ID_PATTERN, value))
+
+    @classmethod
+    def split_slot_id(cls, value: str) -> tuple[date, str]:
+        """Split a composite slot id into its ISO date and civil time parts.
+
+        The split is derived from the named groups of ``_SLOT_ID_RE``, which
+        is built from the same pattern constants as ``SLOT_ID_PATTERN``, so
+        parsing can never drift apart from validation.
+
+        Raises:
+            ValueError: If *value* does not match ``SLOT_ID_PATTERN``.
+        """
+        match = _SLOT_ID_RE.match(value)
+        if match is None:
+            raise ValueError(f"Slot id {value!r} does not match SLOT_ID_PATTERN.")
+        return date.fromisoformat(match.group("date")), match.group("time")

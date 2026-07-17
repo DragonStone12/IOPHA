@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 
 from app.exceptions.timeslot_exceptions import (
     InvalidTimeSlotFormatException,
@@ -16,18 +15,6 @@ from app.schemas.provider.mappers import map_provider_to_physician
 from app.schemas.timeslot import TimeSlotSchema
 
 logger = logging.getLogger("iopha.backend")
-
-
-def _slot_id_to_date_time(slot_id: str) -> tuple[date, str]:
-    """Split a composite slot id into its ISO date and civil time parts.
-
-    Assumes the slot id has already been validated against
-    :attr:`TimeSlotSchema.SLOT_ID_PATTERN`.
-    """
-    # Format: YYYY-MM-DD-h:MM AM/PM
-    iso_date = date.fromisoformat(slot_id[:10])
-    time_part = slot_id[11:]
-    return iso_date, time_part
 
 
 class BookingService:
@@ -92,7 +79,8 @@ class InMemoryBookingService(BookingService):
         if not self._calendar.reserve_slot(slot_id):
             raise ScheduleLockConflictException(slot_id, provider_id)
 
-        appointment_date, appointment_time = _slot_id_to_date_time(slot_id)
+        # The slot id was validated above, so splitting it cannot fail.
+        appointment_date, appointment_time = TimeSlotSchema.split_slot_id(slot_id)
         booking = self._bookings.create(
             provider_id=provider_id,
             slot_id=slot_id,
