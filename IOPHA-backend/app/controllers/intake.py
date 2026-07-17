@@ -55,9 +55,7 @@ router = APIRouter(prefix="/api/patients", tags=["patients"])
             },
         },
         422: {
-            "description": (
-                "Intake processing failure (Intake Processing Failure Exception)"
-            ),
+            "description": ("Intake processing failure (IntakeProcessingException)"),
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}

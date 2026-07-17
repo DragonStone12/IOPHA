@@ -76,7 +76,8 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
         },
         422: {
             "description": (
-                "The request payload validation failed (RequestValidationError)"
+                "Query parameter validation failed; the date must be formatted "
+                "as YYYY-MM-DD (RequestValidationError)"
             ),
             "content": {
                 "application/json": {
