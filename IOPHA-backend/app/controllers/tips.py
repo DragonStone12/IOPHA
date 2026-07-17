@@ -85,7 +85,7 @@ def get_tips(
             },
         },
         404: {
-            "description": ("Tip record not found (TipNotFoundException)."),
+            "description": "Tip record was not found (TipNotFoundException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}

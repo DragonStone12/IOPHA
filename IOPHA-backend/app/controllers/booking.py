@@ -50,7 +50,7 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
             },
         },
         400: {
-            "description": "Invalid time slot format.",
+            "description": "Invalid time slot format (InvalidTimeSlotFormatException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -58,7 +58,7 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
             },
         },
         404: {
-            "description": "Provider not found.",
+            "description": "Provider record was not found (ProviderNotFoundException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -66,7 +66,10 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
             },
         },
         409: {
-            "description": "Time slot unavailable or schedule lock conflict.",
+            "description": (
+                "Time slot unavailable or schedule lock conflict "
+                "(TimeSlotUnavailableException or ScheduleLockConflictException)"
+            ),
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -74,7 +77,7 @@ router = APIRouter(prefix="/api/bookings", tags=["bookings"])
             },
         },
         422: {
-            "description": "Validation error on the composite booking payload.",
+            "description": "Request payload validation failed (RequestValidationError)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}

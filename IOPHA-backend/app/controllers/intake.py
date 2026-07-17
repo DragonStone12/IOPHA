@@ -56,8 +56,7 @@ router = APIRouter(prefix="/api/patients", tags=["patients"])
         },
         422: {
             "description": (
-                "Intake processing failure (IntakeProcessingException) or "
-                "validation error."
+                "Intake processing failure (Intake Processing Failure Exception)"
             ),
             "content": {
                 "application/json": {

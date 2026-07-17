@@ -67,7 +67,7 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
             },
         },
         404: {
-            "description": "Provider not found.",
+            "description": "Provider record was not found (ProviderNotFoundException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -75,7 +75,9 @@ router = APIRouter(prefix="/api/providers", tags=["time-slots"])
             },
         },
         422: {
-            "description": "Invalid date query parameter.",
+            "description": (
+                "The request payload validation failed (RequestValidationError)"
+            ),
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -116,7 +118,7 @@ def get_provider_slots(
             },
         },
         400: {
-            "description": "Invalid time slot format.",
+            "description": "Invalid time slot format (InvalidTimeSlotFormatException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -124,7 +126,7 @@ def get_provider_slots(
             },
         },
         404: {
-            "description": "Provider not found.",
+            "description": "Provider record was not found (ProviderNotFoundException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}
@@ -132,7 +134,7 @@ def get_provider_slots(
             },
         },
         409: {
-            "description": "Time slot unavailable.",
+            "description": "Time slot unavailable (TimeSlotUnavailableException)",
             "content": {
                 "application/json": {
                     "schema": {"$ref": "#/components/schemas/ProblemDetail"}

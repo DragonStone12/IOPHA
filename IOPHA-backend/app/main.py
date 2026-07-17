@@ -100,6 +100,137 @@ def _build_openapi() -> dict[str, object]:
         )
     )
 
+    response_overrides: list[tuple[str, str, int, dict[str, object]]] = [
+        (
+            "/api/providers/{provider_id}",
+            "get",
+            404,
+            {
+                "description": (
+                    "Provider record was not found (ProviderNotFoundException)"
+                ),
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                    }
+                },
+            },
+        ),
+        (
+            "/api/tips/{tip_id}",
+            "get",
+            404,
+            {
+                "description": "Tip record was not found (TipNotFoundException)",
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                    }
+                },
+            },
+        ),
+        (
+            "/api/patients/intake",
+            "post",
+            422,
+            {
+                "description": (
+                    "Intake validation or processing failed "
+                    "(RequestValidationError or IntakeProcessingException)"
+                ),
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/ProblemDetail"}
+                    }
+                },
+            },
+        ),
+        (
+            "/api/providers/search",
+            "post",
+            200,
+            {
+                "description": (
+                    "Discovery result with providers and follow-up actions."
+                ),
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": (
+                                "#/components/schemas/FindDoctorResponseDataSchema"
+                            )
+                        }
+                    }
+                },
+            },
+        ),
+        (
+            "/api/nutrition/evaluate",
+            "post",
+            200,
+            {
+                "description": (
+                    "Nutrition response with exactly 3 tips and an "
+                    "optional physician recommendation."
+                ),
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": ("#/components/schemas/NutritionResponseDataSchema")
+                        }
+                    }
+                },
+            },
+        ),
+        (
+            "/api/patients/intake",
+            "post",
+            200,
+            {
+                "description": "Intake profile processed successfully.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {"type": "string"},
+                                "id": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+        ),
+        (
+            "/api/providers/{provider_id}/slots",
+            "get",
+            200,
+            {
+                "description": ("Day-scoped calendar availability for the provider."),
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": ("#/components/schemas/CalendarSlotsResponseSchema")
+                        }
+                    }
+                },
+            },
+        ),
+        (
+            "/api/bookings",
+            "post",
+            201,
+            {
+                "description": "Booking created successfully.",
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/BookingResponseSchema"}
+                    }
+                },
+            },
+        ),
+    ]
+
     for path_key, path in schema.get("paths", {}).items():
         for operation in path.values():
             if not isinstance(operation, dict):
@@ -108,8 +239,7 @@ def _build_openapi() -> dict[str, object]:
             if "422" in responses:
                 responses["422"] = {
                     "description": (
-                        "Request payload validation failed "
-                        "(Unprocessable Content Exception)"
+                        "The request payload validation failed (RequestValidationError)"
                     ),
                     "content": {
                         "application/json": {
@@ -117,98 +247,9 @@ def _build_openapi() -> dict[str, object]:
                         }
                     },
                 }
-            if path_key == "/api/providers/{provider_id}" and "get" in path:
-                responses["404"] = {
-                    "description": (
-                        "Provider record not found (ProviderNotFoundException)."
-                    ),
-                    "content": {
-                        "application/json": {
-                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
-                        }
-                    },
-                }
-            if path_key == "/api/tips/{tip_id}" and "get" in path:
-                responses["404"] = {
-                    "description": ("Tip record not found (TipNotFoundException)."),
-                    "content": {
-                        "application/json": {
-                            "schema": {"$ref": "#/components/schemas/ProblemDetail"}
-                        }
-                    },
-                }
-            if path_key == "/api/providers/search" and "post" in path:
-                responses["200"] = {
-                    "description": (
-                        "Discovery result with providers and follow-up actions."
-                    ),
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": (
-                                    "#/components/schemas/FindDoctorResponseDataSchema"
-                                )
-                            }
-                        }
-                    },
-                }
-            if path_key == "/api/nutrition/evaluate" and "post" in path:
-                responses["200"] = {
-                    "description": (
-                        "Nutrition response with exactly 3 tips and an "
-                        "optional physician recommendation."
-                    ),
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": (
-                                    "#/components/schemas/NutritionResponseDataSchema"
-                                )
-                            }
-                        }
-                    },
-                }
-            if path_key == "/api/patients/intake" and "post" in path:
-                responses["200"] = {
-                    "description": "Intake profile processed successfully.",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "status": {"type": "string"},
-                                    "id": {"type": "string"},
-                                },
-                            }
-                        }
-                    },
-                }
-            if path_key == "/api/providers/{provider_id}/slots" and "get" in path:
-                responses["200"] = {
-                    "description": (
-                        "Day-scoped calendar availability for the provider."
-                    ),
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": (
-                                    "#/components/schemas/CalendarSlotsResponseSchema"
-                                )
-                            }
-                        }
-                    },
-                }
-            if path_key == "/api/bookings" and "post" in path:
-                responses["201"] = {
-                    "description": "Booking created successfully.",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/BookingResponseSchema"
-                            }
-                        }
-                    },
-                }
+            for override_path, method, status_code, override in response_overrides:
+                if path_key == override_path and method in path:
+                    responses[str(status_code)] = override
     app.openapi_schema = schema
     return schema
 
