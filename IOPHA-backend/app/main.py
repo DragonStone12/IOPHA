@@ -109,7 +109,7 @@ def _build_openapi() -> dict[str, object]:
                 responses["422"] = {
                     "description": (
                         "Request payload validation failed "
-                        "(Unprocessable Entity Exception)"
+                        "(Unprocessable Content Exception)"
                     ),
                     "content": {
                         "application/json": {

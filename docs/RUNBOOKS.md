@@ -29,7 +29,7 @@ hyphens, and strips punctuation).
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
 | Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
 | Nutrition Evaluation Error | 500 | [nutrition-evaluation-error](#nutrition-evaluation-error) |
-| Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
+| Unprocessable Content Exception | 422 | [unprocessable-content-error](#unprocessable-content-error) |
 | Intake Processing Failure | 422 | [intake-processing-error](#intake-processing-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
@@ -249,7 +249,7 @@ returned no matching record, so the service raised
 2. Confirm the tips repository is wired to the correct datasource for the environment.
 3. Surface a clear "tip gone" message and re-fetch the active tips list.
 
-## Unprocessable Entity Exception
+## Unprocessable Content Exception
 
 **What happened:** The client sent a syntactically valid request, but the server
 could not process it because one or more fields failed validation (wrong type,

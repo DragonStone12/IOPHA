@@ -22,7 +22,7 @@ from app.schemas.problem.problem_detail import ProblemDetail
 logger = logging.getLogger("iopha.backend")
 
 INTERNAL_SERVER_ERROR_LINK = "internal-server-error"
-UNPROCESSABLE_ENTITY_LINK = "unprocessable-entity-error"
+UNPROCESSABLE_CONTENT_LINK = "unprocessable-content-error"
 HTTP_ERROR_LINK = "http-error"
 
 
@@ -125,10 +125,10 @@ async def _validation_error_handler(
     return _problem_response(
         request=request,
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        title="Unprocessable Entity",
+        title="Unprocessable Content",
         detail="The request failed input validation. Inspect 'errors' "
         "for field-level details.",
-        link=UNPROCESSABLE_ENTITY_LINK,
+        link=UNPROCESSABLE_CONTENT_LINK,
         errors=_sanitized_validation_errors(exc),
     )
 

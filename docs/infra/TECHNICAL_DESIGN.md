@@ -773,7 +773,7 @@ def _validate_exact_tip_count(cls, value: list[TipSchema]) -> list[TipSchema]:
 The validator enforces the **exact-tip-count** contract: the response
 carries precisely three `TipSchema` cards. A payload arriving with two or
 four tips fails validation and is rejected with the RFC-7807
-`unprocessable-entity-error` problem (422) before any serialization.
+`unprocessable-content-error` problem (422) before any serialization.
 
 #### 3.10.3 Route Contract
 

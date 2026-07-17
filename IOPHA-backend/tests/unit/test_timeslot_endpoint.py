@@ -37,7 +37,7 @@ class TestTimeSlotEndpointSmoke:
             response = client.get("/api/providers/prov-123/slots")
         assert response.status_code == 422
         body = response.json()
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
 
     def test_openapi_documents_response_model(self) -> None:
         spec = app.openapi()

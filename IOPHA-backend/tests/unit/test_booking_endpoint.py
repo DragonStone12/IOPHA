@@ -50,7 +50,7 @@ class TestBookingEndpointSmoke:
             )
         assert response.status_code == 422
         body = response.json()
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
 
     def test_invalid_email_returns_422(self) -> None:
         with TestClient(app) as client:
@@ -68,7 +68,7 @@ class TestBookingEndpointSmoke:
             )
         assert response.status_code == 422
         body = response.json()
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
 
     def test_fault_injection_returns_problem_detail(
         self,

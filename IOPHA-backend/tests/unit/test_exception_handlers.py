@@ -230,9 +230,9 @@ class TestValidationErrorHandler:
         assert response.status_code == 422
         body = response.json()
         assert body["status"] == 422
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
         assert "help_url" in body
-        assert "unprocessable-entity-error" in body["help_url"]
+        assert "unprocessable-content-error" in body["help_url"]
         assert body["errors"] is not None
         # Raw user input must never leak into the response body.
         assert "not-an-int" not in response.text
