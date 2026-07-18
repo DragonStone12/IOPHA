@@ -225,6 +225,7 @@
 
 ## Other
 
+- refactor: remove issue links from release notes ([de7c1b0](https://github.com/DragonStone12/IOPHA/commit/de7c1b0))
 - refactor: release notes script emits release-notes-<VERSION>.md with version appended ([abf8a22](https://github.com/DragonStone12/IOPHA/commit/abf8a22))
 - refactor: remove about:blank type field from ProblemDetail ([a6d3b7a](https://github.com/DragonStone12/IOPHA/commit/a6d3b7a))
 - docs: keep library reference as prometheus-fastapi-instrumentator ([d75442b](https://github.com/DragonStone12/IOPHA/commit/d75442b))
