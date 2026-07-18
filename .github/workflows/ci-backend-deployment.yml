@@ -29,10 +29,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
 
       - name: Install Release Notes Dependencies
-        run: npm install git-log-parser through2
+        run: npm install git-log-parser@^1.2.1 through2@^4.0.2
 
       - name: Generate Release Notes
         env:
