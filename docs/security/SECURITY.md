@@ -16,7 +16,8 @@
 | 10  | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
 | 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
 | 11  | [Booking Orchestration API Security](#booking-orchestration-api-security)        | Composite booking payload validation and PII logging rules |
-| 12  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 12  | [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)            | Monorepo split deployment, IAM least-privilege, CORS, secret management |
+| 13  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -25,6 +26,7 @@ IOPHA handles Protected Health Information (PHI) and user credentials. Security 
 1. **Static analysis** — ESLint security/bug plugins run on every push via Husky and CI.
 2. **Dependency auditing** — `npm audit` blocks high-severity vulnerabilities.
 3. **Runtime hardening** — TLS 1.3, JWT auth, AES-256 encryption at rest, and server-side sanitization.
+4. **Deployment hardening** — Least-privilege IAM for CI/CD, strict CORS, and secrets-injected build config (see [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)).
 
 All security findings are surfaced in GitHub Code Scanning via SARIF reports.
 
@@ -820,6 +822,70 @@ the test double.
   embedded in the mock payload.
 - The mock supports fault injection to verify that the global exception
   handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+## CI/CD & Cloud Deployment Security
+
+The IOPHA project is a monorepo (`IOPHA-frontend` + `IOPHA-backend`) with a split
+deployment strategy. Security controls differ per deployment path.
+
+### Monorepo Split Deployment
+
+| Component | Path | Deployment | Trigger | Config |
+| --- | --- | --- | --- | --- |
+| Frontend | `IOPHA-frontend` (Vite/React → `dist`) | AWS Amplify auto-build | Push to `main` | Monorepo app root configured in Amplify Console (`IOPHA-frontend`) |
+| Backend | `IOPHA-backend` (FastAPI + Mangum) | GitHub Actions → Docker → ECR → Lambda | Push to `release/**` | `.github/workflows/ci-backend-deployment.yml` |
+
+The Amplify "Monorepo app root" is set to `IOPHA-frontend` in the AWS Console, so
+Amplify builds only that subdirectory and looks inside it for `package.json`. The
+deployment workflow sets `defaults.run.working-directory: IOPHA-backend` so all
+Docker and `aws` CLI commands run inside the backend folder, never the monorepo root.
+
+### Authentication Method
+
+The backend deployment workflow authenticates to AWS using an IAM user configured
+with the **principle of least privilege**. Credentials (`AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`) are stored as **GitHub Repository Secrets** and are never
+hardcoded in the repository or committed to git.
+
+### Required IAM Permissions
+
+The IAM user is attached to a custom policy (`IOPHA-CICD-Policy`) granting strictly
+scoped permissions in the `us-east-2` region (account `919968175810`):
+
+| Service | Action(s) | Resource scope |
+| --- | --- | --- |
+| Amazon ECR | `ecr:GetAuthorizationToken` | `*` (required for registry auth) |
+| Amazon ECR | `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:GetDownloadUrlForLayer`, `ecr:InitiateLayerUpload`, `ecr:PutImage`, `ecr:UploadLayerPart` | `arn:aws:ecr:us-east-2:919968175810:repository/iopha-backend` |
+| AWS Lambda | `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, `lambda:UpdateFunctionCode` | `arn:aws:lambda:us-east-2:919968175810:function:IOPHA-backend` |
+
+### CORS Security
+
+The FastAPI backend enforces strict Cross-Origin Resource Sharing (CORS), accepting
+requests **only** from the deployed Amplify origin
+(`https://main.d25f7ihio0gzb6.amplifyapp.com`). Requests from any other origin are
+rejected at the application layer, providing defense-in-depth alongside API Gateway.
+The CORS middleware is registered as the outermost middleware in
+`IOPHA-backend/app/main.py` via `app.add_middleware(CORSMiddleware, ...)`.
+
+### Secret Management
+
+- **AWS credentials** are never hardcoded; they live only in GitHub Repository
+  Secrets consumed by the deployment workflow.
+- **Backend API URL** is injected into the React frontend build via the Amplify
+  environment variable `VITE_API_URL` (read at build time via
+  `src/utils/api.ts` → `API_URL`), preventing hardcoded endpoints in source.
+- **IAM access-key rotation** should be performed every 90 days via the AWS IAM
+  Console, with the new key updated in GitHub Repository Secrets before the old
+  key is disabled.
+
+### Container Hardening
+
+The backend ships as a Docker image (`IOPHA-backend/Dockerfile`) based on the
+official AWS Lambda Python 3.11 base image. A `.dockerignore` excludes tests,
+virtual environments, caches, coverage artifacts, and `.git` so the deployed image
+excludes developer-only and secret-adjacent files. The Lambda handler is exposed
+via Mangum with `lifespan="off"` to prevent connection-pool exhaustion when Lambda
+execution contexts freeze and thaw between invocations.
 
 **Related Documentation:**
 

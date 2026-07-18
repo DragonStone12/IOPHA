@@ -14,11 +14,31 @@ const PULL_URL_BASE = `${BASE_GITHUB_URL}/pull`;
 const COMMIT_URL_BASE = `${BASE_GITHUB_URL}/commit`;
 
 // Inputs from GitHub Actions Environment (or defaults)
-const VERSION = process.env.RELEASE_VERSION || "8.1.10";
-const SINCE_DAYS = parseInt(process.env.SINCE_DAYS || "7", 10);
+const VERSION = process.env.RELEASE_VERSION || "1.0.0";
 const OUTPUT_FILE = "release-notes.md";
 
-const since = new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000);
+// Start of the release window: the repository's first commit (root commit).
+// Falls back to SINCE_DAYS (default 7) when git is unavailable.
+const SINCE_DAYS = parseInt(process.env.SINCE_DAYS || "7", 10);
+
+const getFirstCommitDate = () => {
+  try {
+    const { execSync } = require("child_process");
+    const hash = execSync("git rev-list --max-parents=0 HEAD", {
+      encoding: "utf8",
+    }).trim();
+    const date = execSync(`git show -s --format=%aI ${hash}`, {
+      encoding: "utf8",
+    }).trim();
+    return new Date(date);
+  } catch {
+    return null;
+  }
+};
+
+const firstCommitDate = getFirstCommitDate();
+const since = firstCommitDate || new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000);
+const until = new Date();
 
 /**
  * Extracts GitHub issue numbers from a commit message.
@@ -63,7 +83,7 @@ const generateReleaseNotes = async () => {
   // Stream git logs
   await new Promise((resolve, reject) => {
     log
-      .parse({ since })
+      .parse({ since, until })
       .pipe(
         through2.obj((chunk, _, callback) => {
           commits.push(chunk);
@@ -122,12 +142,25 @@ const generateReleaseNotes = async () => {
     }
   });
 
-  // Write to file
+  // Append the version to the end of the content
+  const contentWithVersion = `${markdownContent}\n${VERSION}\n`;
+
+  // Write default file
   try {
     await writeFileAsync(OUTPUT_FILE, markdownContent);
     console.log(`Successfully generated ${OUTPUT_FILE}`);
   } catch (error) {
     console.error("Failed to create release notes file", error);
+    process.exit(1);
+  }
+
+  // Write versioned file with the version appended at the end
+  const versionedFile = `release-notes-${VERSION}.md`;
+  try {
+    await writeFileAsync(versionedFile, contentWithVersion);
+    console.log(`Successfully generated ${versionedFile}`);
+  } catch (error) {
+    console.error("Failed to create versioned release notes file", error);
     process.exit(1);
   }
 };
