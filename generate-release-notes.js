@@ -9,8 +9,6 @@ const writeFileAsync = promisify(writeFile);
 const REPO_OWNER = "DragonStone12";
 const REPO_NAME = "IOPHA";
 const BASE_GITHUB_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
-const ISSUE_URL_BASE = `${BASE_GITHUB_URL}/issues`;
-const PULL_URL_BASE = `${BASE_GITHUB_URL}/pull`;
 const COMMIT_URL_BASE = `${BASE_GITHUB_URL}/commit`;
 
 // Inputs from GitHub Actions Environment (or defaults)
@@ -38,23 +36,6 @@ const getFirstCommitDate = () => {
 const firstCommitDate = getFirstCommitDate();
 const since = firstCommitDate || new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000);
 const until = new Date();
-
-/**
- * Extracts GitHub issue numbers from a commit message.
- * Matches patterns like #123, fixes #123, closes #123
- */
-const extractIssueNumbers = (message) => {
-  const regex = /#(\d+)/g;
-  const matches = [...message.matchAll(regex)];
-  return matches.map((match) => match[1]);
-};
-
-/**
- * Constructs the markdown link for an issue
- */
-const createIssueLink = (issueNumber) => {
-  return `[#${issueNumber}](${ISSUE_URL_BASE}/${issueNumber})`;
-};
 
 /**
  * Constructs the markdown link for a commit
@@ -103,20 +84,11 @@ const generateReleaseNotes = async () => {
 
   commits.forEach((commit) => {
     const category = categorizeCommit(commit.subject);
-    const issueNumbers = extractIssueNumbers(
-      `${commit.subject} ${commit.body || ""}`,
-    );
-
-    // Build hyperlinked issue links from the commit message (#123, fixes #123).
-    const issueLinks =
-      issueNumbers.length > 0
-        ? ` (${issueNumbers.map((num) => createIssueLink(num)).join(", ")})`
-        : "";
 
     const commitLink = createCommitLink(commit.commit.short);
 
-    // Format: - Subject (CommitHash) (#Issue1, #Issue2)
-    const formattedMessage = `- ${commit.subject} (${commitLink})${issueLinks}`;
+    // Format: - Subject (CommitHash)
+    const formattedMessage = `- ${commit.subject} (${commitLink})`;
 
     if (headingsAndMessages[category]) {
       headingsAndMessages[category].push(formattedMessage);
