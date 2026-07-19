@@ -1,11 +1,9 @@
 /// <reference types="vite/client" />
 
-declare global {
-  interface ImportMeta {
-    readonly env: {
-      readonly DEV: boolean;
-      readonly PROD: boolean;
-      readonly BASE_URL: string;
-    };
-  }
+interface ImportMetaEnv {
+  readonly VITE_API_URL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
 }

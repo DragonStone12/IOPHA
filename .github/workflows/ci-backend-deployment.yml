@@ -1,0 +1,106 @@
+name: IOPHA Backend Deployment
+
+on:
+  push:
+    branches:
+      - "release/**"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: iopha-backend
+  LAMBDA_FUNCTION_NAME: IOPHA-backend
+  BACKEND_DIR: IOPHA-backend
+  RELEASE_VERSION: "1.0.0"
+
+jobs:
+  release:
+    name: Tag & Generate Release Notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Release Notes Dependencies
+        run: npm install git-log-parser@^1.2.1 through2@^4.0.2
+
+      - name: Generate Release Notes
+        env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+        run: node generate-release-notes.js
+
+      - name: Commit Release Notes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "release-notes-${{ env.RELEASE_VERSION }}.md"
+          git commit -m "chore: release notes for ${{ env.RELEASE_VERSION }}" || echo "No changes to commit"
+
+      - name: Create Git Tag
+        run: |
+          git tag -a "${{ env.RELEASE_VERSION }}" -m "Release ${{ env.RELEASE_VERSION }}"
+          git push origin "${{ env.RELEASE_VERSION }}"
+          git push origin HEAD
+
+      - name: Upload Release Notes Artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes-${{ env.RELEASE_VERSION }}
+          path: |
+            release-notes-${{ env.RELEASE_VERSION }}.md
+          if-no-files-found: warn
+
+  deploy-backend:
+    name: Deploy Backend to Lambda
+    needs: release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.BACKEND_DIR }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # The '.' means it builds using the Dockerfile in the current (backend) directory
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          echo "IMAGE_URI=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - name: Update Lambda Function Code
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --image-uri ${{ env.IMAGE_URI }}
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Backend successfully deployed to Lambda!"
+          echo "🔗 API Gateway Endpoint: https://k6bbr9kln1.execute-api.us-east-2.amazonaws.com/prod/iopha"
+          echo "🏷️ Release Tag: ${{ env.RELEASE_VERSION }}"
