@@ -56,18 +56,23 @@ jobs:
           RELEASE_VERSION: ${{ steps.tag.outputs.tag }}
         run: node generate-release-notes.js
 
-      - name: Commit Release Notes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "release-notes-${{ steps.tag.outputs.tag }}.md"
-          git commit -m "chore: release notes for ${{ steps.tag.outputs.tag }}" || echo "No changes to commit"
-
       - name: Create Git Tag
         run: |
-          git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
-          git push origin "${{ steps.tag.outputs.tag }}"
-          git push origin HEAD
+          TAG="${{ steps.tag.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Re-runs must re-tag at the current commit: if the tag already
+          # exists on origin (e.g. from a run whose deploy job later failed),
+          # delete it remotely and locally before recreating it.
+          # Test ls-remote's output rather than --exit-code, which is
+          # unreliable with --tags/--refs on some git versions.
+          if [ -n "$(git ls-remote --tags origin --refs "refs/tags/$TAG")" ]; then
+            echo "Tag $TAG already exists on origin — deleting it before re-tagging."
+            git push origin --delete "refs/tags/$TAG"
+            git tag -d "$TAG" || true
+          fi
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
 
       - name: Upload Release Notes Artifact
         if: always()
@@ -82,6 +87,11 @@ jobs:
     name: Deploy Backend to Lambda
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Secrets (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) are stored in the
+    # "AWS" GitHub environment; the job must declare it to receive them.
+    environment: AWS
     defaults:
       run:
         working-directory: ${{ env.BACKEND_DIR }}
@@ -90,7 +100,8 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v5
+        # v6 is the first major running on Node 24 (v4/v5 both use node20).
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
