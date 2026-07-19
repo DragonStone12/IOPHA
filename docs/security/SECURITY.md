@@ -850,13 +850,13 @@ hardcoded in the repository or committed to git.
 ### Required IAM Permissions
 
 The IAM user is attached to a custom policy (`IOPHA-CICD-Policy`) granting strictly
-scoped permissions in the `us-east-2` region (account `919968175810`):
+scoped permissions in the `us-east-2` region (account `<aws-account-id>`):
 
 | Service | Action(s) | Resource scope |
 | --- | --- | --- |
 | Amazon ECR | `ecr:GetAuthorizationToken` | `*` (required for registry auth) |
-| Amazon ECR | `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:GetDownloadUrlForLayer`, `ecr:InitiateLayerUpload`, `ecr:PutImage`, `ecr:UploadLayerPart` | `arn:aws:ecr:us-east-2:919968175810:repository/iopha-backend` |
-| AWS Lambda | `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, `lambda:UpdateFunctionCode` | `arn:aws:lambda:us-east-2:919968175810:function:IOPHA-backend` |
+| Amazon ECR | `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:GetDownloadUrlForLayer`, `ecr:InitiateLayerUpload`, `ecr:PutImage`, `ecr:UploadLayerPart` | `arn:aws:ecr:us-east-2:<aws-account-id>:repository/iopha-backend` |
+| AWS Lambda | `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, `lambda:UpdateFunctionCode` | `arn:aws:lambda:us-east-2:<aws-account-id>:function:IOPHA-backend` |
 
 ### CORS Security
 

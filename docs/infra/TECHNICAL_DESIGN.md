@@ -1331,6 +1331,56 @@ which stage served it.
 This keeps the public URI stable while allowing independent
 evolution of each API version behind the edge.
 
+### 5.4 Container Image Deployment to AWS Lambda (ECR)
+
+The backend ships as a container image. `push-to-ecr.sh` (repo root) builds
+`IOPHA-backend/Dockerfile` (base image `public.ecr.aws/lambda/python:3.11`),
+tags it, and pushes it to the ECR repository `iopha-backend` (account
+`<aws-account-id>`, region `us-east-2`). The Lambda function is then created from
+that ECR image in the AWS console.
+
+**AWS Lambda ↔ Apple Silicon (Docker Desktop) incompatibility:**
+
+Two Docker Desktop defaults collide with AWS Lambda's image requirements when
+the image is built on an Apple Silicon Mac:
+
+1. **Manifest format.** Docker Desktop's BuildKit engine (with the containerd
+   image store) attaches a *provenance attestation manifest* by default and
+   pushes an *OCI image index* (`application/vnd.oci.image.index.v1+json`) — a
+   manifest list that wraps the real image manifest together with an
+   `unknown/unknown`-platform attestation entry. AWS Lambda only imports
+   images whose tag resolves directly to a *single image manifest* (Docker
+   Image Manifest V2 Schema 2 or OCI Image Manifest v1) and rejects image
+   indexes and attestation manifests outright.
+2. **CPU architecture.** Builds on Apple Silicon default to `linux/arm64`,
+   while the Lambda console defaults to the `x86_64` architecture. The
+   function's architecture must match the image platform.
+
+**How to avoid it:**
+
+- Build with `--provenance=false` so no attestation manifest is produced and
+  the push uploads a single plain image manifest. This is baked into
+  `push-to-ecr.sh`:
+  ```bash
+  docker build --platform linux/arm64 --provenance=false \
+    -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f IOPHA-backend/Dockerfile IOPHA-backend
+  ```
+- The platform is pinned to `linux/arm64` (native build speed on Apple
+  Silicon, Graviton pricing on Lambda). Select the matching **arm64**
+  architecture when creating the Lambda function, or switch the flag to
+  `--platform linux/amd64` (emulated build) if the function must be x86_64.
+- After pushing, verify the tag points to a plain manifest:
+  ```bash
+  docker manifest inspect <aws-account-id>.dkr.ecr.us-east-2.amazonaws.com/iopha-backend:latest
+  # must report "mediaType": "application/vnd.oci.image.manifest.v1+json"
+  # NOT "application/vnd.oci.image.index.v1+json"
+  ```
+
+See [TROUBLESHOOTING.md — AWS Lambda Rejects ECR Image (Media Type Not Supported)](../../TROUBLESHOOTING.md#aws-lambda-rejects-ecr-image-media-type-not-supported)
+for the full error transcript, diagnosis steps, and resolution. For the full
+inventory of deployed AWS services and how they are used, see
+[AWS Technologies](AWS_TECHNOLOGIES.md).
+
 
 
 | Component     | Options                           | Criteria                              |
@@ -1342,6 +1392,7 @@ evolution of each API version behind the edge.
 
 ## 7. Related Documentation
 
+- [AWS Technologies](AWS_TECHNOLOGIES.md)
 - [Security Overview](../security/SECURITY.md)
 - [Sensitive Data Handling](../security/SENSITIVE_DATA_HANDLING.md)
 - [Input Validation](../security/INPUT_VALIDATION.md)
