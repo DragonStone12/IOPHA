@@ -58,10 +58,21 @@ jobs:
 
       - name: Create Git Tag
         run: |
+          TAG="${{ steps.tag.outputs.tag }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
-          git push origin "${{ steps.tag.outputs.tag }}"
+          # Re-runs must re-tag at the current commit: if the tag already
+          # exists on origin (e.g. from a run whose deploy job later failed),
+          # delete it remotely and locally before recreating it.
+          # Test ls-remote's output rather than --exit-code, which is
+          # unreliable with --tags/--refs on some git versions.
+          if [ -n "$(git ls-remote --tags origin --refs "refs/tags/$TAG")" ]; then
+            echo "Tag $TAG already exists on origin — deleting it before re-tagging."
+            git push origin --delete "refs/tags/$TAG"
+            git tag -d "$TAG" || true
+          fi
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
 
       - name: Upload Release Notes Artifact
         if: always()
@@ -76,6 +87,8 @@ jobs:
     name: Deploy Backend to Lambda
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: ${{ env.BACKEND_DIR }}
