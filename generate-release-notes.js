@@ -12,7 +12,14 @@ const BASE_GITHUB_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
 const COMMIT_URL_BASE = `${BASE_GITHUB_URL}/commit`;
 
 // Inputs from GitHub Actions Environment (or defaults)
-const VERSION = process.env.RELEASE_VERSION || "1.0.0";
+// Sanitize the version so it is always a safe single-segment filename.
+// Strips a leading "release/" branch prefix and any path/illegal characters
+// (e.g. when RELEASE_VERSION is passed the branch name "release/1.0.0").
+const RAW_VERSION = process.env.RELEASE_VERSION || "1.0.0";
+const VERSION = RAW_VERSION.replace(/^release[/\\]?/i, "")
+  .replace(/[/\\]/g, "-")
+  .replace(/[^A-Za-z0-9._-]/g, "")
+  .replace(/^-+|-+$/g, "") || "1.0.0";
 const OUTPUT_FILE = `release-notes-${VERSION}.md`;
 
 // Start of the release window: the repository's first commit (root commit).

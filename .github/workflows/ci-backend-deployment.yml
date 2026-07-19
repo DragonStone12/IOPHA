@@ -19,12 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      release_tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive release tag
+        id: tag
+        run: |
+          # Strip a leading "release/" branch prefix and sanitize for a git tag.
+          RAW="${{ env.RELEASE_VERSION }}"
+          TAG="${RAW#release/}"
+          TAG="${TAG//\//-}"
+          TAG="$(echo "$TAG" | tr -cd 'A-Za-z0-9._-')"
+          TAG="${TAG%-}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -36,29 +49,29 @@ jobs:
 
       - name: Generate Release Notes
         env:
-          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
+          RELEASE_VERSION: ${{ steps.tag.outputs.tag }}
         run: node generate-release-notes.js
 
       - name: Commit Release Notes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "release-notes-${{ env.RELEASE_VERSION }}.md"
-          git commit -m "chore: release notes for ${{ env.RELEASE_VERSION }}" || echo "No changes to commit"
+          git add "release-notes-${{ steps.tag.outputs.tag }}.md"
+          git commit -m "chore: release notes for ${{ steps.tag.outputs.tag }}" || echo "No changes to commit"
 
       - name: Create Git Tag
         run: |
-          git tag -a "${{ env.RELEASE_VERSION }}" -m "Release ${{ env.RELEASE_VERSION }}"
-          git push origin "${{ env.RELEASE_VERSION }}"
+          git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
+          git push origin "${{ steps.tag.outputs.tag }}"
           git push origin HEAD
 
       - name: Upload Release Notes Artifact
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: release-notes-${{ env.RELEASE_VERSION }}
+          name: release-notes-${{ steps.tag.outputs.tag }}
           path: |
-            release-notes-${{ env.RELEASE_VERSION }}.md
+            release-notes-${{ steps.tag.outputs.tag }}.md
           if-no-files-found: warn
 
   deploy-backend:
@@ -103,4 +116,4 @@ jobs:
         run: |
           echo "✅ Backend successfully deployed to Lambda!"
           echo "🔗 API Gateway Endpoint: https://k6bbr9kln1.execute-api.us-east-2.amazonaws.com/prod/iopha"
-          echo "🏷️ Release Tag: ${{ env.RELEASE_VERSION }}"
+          echo "🏷️ Release Tag: ${{ needs.release.outputs.release_tag }}"
