@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.booking import router as booking_router
@@ -255,3 +257,23 @@ def _build_openapi() -> dict[str, object]:
 
 
 app.openapi = _build_openapi  # type: ignore[method-assign]
+
+
+# Strict CORS restricted to the deployed Amplify frontend origin.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://main.d25f7ihio0gzb6.amplifyapp.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "message": "Backend is reachable"}
+
+
+# AWS Lambda entry point. lifespan="off" prevents connection-pool exhaustion
+# when Lambda execution contexts freeze and thaw between invocations.
+handler = Mangum(app, lifespan="off")

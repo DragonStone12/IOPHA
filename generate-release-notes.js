@@ -9,33 +9,33 @@ const writeFileAsync = promisify(writeFile);
 const REPO_OWNER = "DragonStone12";
 const REPO_NAME = "IOPHA";
 const BASE_GITHUB_URL = `https://github.com/${REPO_OWNER}/${REPO_NAME}`;
-const ISSUE_URL_BASE = `${BASE_GITHUB_URL}/issues`;
-const PULL_URL_BASE = `${BASE_GITHUB_URL}/pull`;
 const COMMIT_URL_BASE = `${BASE_GITHUB_URL}/commit`;
 
 // Inputs from GitHub Actions Environment (or defaults)
-const VERSION = process.env.RELEASE_VERSION || "8.1.10";
+const VERSION = process.env.RELEASE_VERSION || "1.0.0";
+const OUTPUT_FILE = `release-notes-${VERSION}.md`;
+
+// Start of the release window: the repository's first commit (root commit).
+// Falls back to SINCE_DAYS (default 7) when git is unavailable.
 const SINCE_DAYS = parseInt(process.env.SINCE_DAYS || "7", 10);
-const OUTPUT_FILE = "release-notes.md";
 
-const since = new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000);
-
-/**
- * Extracts GitHub issue numbers from a commit message.
- * Matches patterns like #123, fixes #123, closes #123
- */
-const extractIssueNumbers = (message) => {
-  const regex = /#(\d+)/g;
-  const matches = [...message.matchAll(regex)];
-  return matches.map((match) => match[1]);
+const execGit = (cmd) => {
+  const { execSync } = require("child_process");
+  return execSync(cmd, { encoding: "utf8" }).trim();
 };
 
-/**
- * Constructs the markdown link for an issue
- */
-const createIssueLink = (issueNumber) => {
-  return `[#${issueNumber}](${ISSUE_URL_BASE}/${issueNumber})`;
+const getFirstCommitDate = () => {
+  try {
+    const hash = execGit("git rev-list --max-parents=0 HEAD");
+    return new Date(execGit(`git show -s --format=%aI ${hash}`));
+  } catch {
+    return null;
+  }
 };
+
+const firstCommitDate = getFirstCommitDate();
+const since = firstCommitDate || new Date(Date.now() - SINCE_DAYS * 24 * 60 * 60 * 1000);
+const until = new Date();
 
 /**
  * Constructs the markdown link for a commit
@@ -63,7 +63,7 @@ const generateReleaseNotes = async () => {
   // Stream git logs
   await new Promise((resolve, reject) => {
     log
-      .parse({ since })
+      .parse({ since, until })
       .pipe(
         through2.obj((chunk, _, callback) => {
           commits.push(chunk);
@@ -84,20 +84,11 @@ const generateReleaseNotes = async () => {
 
   commits.forEach((commit) => {
     const category = categorizeCommit(commit.subject);
-    const issueNumbers = extractIssueNumbers(
-      `${commit.subject} ${commit.body || ""}`,
-    );
-
-    // Build issue links string
-    const issueLinks =
-      issueNumbers.length > 0
-        ? ` (${issueNumbers.map((num) => createIssueLink(num)).join(", ")})`
-        : "";
 
     const commitLink = createCommitLink(commit.commit.short);
 
-    // Format: - Subject (CommitHash) (#Issue1, #Issue2)
-    const formattedMessage = `- ${commit.subject} (${commitLink})${issueLinks}`;
+    // Format: - Subject (CommitHash)
+    const formattedMessage = `- ${commit.subject} (${commitLink})`;
 
     if (headingsAndMessages[category]) {
       headingsAndMessages[category].push(formattedMessage);
@@ -122,9 +113,12 @@ const generateReleaseNotes = async () => {
     }
   });
 
-  // Write to file
+  // Append the version to the end of the content
+  const contentWithVersion = `${markdownContent}\n${VERSION}\n`;
+
+  // Write the versioned release notes file (e.g. release-notes-1.0.0.md)
   try {
-    await writeFileAsync(OUTPUT_FILE, markdownContent);
+    await writeFileAsync(OUTPUT_FILE, contentWithVersion);
     console.log(`Successfully generated ${OUTPUT_FILE}`);
   } catch (error) {
     console.error("Failed to create release notes file", error);
