@@ -14,9 +14,15 @@ const COMMIT_URL_BASE = `${BASE_GITHUB_URL}/commit`;
 // Inputs from GitHub Actions Environment (or defaults).
 // The workflow is the single source of truth for sanitization: it derives a
 // clean tag (strips the "release/" prefix, removes illegal chars) and passes
-// it here as RELEASE_VERSION. The script only applies a minimal safety net so
-// a missing/empty value still yields a valid filename.
-const VERSION = process.env.RELEASE_VERSION || "1.0.0";
+// it here as RELEASE_VERSION. To stay robust when invoked directly (local,
+// matrix, or any future non-workflow caller), apply a minimal safety net that
+// keeps the value a single safe filename segment: replace path separators and
+// drop any illegal characters, with a fallback when empty.
+const RAW_VERSION = process.env.RELEASE_VERSION || "1.0.0";
+const VERSION =
+  RAW_VERSION.replace(/[/\\]/g, "-")
+    .replace(/[^A-Za-z0-9._-]/g, "")
+    .replace(/^-+|-+$/g, "") || "1.0.0";
 const OUTPUT_FILE = `release-notes-${VERSION}.md`;
 
 // Start of the release window: the repository's first commit (root commit).

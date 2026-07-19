@@ -233,6 +233,7 @@
 
 ## Other
 
+- refactor: make workflow the single source of truth for release-tag sanitization ([5e4eec3](https://github.com/DragonStone12/IOPHA/commit/5e4eec3))
 - refactor: move CORS and Mangum imports to top of app/main.py ([22be302](https://github.com/DragonStone12/IOPHA/commit/22be302))
 - chore: regenerate release-notes-1.0.0.md ([0c9c531](https://github.com/DragonStone12/IOPHA/commit/0c9c531))
 - refactor: remove issue links from release notes ([21d8854](https://github.com/DragonStone12/IOPHA/commit/21d8854))
