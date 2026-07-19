@@ -31,12 +31,16 @@ jobs:
       - name: Derive release tag
         id: tag
         run: |
-          # Strip a leading "release/" branch prefix and sanitize for a git tag.
+          # Single source of truth for sanitization. Strip a leading "release/"
+          # prefix (any case), replace slashes, drop illegal chars, and trim all
+          # leading/trailing dashes. Falls back to 1.0.0 if empty.
           RAW="${{ env.RELEASE_VERSION }}"
-          TAG="${RAW#release/}"
+          TAG="$(echo "$RAW" | tr '[:upper:]' '[:lower:]')"
+          TAG="${TAG#release/}"
           TAG="${TAG//\//-}"
           TAG="$(echo "$TAG" | tr -cd 'A-Za-z0-9._-')"
-          TAG="${TAG%-}"
+          TAG="$(echo "$TAG" | sed -E 's/^-+|-+$//g')"
+          TAG="${TAG:-1.0.0}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js

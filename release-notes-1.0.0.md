@@ -1,10 +1,11 @@
 # IOPHA Release [1.0.0](https://github.com/DragonStone12/IOPHA/releases/tag/v1.0.0)
 
-*Release Date: 2026-07-18*
+*Release Date: 2026-07-19*
 
 ## Features
 
-- feat: monorepo deployment setup — Amplify-ready frontend, Docker/Lambda backend, release notes workflow ([53a4b22](https://github.com/DragonStone12/IOPHA/commit/53a4b22))
+- feat: monorepo deployment setup — Amplify-ready frontend, Docker/Lambda backend, release notes workflow ([5273f39](https://github.com/DragonStone12/IOPHA/commit/5273f39))
+- feat(booking): implement core booking orchestration and calendar slots discovery ([9218b0c](https://github.com/DragonStone12/IOPHA/commit/9218b0c))
 - feat: implement patient intake profile API with Pydantic validation and context tracing ([59fd793](https://github.com/DragonStone12/IOPHA/commit/59fd793))
 - feat: nutrition global error handling via shared exception pipeline ([36797c2](https://github.com/DragonStone12/IOPHA/commit/36797c2))
 - feat: nutrition context tracing via shared RequestTrackingMiddleware ([c7b093a](https://github.com/DragonStone12/IOPHA/commit/c7b093a))
@@ -56,6 +57,12 @@
 
 ## Bug Fixes
 
+- fix: sanitize release version for filename and git tag ([4ccd90c](https://github.com/DragonStone12/IOPHA/commit/4ccd90c))
+- fix: bump setup-node and configure-aws-credentials to v5 for Node 24 runners ([7853c66](https://github.com/DragonStone12/IOPHA/commit/7853c66))
+- fix: drop non-existent release-notes.md references from workflow ([579e836](https://github.com/DragonStone12/IOPHA/commit/579e836))
+- fix: pin release-notes deps and use Node 24 in deployment workflow ([14c1cb3](https://github.com/DragonStone12/IOPHA/commit/14c1cb3))
+- fix: address review — pin starlette>=0.48.0, dedupe provider seed, parse slot ids via regex groups ([2ce1fb5](https://github.com/DragonStone12/IOPHA/commit/2ce1fb5))
+- fix: replace deprecated HTTP_422_UNPROCESSABLE_ENTITY constant ([c071839](https://github.com/DragonStone12/IOPHA/commit/c071839))
 - fix: strengthen nutrition evaluation tests and RFC-7807 compliance ([d80f2c3](https://github.com/DragonStone12/IOPHA/commit/d80f2c3))
 - fix: nutrition logging HIPAA hygiene + test coverage ([6daa811](https://github.com/DragonStone12/IOPHA/commit/6daa811))
 - fix: disable no-secrets rule for mock files via eslint config ([4eb18e9](https://github.com/DragonStone12/IOPHA/commit/4eb18e9))
@@ -145,6 +152,7 @@
 
 ## Merge Commit
 
+- Merge pull request #115 from DragonStone12/74-implement-core-booking-orchestration-calendar-slots-discovery-endpoints-with-multi-model-validation-and-trace-integration ([30ead85](https://github.com/DragonStone12/IOPHA/commit/30ead85))
 - Merge pull request #114 from DragonStone12/73-implement-patient-intake-form-core-api-with-context-tracing-global-error-abstractions-and-isolated-error-handling-tests ([a0a6852](https://github.com/DragonStone12/IOPHA/commit/a0a6852))
 - Merge pull request #112 from DragonStone12/72-implement-nutrition-response-orchestration-api-with-context-tracing-global-error-abstractions-and-isolated-error-handling-tests ([6f6a314](https://github.com/DragonStone12/IOPHA/commit/6f6a314))
 - Merge pull request #111 from DragonStone12/72.4-test-infrastructure ([adcacd3](https://github.com/DragonStone12/IOPHA/commit/adcacd3))
@@ -225,8 +233,13 @@
 
 ## Other
 
-- refactor: remove issue links from release notes ([de7c1b0](https://github.com/DragonStone12/IOPHA/commit/de7c1b0))
-- refactor: release notes script emits release-notes-<VERSION>.md with version appended ([abf8a22](https://github.com/DragonStone12/IOPHA/commit/abf8a22))
+- refactor: move CORS and Mangum imports to top of app/main.py ([22be302](https://github.com/DragonStone12/IOPHA/commit/22be302))
+- chore: regenerate release-notes-1.0.0.md ([0c9c531](https://github.com/DragonStone12/IOPHA/commit/0c9c531))
+- refactor: remove issue links from release notes ([21d8854](https://github.com/DragonStone12/IOPHA/commit/21d8854))
+- refactor: release notes script emits release-notes-<VERSION>.md with version appended ([0851b19](https://github.com/DragonStone12/IOPHA/commit/0851b19))
+- docs: correct OpenAPI error descriptions for intake and timeslot endpoints ([f9b19e2](https://github.com/DragonStone12/IOPHA/commit/f9b19e2))
+- refactor: standardize OpenAPI error descriptions with exception class names ([20cfa71](https://github.com/DragonStone12/IOPHA/commit/20cfa71))
+- refactor: align 422 terminology with RFC 9110 Unprocessable Content ([1c2a002](https://github.com/DragonStone12/IOPHA/commit/1c2a002))
 - refactor: remove about:blank type field from ProblemDetail ([a6d3b7a](https://github.com/DragonStone12/IOPHA/commit/a6d3b7a))
 - docs: keep library reference as prometheus-fastapi-instrumentator ([d75442b](https://github.com/DragonStone12/IOPHA/commit/d75442b))
 - docs: use proper case for Prometheus FastAPI Instrumentator ([76aea59](https://github.com/DragonStone12/IOPHA/commit/76aea59))
