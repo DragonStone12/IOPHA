@@ -89,6 +89,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Secrets (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) are stored in the
+    # "AWS" GitHub environment; the job must declare it to receive them.
+    environment: AWS
     defaults:
       run:
         working-directory: ${{ env.BACKEND_DIR }}
