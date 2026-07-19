@@ -56,9 +56,14 @@ graph TD
 
 ## 4. Infrastructure Topology (AWS)
 
+**Currently deployed** (account `<aws-account-id>`, region `us-east-2`): AWS Lambda,
+Amazon ECR, AWS IAM, AWS Amplify, and Amazon API Gateway — see
+[AWS Technologies](AWS_TECHNOLOGIES.md) for the detailed inventory of how each
+service is used.
+
 | Layer         | Service                      | Decision Status  | Notes                                               |
 | ------------- | ---------------------------- | ---------------- | --------------------------------------------------- |
-| Compute       | ECS Fargate or Lambda        | Decision Pending | Criteria: Cold start tolerance, cost, scaling needs |
+| Compute       | AWS Lambda (container image) | In use           | FastAPI via Mangum; see [AWS Technologies](AWS_TECHNOLOGIES.md) |
 | Storage       | S3                           | Confirmed        | For guideline document storage                      |
 | Database      | RDS PostgreSQL + pgvector    | Decision Pending | Alternative: Neon, Supabase                         |
 | AI/ML         | Amazon Bedrock               | Confirmed        | AWS-native embeddings/inference                     |
