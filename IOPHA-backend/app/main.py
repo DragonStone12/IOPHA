@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.booking import router as booking_router
@@ -257,8 +259,6 @@ def _build_openapi() -> dict[str, object]:
 app.openapi = _build_openapi  # type: ignore[method-assign]
 
 
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-
 # Strict CORS restricted to the deployed Amplify frontend origin.
 app.add_middleware(
     CORSMiddleware,
@@ -276,6 +276,4 @@ def health() -> dict[str, str]:
 
 # AWS Lambda entry point. lifespan="off" prevents connection-pool exhaustion
 # when Lambda execution contexts freeze and thaw between invocations.
-from mangum import Mangum  # noqa: E402
-
 handler = Mangum(app, lifespan="off")
