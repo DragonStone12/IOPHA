@@ -56,18 +56,10 @@ jobs:
           RELEASE_VERSION: ${{ steps.tag.outputs.tag }}
         run: node generate-release-notes.js
 
-      - name: Commit Release Notes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "release-notes-${{ steps.tag.outputs.tag }}.md"
-          git commit -m "chore: release notes for ${{ steps.tag.outputs.tag }}" || echo "No changes to commit"
-
       - name: Create Git Tag
         run: |
           git tag -a "${{ steps.tag.outputs.tag }}" -m "Release ${{ steps.tag.outputs.tag }}"
           git push origin "${{ steps.tag.outputs.tag }}"
-          git push origin HEAD
 
       - name: Upload Release Notes Artifact
         if: always()
