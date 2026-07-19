@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add release-notes.md "release-notes-${{ env.RELEASE_VERSION }}.md"
+          git add "release-notes-${{ env.RELEASE_VERSION }}.md"
           git commit -m "chore: release notes for ${{ env.RELEASE_VERSION }}" || echo "No changes to commit"
 
       - name: Create Git Tag
@@ -58,7 +58,6 @@ jobs:
         with:
           name: release-notes-${{ env.RELEASE_VERSION }}
           path: |
-            release-notes.md
             release-notes-${{ env.RELEASE_VERSION }}.md
           if-no-files-found: warn
 
