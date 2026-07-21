@@ -92,7 +92,7 @@ label: str = Field(..., max_length=100, ...)
 
 ### Validation behavior
 
-When a client submits a payload that exceeds `max_length`, Pydantic raises a `ValidationError` and FastAPI returns a structured RFC-7807 `422 Unprocessable Entity` response (via the global `RequestValidationError` handler). The client receives a clear error message identifying the offending field and constraint.
+When a client submits a payload that exceeds `max_length`, Pydantic raises a `ValidationError` and FastAPI returns a structured RFC-7807 `422 Unprocessable Content` response (via the global `RequestValidationError` handler). The client receives a clear error message identifying the offending field and constraint.
 
 ### How to choose limits for new fields
 
@@ -126,7 +126,7 @@ All changes to API schemas must include tests that assert:
 
 - [ ] New `max_length` constraint rejects payloads exceeding the limit
 - [ ] Valid payloads at exactly the boundary (`max_length` chars) are accepted
-- [ ] Invalid payloads return `422 Unprocessable Entity` with RFC-7807 problem detail
+- [ ] Invalid payloads return `422 Unprocessable Content` with RFC-7807 problem detail
 - [ ] Existing seeded data and integration tests continue to pass
 - [ ] Ruff lint passes with no `E501` line-length violations
 

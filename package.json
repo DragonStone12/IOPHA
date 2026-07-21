@@ -9,7 +9,7 @@
     "generate-release-notes": "node generate-release-notes.js"
   },
   "dependencies": {
-    "git-log-parser": "^2.2.0",
+    "git-log-parser": "^1.2.1",
     "through2": "^4.0.2"
   },
   "devDependencies": {

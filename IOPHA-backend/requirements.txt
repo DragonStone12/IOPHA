@@ -2,9 +2,13 @@ bandit>=1.7.0
 pip-audit>=2.6.0
 pre-commit>=3.0.0
 fastapi>=0.104.0
+# Required for status.HTTP_422_UNPROCESSABLE_CONTENT (RFC 9110 rename added in starlette 0.48.0)
+starlette>=0.48.0
 uvicorn>=0.24.0
 prometheus-fastapi-instrumentator>=6.1.0
 pydantic>=2.0
+# ASGI-to-Lambda adapter for deploying the FastAPI app on AWS Lambda via API Gateway
+mangum==0.17.0
 python-json-logger>=2.0.0
 httpx>=0.25.0
 ruff>=0.4.0

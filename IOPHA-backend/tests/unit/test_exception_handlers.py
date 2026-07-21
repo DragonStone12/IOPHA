@@ -11,6 +11,7 @@ from app.exceptions import (
     AvailabilityDriftError,
     ExpiredBookingSessionError,
     ExternalCalendarSyncDisconnectedError,
+    IntakeProcessingException,
     InvalidViewTransitionError,
     IOPHADomainError,
     NotificationGatewayTimeoutError,
@@ -57,6 +58,7 @@ EXAMPLES: dict[str, IOPHADomainError] = {
     "provider": ProviderNotFoundException("prov-1"),
     "tip": TipNotFoundException("tip-1"),
     "nutrition": NutritionEvaluationEngineError("corrupt-profile"),
+    "intake": IntakeProcessingException("constraint violation"),
 }
 
 
@@ -84,6 +86,10 @@ def _make_app() -> FastAPI:
     @app.get("/validate")
     async def validate(q: int) -> dict[str, int]:
         return {"q": q}
+
+    @app.post("/intake")
+    async def intake() -> dict[str, str]:
+        raise IntakeProcessingException("constraint violation")
 
     return app
 
@@ -224,9 +230,9 @@ class TestValidationErrorHandler:
         assert response.status_code == 422
         body = response.json()
         assert body["status"] == 422
-        assert body["title"] == "Unprocessable Entity"
+        assert body["title"] == "Unprocessable Content"
         assert "help_url" in body
-        assert "unprocessable-entity-error" in body["help_url"]
+        assert "unprocessable-content-error" in body["help_url"]
         assert body["errors"] is not None
         # Raw user input must never leak into the response body.
         assert "not-an-int" not in response.text

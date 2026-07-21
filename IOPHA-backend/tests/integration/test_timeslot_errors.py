@@ -113,7 +113,7 @@ class TestProviderNotFoundException:
             request_id = "123e4567-e89b-12d3-a456-426614174000"
             with TestClient(app) as client:
                 response = client.get(
-                    "/api/providers/does-not-exist/slots",
+                    "/api/providers/does-not-exist/slots?date=2024-01-15",
                     headers={"X-Request-ID": request_id},
                 )
             assert response.status_code == 404
@@ -130,7 +130,9 @@ class TestProviderNotFoundException:
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             with TestClient(app) as client:
-                response = client.get("/api/providers/does-not-exist/slots")
+                response = client.get(
+                    "/api/providers/does-not-exist/slots?date=2024-01-15"
+                )
             for marker in LEAK_MARKERS:
                 assert marker not in response.text
         finally:

@@ -25,10 +25,12 @@ hyphens, and strips punctuation).
 | Provider Not Found | 404 | [provider-not-found-error](#provider-not-found-error) |
 | Tip Not Found | 404 | [tip-not-found-error](#tip-not-found-error) |
 | Time Slot Unavailable | 409 | [time-slot-unavailable](#time-slot-unavailable) |
+| Schedule Lock Conflict | 409 | [schedule-lock-conflict](#schedule-lock-conflict) |
 | Invalid Time Slot Format | 400 | [invalid-time-slot-format](#invalid-time-slot-format) |
 | Search Aggregator Timeout | 504 | [search-aggregator-timeout](#search-aggregator-timeout) |
 | Nutrition Evaluation Error | 500 | [nutrition-evaluation-error](#nutrition-evaluation-error) |
-| Unprocessable Entity Exception | 422 | [unprocessable-entity-error](#unprocessable-entity-error) |
+| Unprocessable Content Exception | 422 | [unprocessable-content-error](#unprocessable-content-error) |
+| Intake Processing Failure | 422 | [intake-processing-error](#intake-processing-error) |
 | Internal Server Error | 500 | [internal-server-error](#internal-server-error) |
 
 ## Race Condition Double Booking
@@ -247,7 +249,7 @@ returned no matching record, so the service raised
 2. Confirm the tips repository is wired to the correct datasource for the environment.
 3. Surface a clear "tip gone" message and re-fetch the active tips list.
 
-## Unprocessable Entity Exception
+## Unprocessable Content Exception
 
 **What happened:** The client sent a syntactically valid request, but the server
 could not process it because one or more fields failed validation (wrong type,
@@ -267,6 +269,32 @@ into a single RFC-7807 `ProblemDetail` payload.
 2. Correct the payload according to the API schema before retrying.
 3. Validate client-side against the OpenAPI `ProblemDetail` contract so the
    frontend surfaces field-level errors before the request is sent.
+
+## Intake Processing Failure
+
+**What happened:** The patient intake profile pipeline failed to validate or
+ingest the submitted profile. The global handler projected the failure into an
+RFC-7807 `ProblemDetail` payload with a `help_url` runbook link.
+
+**Common causes:**
+- Phone number did not contain exactly 10 numerical digits after stripping
+  non-digit characters.
+- Email address did not match the expected format.
+- Required field (`name`, `email`, or `phone`) was missing from the payload.
+- An unplanned field was included in the request body (the schema enforces
+  `extra="forbid"`).
+- The intake service raised `IntakeProcessingException` after schema validation
+  passed (e.g., downstream processing constraint violation).
+
+**Mitigation:**
+1. Inspect the `errors` array in the response for the exact field and message.
+2. Correct the payload according to the `PatientDataSchema` contract before
+   retrying.
+3. Ensure the phone field contains exactly 10 digits and the email matches the
+   standard format.
+4. If the failure persists after payload correction, check the structured
+   server logs for the `requestId` and the `intake.processing_failure` event
+   to identify the offending request.
 
 ## Internal Server Error
 
@@ -294,6 +322,23 @@ been booked by another patient or released by the system.
 2. Return the conflict to the client with a clear "slot gone" message and force
    a refresh.
 3. Log `slotId` and `providerId` for audit trail correlation.
+
+## Schedule Lock Conflict
+
+**What happened:** The booking confirmation transaction lost an optimistic lock
+race. The slot appeared available when the request started, but another
+patient's transaction reserved it before this request could commit.
+
+**Common causes:**
+- Two concurrent confirmation requests targeted the same remaining slot.
+- The availability cache was stale when the user clicked "Confirm".
+- Row-level locking on the slot table is missing or misconfigured.
+
+**Mitigation:**
+1. Treat this as a transient race condition, not a permanent failure.
+2. Return the user to the time-selection view with refreshed availability.
+3. Verify the reservation layer uses an atomic compare-and-swap or database
+   constraint to prevent silent double-bookings.
 
 ## Invalid Time Slot Format
 

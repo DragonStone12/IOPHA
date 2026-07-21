@@ -16,6 +16,8 @@
 | 3.7 | [Provider / Physician Scheduling Core API](#37-provider--physician-scheduling-core-api) | Provider lookup, PhysicianSchema, data conversion |
 | 3.8 | [Time Slot Availability API](#38-time-slot-availability-api) | TimeSlotSchema, reservation flow, slot validation |
 | 3.9 | [Dynamic Booking Tips & Advice API](#39-dynamic-booking-tips--advice-api) | TipSchema, tips lookup, error handling |
+| 3.10 | [Nutrition Response API](#310-nutrition-response-api) | Nutrition evaluation endpoint, NutritionResponseDataSchema, error handling |
+| 3.11 | [Patient Intake Profile API](#311-patient-intake-profile-api) | Patient intake endpoint, PatientDataSchema, context tracing, error handling |
 | 4   | [Testing Strategy](#4-testing-strategy)                       | Unit, integration, E2E, visual regression, performance |
 | 5   | [CI/CD & Deployment](#5-cicd--deployment)                     | GitHub Actions, environment config, local dev          |
 | 6   | [Decision Points](#6-decision-points-pending)                 | Pending architectural decisions                        |
@@ -771,7 +773,7 @@ def _validate_exact_tip_count(cls, value: list[TipSchema]) -> list[TipSchema]:
 The validator enforces the **exact-tip-count** contract: the response
 carries precisely three `TipSchema` cards. A payload arriving with two or
 four tips fails validation and is rejected with the RFC-7807
-`unprocessable-entity-error` problem (422) before any serialization.
+`unprocessable-content-error` problem (422) before any serialization.
 
 #### 3.10.3 Route Contract
 
@@ -839,6 +841,287 @@ sequenceDiagram
     T->>T: request_id_ctx.reset(token)
     T-->>C: 200 / 500 (X-Request-ID echoed)
 ```
+
+### 3.11 Patient Intake Profile API
+
+The patient intake profile pipeline establishes the core FastAPI routing
+mechanics, Pydantic validation contracts, and isolated test scaffolding for
+the appointment intake forms. It processes highly sensitive customer
+attributes (names, contact vectors, medical visit reasoning) and must apply
+rigorous sanitation filters before any diagnostic traces are emitted.
+
+#### 3.11.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/intake.py` | HTTP surface for `POST /api/patients/intake`; validates request, delegates to service, returns processing status. |
+| Service | `app/services/intake_service.py` | `IntakeService` ABC + `InMemoryIntakeService` no-backend stand-in. Tests override via `app.dependency_overrides`. |
+| Schemas | `app/schemas/patient/patient_data.py` | `PatientDataSchema` (inbound Pydantic contract with strict validation). |
+| Dependencies | `app/dependencies.py` | `get_intake_service` FastAPI dependency, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| Exceptions | `app/exceptions/intake_exceptions.py` | `IntakeProcessingException` mapped to HTTP 422. |
+| Error Handlers | `app/utils/handlers.py` | RFC-7807 problem detail via `register_exception_handlers`. |
+
+#### 3.11.2 PatientDataSchema
+
+The external inbound contract for the intake endpoint (`PatientDataSchema`):
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `name` | `str` | `min_length=1`, `max_length=100` | Full name of the submitting patient. |
+| `email` | `str` | regex pattern | Valid email format (standard communications target). |
+| `reason` | `str \| None` | `max_length=500` | Optional patient-provided intake reason context. |
+| `phone` | `str` | field validator | 10-digit primary telephone contact key; non-digit characters are stripped before validation. |
+
+Configuration: `model_config = ConfigDict(extra="forbid")` so no unplanned
+fields can cross the API boundary.
+
+**Phone validator** (`validate_ten_digit_phone`):
+
+```python
+@field_validator("phone")
+@classmethod
+def validate_ten_digit_phone(cls, value: str) -> str:
+    cleaned = re.sub(r"\D", "", value)
+    if len(cleaned) != PHONE_DIGIT_COUNT:
+        raise ValueError("Phone number must contain exactly 10 numerical digits.")
+    return cleaned
+```
+
+The validator enforces clean text constraints over incoming phone attributes,
+ensuring that exactly 10 digits are supplied without characters or spacers.
+Non-digit characters are stripped before length validation so formatted inputs
+(e.g. `(555) 123-4567`) are normalized.
+
+#### 3.11.3 Route Contract
+
+- `POST /api/patients/intake` → `dict` (200) or RFC-7807 problem
+  (422 `IntakeProcessingException`, 422 validation error).
+
+The controller resolves a `PatientController` per request via the
+`get_patient_controller` factory, which wires
+`get_intake_service` → `IntakeService` → `PatientController`.
+
+#### 3.11.4 Exception Hierarchy & Handling Flow
+
+`IntakeProcessingException` inherits directly from `IOPHADomainError` (the
+same base as the scheduling/time-slot/tips/nutrition exceptions) and is
+registered in `DOMAIN_EXCEPTIONS`, so the single global handler in
+`app/utils/handlers.py` (`register_exception_handlers`) intercepts it
+automatically — no resource-specific registration is required.
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `IntakeProcessingException` | 422 | `intake.processing_failure` | `intake-processing-error` |
+
+The handler emits a structured `ProblemDetail` payload (`title`, `status`,
+`detail`, `instance`, `help_url`, `requestId`) and logs `requestId`,
+`path` via the same `JsonTelemetryFormatter` pipeline as the request
+middleware. The `X-Request-ID` correlation id is echoed on the response
+header and matches the logged `requestId`, preserving the audit trail.
+
+#### 3.11.5 Context-Tracing Flow
+
+The intake endpoint rides the **shared** request-tracing infrastructure
+rather than declaring its own middleware:
+
+1. `RequestTracingMiddleware` (`app/middleware/request_tracing.py`)
+   reads the inbound `X-Request-ID` header (minting a UUID when
+   absent), binds it to the `request_id_ctx` `contextvars.ContextVar`,
+   and echoes it back on the response header. Every downstream log
+   line reads the same correlation id without parameter threading.
+2. `CentralizedLoggingMiddleware` (`app/utils/logging.py`) logs
+   `request.start` / `request.complete` with `requestId` sourced
+   live from `request_id_ctx` by `JsonTelemetryFormatter`.
+3. `PatientController.submit_intake` emits the intake-specific
+   `intake.submitted` log; the `JsonTelemetryFormatter` attaches
+   `requestId` from the propagated `request_id_ctx` automatically, so
+   the event correlates to the same request trace as the
+   middleware/exception records. No patient/profile identifier is
+   logged (HIPAA minimum-necessary: raw PII is never written to logs).
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant T as RequestTracingMiddleware
+    participant L as CentralizedLoggingMiddleware
+    participant Ctrl as PatientController
+    participant Svc as IntakeService
+    participant H as GlobalExceptionHandler
+
+    C->>T: POST /api/patients/intake<br/>X-Request-ID: req-123
+    T->>T: req_id = header or uuid4()<br/>request_id_ctx.set(req_id)
+    T->>L: call_next(request)
+    L->>L: log request.start (requestId from context)
+    L->>Ctrl: dispatch endpoint
+    Ctrl->>Svc: submit_intake(payload)
+    Svc-->>Ctrl: dict | IntakeProcessingException
+    Ctrl->>Ctrl: log intake.submitted via formatter
+    L-->>T: response
+    T->>T: request_id_ctx.reset(token)
+    T-->>C: 200 / 422 (X-Request-ID echoed)
+```
+
+#### 3.11.6 Mock-Object Mapping Patterns
+
+Tests inject a mock `IntakeService` via `app.dependency_overrides`. The
+mock implements the same `IntakeService` ABC so the controller remains
+oblivious to the test double. The mock supports a fault-injection path
+that raises `IntakeProcessingException` for error-handling tests, and
+returns a deterministic success payload for happy-path tests.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_intake_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+### 3.12 Booking Orchestration & Calendar Slots Discovery API
+
+The booking orchestration layer converges the aggregate slot locator and the
+stateful allocation writer endpoint. It exposes a composite request schema that
+nests :class:`PatientDataSchema`, a day-scoped calendar discovery response, and
+a structured booking creation response.
+
+#### 3.12.1 Layered Architecture
+
+| Layer | Module | Responsibility |
+| --- | --- | --- |
+| Controller | `app/controllers/booking.py` | HTTP surface for `POST /api/bookings`; validates composite payload, delegates to service, returns `BookingResponseSchema`. |
+| Controller | `app/controllers/timeslots.py` | HTTP surface for `GET /api/providers/{provider_id}/slots`; parses `date` query, delegates to service, returns `CalendarSlotsResponseSchema`. |
+| Service | `app/services/booking_service.py` | `BookingService` ABC + `InMemoryBookingService` no-backend stand-in. Orchestrates provider lookup, slot validation, atomic reservation, and booking persistence. |
+| Repository | `app/repositories/booking_repository.py` | `BookingRepository` ABC + `InMemoryBookingRepository` no-DB stand-in for confirmed bookings. |
+| Schemas | `app/schemas/booking.py` | `BookingRequestSchema`, `BookingResponseSchema`, `BookingSummarySchema`, `CalendarSlotsResponseSchema`. |
+| Dependencies | `app/dependencies.py` | `get_booking_service`, `get_booking_repository` FastAPI dependencies, overridden in tests. |
+| Tracing | `app/middleware/request_tracing.py`, `app/core/context.py` | `X-Request-ID` correlation via `contextvars`. |
+| Logging | `app/utils/logging.py`, `app/core/logging_config.py` | `JsonTelemetryFormatter` + `CentralizedLoggingMiddleware` + `JSONLogFormatter`. |
+| PHI Scrubbing | `app/core/phi_scrubber.py` | Redacts PII/PHI from log messages before serialization. |
+| Exceptions | `app/exceptions/timeslot_exceptions.py` | `ScheduleLockConflictException` mapped to HTTP 409. |
+| Error Handlers | `app/exceptions/error_handlers.py` | RFC-7807 problem detail responses with runbook deep-links. |
+
+#### 3.12.2 Booking Schemas
+
+**BookingRequestSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `providerId` | `str` | required | Target provider entity reference identifier. |
+| `slotId` | `str` | required | Selected time slot allocation block key. |
+| `patientData` | `PatientDataSchema` | required | Nested PII/PHI intake attributes validation sub-block. |
+
+**BookingResponseSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `bookingId` | `str` | required | Centralized database reservation primary key reference. |
+| `summary` | `BookingSummarySchema` | required | Nested metadata block characterizing the confirmed event. |
+
+**BookingSummarySchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `physician` | `PhysicianSchema` | required | Sanitized provider profile summary mapping. |
+| `date` | `date` | required | Confirmed appointment date component. |
+| `time` | `str` | required | Display format of the confirmed slot time, e.g. "04:00 PM". |
+
+**CalendarSlotsResponseSchema**
+
+| Field | Type | Validation | Description |
+| --- | --- | --- | --- |
+| `date` | `date` | required | Target query date formatted as YYYY-MM-DD. |
+| `slots` | `list[TimeSlotSchema]` | required | Array of historical and active calendar node availabilities. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary.
+
+#### 3.12.3 Route Contract
+
+- `POST /api/bookings` → `BookingResponseSchema` (201) or RFC-7807 problem
+  (400 invalid slot format, 404 provider not found, 409 slot unavailable or
+  schedule lock conflict, 422 validation error).
+- `GET /api/providers/{provider_id}/slots?date=YYYY-MM-DD` →
+  `CalendarSlotsResponseSchema` (200) or RFC-7807 problem (404 provider not
+  found, 422 invalid date).
+
+The booking controller resolves a `BookingController` per request via the
+`get_booking_controller` factory, which wires `get_booking_service` →
+`BookingService` → `BookingController`.
+
+The time-slot controller resolves a `TimeSlotController` per request via the
+`get_timeslot_controller` factory, which wires `get_calendar_repository` →
+`TimeSlotService` → `TimeSlotController`.
+
+#### 3.12.4 Data Conversion Pathway
+
+For booking creation, the service:
+
+1. Validates the composite `slotId` against `TimeSlotSchema.SLOT_ID_PATTERN`.
+2. Resolves the provider via `ProviderRepository`.
+3. Confirms the slot exists and is available in the calendar.
+4. Attempts an atomic reservation through `CalendarRepository.reserve_slot`.
+5. Persists the booking via `BookingRepository.create`.
+6. Maps the internal `ProviderRecord` to `PhysicianSchema` and returns the
+   `BookingResponseSchema`.
+
+If `reserve_slot` returns `False` (race condition), the service raises
+`ScheduleLockConflictException`, which the dedicated handler maps to a 409
+RFC-7807 problem with a `schedule-lock-conflict` runbook link.
+
+For calendar discovery, the service filters the provider's calendar slots to
+those whose composite `id` starts with the requested ISO date and returns them
+wrapped in `CalendarSlotsResponseSchema`.
+
+#### 3.12.5 Middleware & Logging Stack
+
+Both endpoints ride the shared request-tracing and structured logging
+infrastructure:
+
+1. `RequestTrackingMiddleware` / `RequestTracingMiddleware` — outermost. Reads
+   inbound `X-Request-ID` or mints a UUID; binds to `request_id_ctx`;
+   echoes on response header; resets in `finally`.
+2. `CentralizedLoggingMiddleware` — logs `request.start` and
+   `request.complete` with method, path, status, and duration.
+3. `ProblemAPIRoute` — catches `RequestValidationError` and projects it into
+   a `ProblemDetail` (RFC-7807) payload.
+4. `register_timeslot_error_handlers` + global `register_exception_handlers` —
+   map domain exceptions to their corresponding HTTP status codes and problem
+   payloads.
+
+The booking service emits a `booking.created` structured log event carrying
+`bookingId`, `providerId`, and `slotId`. Patient PII (`name`, `email`, `phone`,
+`reason`) is never included in the log context; the `JsonTelemetryFormatter`
+also runs the message through `PHIScrubber` as a defense-in-depth measure.
+
+#### 3.12.6 Exception Hierarchy & Handling Flow
+
+| Exception | Status | Log Event | Link |
+| --- | --- | --- | --- |
+| `InvalidTimeSlotFormatException` | 400 | `timeslot.invalid_format` | `invalid-time-slot-format` |
+| `ProviderNotFoundException` | 404 | `directory.provider_not_found` | `provider-not-found-error` |
+| `TimeSlotUnavailableException` | 409 | `timeslot.unavailable` | `time-slot-unavailable` |
+| `ScheduleLockConflictException` | 409 | `scheduling.lock_conflict` | `schedule-lock-conflict` |
+
+#### 3.12.7 Testing Strategy
+
+- **Happy path**: `POST /api/bookings` with a valid composite payload returns
+  201 with `bookingId` and `summary`.
+- **Calendar discovery**: `GET /api/providers/{provider_id}/slots?date=...`
+  returns 200 with `date` and `slots`.
+- **Validation**: Missing `patientData`, invalid email, or malformed `slotId`
+  returns 422/400 RFC-7807 problems.
+- **Fault injection**: Mock `BookingService` raises `TimeSlotUnavailableException`,
+  `ProviderNotFoundException`, and `ScheduleLockConflictException`; the global
+  handlers return scrubbed RFC-7807 payloads with runbook `help_url` and echo
+  `X-Request-ID`.
+- **Double-booking**: Shared in-memory repositories demonstrate that a second
+  booking attempt on the same slot fails with 409.
+- **Leak prevention**: Response bodies and captured log records are scanned for
+  patient PII and leak markers (`Traceback`, `Exception(`, `0x`, `password`,
+  `secret`, `Bearer `, `postgresql`).
+
 ### 4.1 Unit Tests
 
 - Framework: pytest
@@ -1048,6 +1331,56 @@ which stage served it.
 This keeps the public URI stable while allowing independent
 evolution of each API version behind the edge.
 
+### 5.4 Container Image Deployment to AWS Lambda (ECR)
+
+The backend ships as a container image. `push-to-ecr.sh` (repo root) builds
+`IOPHA-backend/Dockerfile` (base image `public.ecr.aws/lambda/python:3.11`),
+tags it, and pushes it to the ECR repository `iopha-backend` (account
+`<aws-account-id>`, region `us-east-2`). The Lambda function is then created from
+that ECR image in the AWS console.
+
+**AWS Lambda ↔ Apple Silicon (Docker Desktop) incompatibility:**
+
+Two Docker Desktop defaults collide with AWS Lambda's image requirements when
+the image is built on an Apple Silicon Mac:
+
+1. **Manifest format.** Docker Desktop's BuildKit engine (with the containerd
+   image store) attaches a *provenance attestation manifest* by default and
+   pushes an *OCI image index* (`application/vnd.oci.image.index.v1+json`) — a
+   manifest list that wraps the real image manifest together with an
+   `unknown/unknown`-platform attestation entry. AWS Lambda only imports
+   images whose tag resolves directly to a *single image manifest* (Docker
+   Image Manifest V2 Schema 2 or OCI Image Manifest v1) and rejects image
+   indexes and attestation manifests outright.
+2. **CPU architecture.** Builds on Apple Silicon default to `linux/arm64`,
+   while the Lambda console defaults to the `x86_64` architecture. The
+   function's architecture must match the image platform.
+
+**How to avoid it:**
+
+- Build with `--provenance=false` so no attestation manifest is produced and
+  the push uploads a single plain image manifest. This is baked into
+  `push-to-ecr.sh`:
+  ```bash
+  docker build --platform linux/arm64 --provenance=false \
+    -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f IOPHA-backend/Dockerfile IOPHA-backend
+  ```
+- The platform is pinned to `linux/arm64` (native build speed on Apple
+  Silicon, Graviton pricing on Lambda). Select the matching **arm64**
+  architecture when creating the Lambda function, or switch the flag to
+  `--platform linux/amd64` (emulated build) if the function must be x86_64.
+- After pushing, verify the tag points to a plain manifest:
+  ```bash
+  docker manifest inspect <aws-account-id>.dkr.ecr.us-east-2.amazonaws.com/iopha-backend:latest
+  # must report "mediaType": "application/vnd.oci.image.manifest.v1+json"
+  # NOT "application/vnd.oci.image.index.v1+json"
+  ```
+
+See [TROUBLESHOOTING.md — AWS Lambda Rejects ECR Image (Media Type Not Supported)](../../TROUBLESHOOTING.md#aws-lambda-rejects-ecr-image-media-type-not-supported)
+for the full error transcript, diagnosis steps, and resolution. For the full
+inventory of deployed AWS services and how they are used, see
+[AWS Technologies](AWS_TECHNOLOGIES.md).
+
 
 
 | Component     | Options                           | Criteria                              |
@@ -1059,6 +1392,7 @@ evolution of each API version behind the edge.
 
 ## 7. Related Documentation
 
+- [AWS Technologies](AWS_TECHNOLOGIES.md)
 - [Security Overview](../security/SECURITY.md)
 - [Sensitive Data Handling](../security/SENSITIVE_DATA_HANDLING.md)
 - [Input Validation](../security/INPUT_VALIDATION.md)

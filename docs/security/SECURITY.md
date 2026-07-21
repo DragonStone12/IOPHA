@@ -15,7 +15,9 @@
 | 9   | [Provider Discovery API Security](#provider-discovery-api-security)            | Search schema validation, mock-object isolation, timeout error hygiene |
 | 10  | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
 | 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
-| 11  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 11  | [Booking Orchestration API Security](#booking-orchestration-api-security)        | Composite booking payload validation and PII logging rules |
+| 12  | [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)            | Monorepo split deployment, IAM least-privilege, CORS, secret management |
+| 13  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -24,6 +26,7 @@ IOPHA handles Protected Health Information (PHI) and user credentials. Security 
 1. **Static analysis** — ESLint security/bug plugins run on every push via Husky and CI.
 2. **Dependency auditing** — `npm audit` blocks high-severity vulnerabilities.
 3. **Runtime hardening** — TLS 1.3, JWT auth, AES-256 encryption at rest, and server-side sanitization.
+4. **Deployment hardening** — Least-privilege IAM for CI/CD, strict CORS, and secrets-injected build config (see [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)).
 
 All security findings are surfaced in GitHub Code Scanning via SARIF reports.
 
@@ -719,6 +722,170 @@ lives in `tests/integration/_search_test_utils.py` and implements the same
   `SearchAggregatorTimeoutError` for fault-injection tests, verifying that the
   global exception handler returns a scrubbed RFC-7807 payload with a runbook
   `help_url`.
+
+### Patient Intake Profile API Security
+
+#### Validation Schemas
+
+The patient intake endpoint (`POST /api/patients/intake`) enforces strict
+Pydantic contracts at the API boundary:
+
+| Schema | Field | Validation | Purpose |
+| --- | --- | --- | --- |
+| `PatientDataSchema` | `name` | `min_length=1`, `max_length=100` | Prevents empty or oversized name payloads. |
+| `PatientDataSchema` | `email` | regex pattern | Validates standard email format; prevents malformed contact vectors. |
+| `PatientDataSchema` | `phone` | field validator | Enforces exactly 10 numerical digits; strips non-digit characters before validation. |
+| `PatientDataSchema` | `reason` | `max_length=500` | Optional intake reason; bounded to prevent oversized payloads. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary. The phone validator normalizes
+formatted inputs (e.g. `(555) 123-4567` → `5551234567`) before length
+validation, ensuring consistent sanitization without losing data.
+
+#### Log Metadata Sanitation
+
+The intake endpoint runs inside the same `CentralizedLoggingMiddleware` stack as
+the scheduling, tips, and nutrition APIs. All request/response log lines carry
+`requestId` sourced live from `request_id_ctx` by `JsonTelemetryFormatter`. The
+following sanitization boundaries apply:
+
+| Boundary | Rule | Enforcement |
+| --- | --- | --- |
+| Patient identifiers | `name`, `email`, `phone`, and `reason` are never logged directly; only the structured `request.start` / `request.complete` events are emitted | `CentralizedLoggingMiddleware` |
+| Credential scrubbing | `PHIScrubber` redacts passwords, API keys, tokens, and secrets from all log strings before serialization | `app/core/phi_scrubber.py` |
+| Context isolation | `request_id_ctx` is reset in a `finally` block after every request | `app/middleware/request_tracing.py` |
+| Error context | `IntakeProcessingException.log_context()` returns an empty dict; no PII is attached to error logs | `app/exceptions/intake_exceptions.py` |
+
+#### Mock-Object Mapping Patterns
+
+Tests inject a mock `IntakeService` via `app.dependency_overrides`. The mock
+implements the same `IntakeService` ABC so the controller remains oblivious to
+the test double.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_intake_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+### Booking Orchestration API Security
+
+#### Validation Schemas
+
+The booking endpoints enforce strict Pydantic contracts at the API boundary:
+
+| Schema | Field | Validation | Purpose |
+| --- | --- | --- | --- |
+| `BookingRequestSchema` | `providerId` | required | Opaque target provider identifier. |
+| `BookingRequestSchema` | `slotId` | required | Composite slot key validated against `TimeSlotSchema.SLOT_ID_PATTERN`. |
+| `BookingRequestSchema` | `patientData` | `PatientDataSchema` | Nested PII/PHI sub-block with name, email, phone, and reason validation. |
+| `CalendarSlotsResponseSchema` | `date` | ISO `date` | Day-scoped calendar discovery date. |
+| `CalendarSlotsResponseSchema` | `slots` | `list[TimeSlotSchema]` | Availability nodes for the requested date. |
+
+All external schemas use `model_config = ConfigDict(extra="forbid")` so no
+unplanned fields can cross the API boundary.
+
+#### Log Metadata Sanitation
+
+The booking endpoints run inside the same `CentralizedLoggingMiddleware` stack as
+the scheduling, tips, nutrition, and intake APIs. The `booking.created` event
+logs only operational identifiers (`bookingId`, `providerId`, `slotId`) and the
+request path. The nested `PatientDataSchema` fields (`name`, `email`, `phone`,
+`reason`) are never attached to log context.
+
+| Boundary | Rule | Enforcement |
+| --- | --- | --- |
+| Patient identifiers | `name`, `email`, `phone`, and `reason` are never logged directly; only opaque `bookingId`, `providerId`, and `slotId` appear in the `booking.created` event | `app/services/booking_service.py` |
+| Credential scrubbing | `PHIScrubber` redacts passwords, API keys, tokens, secrets, and labeled PHI from all log strings before serialization | `app/core/phi_scrubber.py` |
+| Context isolation | `request_id_ctx` is reset in a `finally` block after every request | `app/middleware/request_tracing.py` |
+| Error context | Domain handlers log only non-sensitive identifiers (`slotId`, `providerId`, `details`); no patient data is attached | `app/exceptions/error_handlers.py` |
+
+#### Race-Condition Protection
+
+The booking service validates slot existence and availability before attempting
+an atomic reservation. If `CalendarRepository.reserve_slot` returns `False`, the
+service raises `ScheduleLockConflictException` (HTTP 409), preventing silent
+double-bookings and surfacing a structured RFC-7807 problem to the client.
+
+#### Mock-Object Mapping Patterns
+
+Tests inject a mock `BookingService` via `app.dependency_overrides`. The mock
+implements the same `BookingService` ABC so the controller remains oblivious to
+the test double.
+
+**Isolation rules:**
+- The mock is injected per-test via a fixture that clears the override in
+  teardown using `app.dependency_overrides.pop(get_booking_service, None)`.
+- No real patient data, PII, or downstream service credentials are
+  embedded in the mock payload.
+- The mock supports fault injection to verify that the global exception
+  handler returns a scrubbed RFC-7807 payload with a runbook `help_url`.
+
+## CI/CD & Cloud Deployment Security
+
+The IOPHA project is a monorepo (`IOPHA-frontend` + `IOPHA-backend`) with a split
+deployment strategy. Security controls differ per deployment path.
+
+### Monorepo Split Deployment
+
+| Component | Path | Deployment | Trigger | Config |
+| --- | --- | --- | --- | --- |
+| Frontend | `IOPHA-frontend` (Vite/React → `dist`) | AWS Amplify auto-build | Push to `main` | Monorepo app root configured in Amplify Console (`IOPHA-frontend`) |
+| Backend | `IOPHA-backend` (FastAPI + Mangum) | GitHub Actions → Docker → ECR → Lambda | Push to `release/**` | `.github/workflows/ci-backend-deployment.yml` |
+
+The Amplify "Monorepo app root" is set to `IOPHA-frontend` in the AWS Console, so
+Amplify builds only that subdirectory and looks inside it for `package.json`. The
+deployment workflow sets `defaults.run.working-directory: IOPHA-backend` so all
+Docker and `aws` CLI commands run inside the backend folder, never the monorepo root.
+
+### Authentication Method
+
+The backend deployment workflow authenticates to AWS using an IAM user configured
+with the **principle of least privilege**. Credentials (`AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`) are stored as **GitHub Repository Secrets** and are never
+hardcoded in the repository or committed to git.
+
+### Required IAM Permissions
+
+The IAM user is attached to a custom policy (`IOPHA-CICD-Policy`) granting strictly
+scoped permissions in the `us-east-2` region (account `<aws-account-id>`):
+
+| Service | Action(s) | Resource scope |
+| --- | --- | --- |
+| Amazon ECR | `ecr:GetAuthorizationToken` | `*` (required for registry auth) |
+| Amazon ECR | `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:GetDownloadUrlForLayer`, `ecr:InitiateLayerUpload`, `ecr:PutImage`, `ecr:UploadLayerPart` | `arn:aws:ecr:us-east-2:<aws-account-id>:repository/iopha-backend` |
+| AWS Lambda | `lambda:GetFunction`, `lambda:GetFunctionConfiguration`, `lambda:UpdateFunctionCode` | `arn:aws:lambda:us-east-2:<aws-account-id>:function:IOPHA-backend` |
+
+### CORS Security
+
+The FastAPI backend enforces strict Cross-Origin Resource Sharing (CORS), accepting
+requests **only** from the deployed Amplify origin
+(`https://main.d25f7ihio0gzb6.amplifyapp.com`). Requests from any other origin are
+rejected at the application layer, providing defense-in-depth alongside API Gateway.
+The CORS middleware is registered as the outermost middleware in
+`IOPHA-backend/app/main.py` via `app.add_middleware(CORSMiddleware, ...)`.
+
+### Secret Management
+
+- **AWS credentials** are never hardcoded; they live only in GitHub Repository
+  Secrets consumed by the deployment workflow.
+- **Backend API URL** is injected into the React frontend build via the Amplify
+  environment variable `VITE_API_URL` (read at build time via
+  `src/utils/api.ts` → `API_URL`), preventing hardcoded endpoints in source.
+- **IAM access-key rotation** should be performed every 90 days via the AWS IAM
+  Console, with the new key updated in GitHub Repository Secrets before the old
+  key is disabled.
+
+### Container Hardening
+
+The backend ships as a Docker image (`IOPHA-backend/Dockerfile`) based on the
+official AWS Lambda Python 3.11 base image. A `.dockerignore` excludes tests,
+virtual environments, caches, coverage artifacts, and `.git` so the deployed image
+excludes developer-only and secret-adjacent files. The Lambda handler is exposed
+via Mangum with `lifespan="off"` to prevent connection-pool exhaustion when Lambda
+execution contexts freeze and thaw between invocations.
 
 **Related Documentation:**
 

@@ -16,6 +16,7 @@
 | 10  | [Cypress Component Test Flakiness](#cypress-component-test-flakiness)                  | Dynamic dates, fragile calendar DOM, computed CSS in tests         |
 | 11  | [Backend Global Exception Handler Re-Raises in Tests](#backend-global-exception-handler-re-raises-in-tests) | `TestClient` raises the original error instead of returning the 500 payload |
 | 12  | [Backend PHI Scrubber Leaves JSON Secret Values Exposed](#backend-phi-scrubber-leaves-json-secret-values-exposed) | `"secret": "shh-99"` masks only the key; `TestClient` `AttributeError` in `test_tips_logging.py` |
+| 13  | [AWS Lambda Rejects ECR Image (Media Type Not Supported)](#aws-lambda-rejects-ecr-image-media-type-not-supported) | OCI image index + BuildKit attestation manifest vs Lambda's single-manifest requirement |
 
 ## Vite Configuration
 
@@ -779,6 +780,75 @@ venv/bin/ruff check app tests                                               # Al
 Whenever you interpolate a variable that contains regex alternation (`|`) into a
 larger pattern, **always** wrap it in `(?:...)` so the surrounding syntax binds
 to the whole alternation, not just the last branch.
+
+## AWS Lambda Rejects ECR Image (Media Type Not Supported)
+
+**Error (AWS Lambda console, "Create function" → "Container image"; account ID redacted):**
+
+```
+The image manifest, config or layer media type for the source image
+<aws-account-id>.dkr.ecr.us-east-2.amazonaws.com/iopha-backend@sha256:<digest> is not supported.
+```
+
+**How it occurred:** The image was built and pushed from an Apple Silicon Mac
+via `push-to-ecr.sh` using Docker Desktop (BuildKit engine + containerd image
+store). Since BuildKit 0.11 / Docker Desktop 4.26, `docker build` attaches a
+**provenance attestation manifest** by default, and `docker push` uploads an
+**OCI image index** (`application/vnd.oci.image.index.v1+json`) containing two
+entries: the real `linux/arm64` image manifest and an attestation manifest
+whose platform is `unknown/unknown`. The ECR tag `latest` therefore resolved
+to the *index*, not to the image itself, and Lambda refused it when creating
+the function.
+
+**What it means:** AWS Lambda imports a container image from ECR only when the
+tag resolves directly to a **single image manifest** — Docker Image Manifest V2
+Schema 2 (`application/vnd.docker.distribution.manifest.v2+json`) or OCI Image
+Manifest v1 (`application/vnd.oci.image.manifest.v1+json`). Lambda does **not**
+support OCI image indexes / Docker manifest lists, nor BuildKit attestation
+manifests. The error fires before the function is created; nothing is wrong
+with the image contents themselves.
+
+**Diagnosis:**
+
+```bash
+docker manifest inspect <aws-account-id>.dkr.ecr.us-east-2.amazonaws.com/iopha-backend:latest
+```
+
+If the output shows `"mediaType": "application/vnd.oci.image.index.v1+json"`
+with a nested entry whose platform is `"architecture": "unknown", "os":
+"unknown"`, the tag points to an index + attestation manifest and Lambda will
+reject it.
+
+**Solution:** Rebuild with provenance attestations disabled so the push
+uploads a plain single-platform manifest. Already applied in `push-to-ecr.sh`:
+
+```bash
+# ❌ BEFORE — pushes an OCI image index + attestation manifest
+docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f IOPHA-backend/Dockerfile IOPHA-backend
+
+# ✅ AFTER — pushes a single image manifest Lambda can import
+docker build --platform linux/arm64 --provenance=false -t ${ECR_REPOSITORY}:${IMAGE_TAG} -f IOPHA-backend/Dockerfile IOPHA-backend
+```
+
+Then re-run `bash push-to-ecr.sh` and retry the Lambda function creation.
+
+**Verification:**
+
+```bash
+docker manifest inspect <aws-account-id>.dkr.ecr.us-east-2.amazonaws.com/iopha-backend:latest
+# ✅ "mediaType": "application/vnd.oci.image.manifest.v1+json" — plain manifest, no index
+```
+
+**Architecture pitfall (separate but related):** an image built on Apple
+Silicon defaults to `linux/arm64`, while the Lambda console defaults to the
+`x86_64` architecture. Select **arm64** when creating the function, or build
+with `--platform linux/amd64` (QEMU-emulated, slower). A mismatch fails
+function creation with an architecture error *after* the media-type check
+passes.
+
+**Affected files:**
+
+- `push-to-ecr.sh` (build command)
 
 ## Python Testing Anti-Patterns
 

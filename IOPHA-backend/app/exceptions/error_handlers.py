@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.exceptions.timeslot_exceptions import (
     InvalidTimeSlotFormatException,
     ProviderNotFoundException,
+    ScheduleLockConflictException,
     TimeSlotUnavailableException,
 )
 from app.schemas.problem.problem_detail import ProblemDetail
@@ -119,6 +120,28 @@ async def _invalid_format_handler(
     )
 
 
+async def _schedule_lock_conflict_handler(
+    request: Request, exc: ScheduleLockConflictException
+) -> JSONResponse:
+    context = {
+        "requestId": _request_id(),
+        "path": request.url.path,
+        **exc.log_context(),
+    }
+    logger.warning(
+        "scheduling.lock_conflict",
+        extra={"extra_context": context},
+    )
+    return format_problem_detail(
+        status_code=status.HTTP_409_CONFLICT,
+        title=exc.title,
+        detail=exc.safe_detail(),
+        instance=request.url.path,
+        help_url=_help_url(exc.link),
+        request_id=_request_id(),
+    )
+
+
 def register_timeslot_error_handlers(app: FastAPI) -> None:
     """Register explicit exception handlers for the Time Slot Availability API.
 
@@ -136,4 +159,8 @@ def register_timeslot_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         InvalidTimeSlotFormatException,
         _invalid_format_handler,  # type: ignore[arg-type]
+    )
+    app.add_exception_handler(
+        ScheduleLockConflictException,
+        _schedule_lock_conflict_handler,  # type: ignore[arg-type]
     )

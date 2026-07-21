@@ -513,6 +513,31 @@ class NutritionEvaluationEngineError(IOPHADomainError):  # noqa: N818
         return {"profileId": self.profile_id}
 
 
+class IntakeProcessingException(IOPHADomainError):  # noqa: N818
+    """The intake processing pipeline failed to validate or ingest the profile."""
+
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    link = "intake-processing-error"
+    title = "Intake Processing Failure"
+    log_level = logging.WARNING
+    log_event = "intake.processing_failure"
+
+    def __init__(self, detail: str | None = None) -> None:
+        super().__init__()
+        self._detail = detail
+
+    def safe_detail(self) -> str:
+        if self._detail:
+            return self._detail
+        return (
+            "The intake processing queue failed to ingest the provided "
+            "profile information due to constraint rule violations."
+        )
+
+    def log_context(self) -> dict[str, object]:
+        return {}
+
+
 # Ordered registry of every known domain exception. Registered as a global
 # FastAPI exception handler (see app/handlers.register_exception_handlers)
 # and documented in docs/infra/TECHNICAL_DESIGN.md.
@@ -534,4 +559,5 @@ DOMAIN_EXCEPTIONS: tuple[type[IOPHADomainError], ...] = (
     ProviderNotFoundException,
     TipNotFoundException,
     NutritionEvaluationEngineError,
+    IntakeProcessingException,
 )
