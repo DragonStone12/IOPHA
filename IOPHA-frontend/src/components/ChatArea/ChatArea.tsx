@@ -599,7 +599,7 @@ export function ChatArea({
               substitute for professional medical advice
             </p>
           </div>
-          <ToastContainer containerId="chat" position="bottom-center" />
+          <ToastContainer containerId="chat" position="bottom-center" pauseOnFocusLoss />
         </div>
       )}
     </main>

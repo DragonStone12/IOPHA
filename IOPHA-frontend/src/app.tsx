@@ -31,6 +31,7 @@ const App = (
       position="top-right"
       newestOnTop
       limit={3}
+      pauseOnFocusLoss
     />
   </React.StrictMode>
 );
