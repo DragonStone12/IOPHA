@@ -319,6 +319,22 @@ The booking confirmation form collects Name, Email, and Phone. Security controls
 - LLM responses are sanitized before rendering to prevent injection.
 - Chat history is stored server-side with encryption at rest.
 
+### API Error Logging & Toast Privacy
+
+The centralized fetch wrapper and toast dispatcher enforce strict privacy rules
+for API error visibility and logging:
+
+- Toast messages render exclusively from the backend-provided `detail` field.
+  The frontend never interpolates request payloads, form values, or patient data
+  into toast text.
+- `logger.ts` API failure entries record only `title`, `status`, `instance`, and
+  `X-Request-ID`. The `detail` field is never logged in combination with request
+  payloads or response bodies.
+- `400` and `422` errors log at `warn` level (client fault); `5xx` errors log at
+  `error` level (system fault).
+- The request id shown in `5xx` toasts is the same UUID sent as `X-Request-ID`,
+  giving support a CloudWatch lookup key without exposing PHI.
+
 ## Compliance & Regulatory
 
 ### Pull Request Gating Policies

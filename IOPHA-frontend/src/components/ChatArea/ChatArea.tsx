@@ -13,6 +13,8 @@ import { SuccessModal } from "../booking/SuccessModal";
 import { AppointmentConfirmation } from "../booking/AppointmentConfirmation";
 import { SleepRecoveryResponse } from "../SleepRecoveryResponse/SleepRecoveryResponse";
 import type { Physician } from "../NutritionResponse/PhysicianCard";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 interface ChatAreaProps {
   userName?: string;
@@ -597,6 +599,7 @@ export function ChatArea({
               substitute for professional medical advice
             </p>
           </div>
+          <ToastContainer containerId="chat" position="bottom-center" />
         </div>
       )}
     </main>

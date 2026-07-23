@@ -2,6 +2,8 @@ import "./index.css";
 import { QueryProvider } from "./providers/QueryProvider";
 import { LandingPage } from "./components/LandingPage/LandingPage";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { UserDisplay } from "./components/UserDisplay";
 import {
   onRenderCallback,
@@ -14,7 +16,7 @@ import React, { Profiler } from "react";
 const App = (
   <React.StrictMode>
     <AppErrorBoundary boundaryName="Root">
-      <h1>IOPHA - Interactive Obesity Prevention Health Assistant</h1>
+      <h1 className="text-xl font-semibold mb-4">IOPHA - Interactive Obesity Prevention Health Assistant</h1>
 
       <AppErrorBoundary boundaryName="UserDisplay">
         <UserDisplay />
@@ -24,6 +26,12 @@ const App = (
         <LandingPage />
       </AppErrorBoundary>
     </AppErrorBoundary>
+    <ToastContainer
+      containerId="top-right"
+      position="top-right"
+      newestOnTop
+      limit={3}
+    />
   </React.StrictMode>
 );
 

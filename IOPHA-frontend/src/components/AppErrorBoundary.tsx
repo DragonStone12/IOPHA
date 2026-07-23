@@ -1,8 +1,9 @@
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import type { ErrorInfo } from "react";
 import Logger from "../utils/logger";
+import { dispatchError } from "../utils/toastDispatcher";
+import { ProblemDetailError } from "../utils/api";
 
-// Keep the fallback UI extremely simple to prevent secondary crashes
 function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   return (
@@ -26,7 +27,7 @@ function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 interface AppErrorBoundaryProps {
   children: React.ReactNode;
-  boundaryName?: string; // Used for log context
+  boundaryName?: string;
 }
 
 export function AppErrorBoundary({
@@ -36,7 +37,17 @@ export function AppErrorBoundary({
   const handleError = (error: unknown, info: ErrorInfo) => {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    // Integrate with the custom Logger created in the previous story
+
+    if (error instanceof Error) {
+      dispatchError(
+        new ProblemDetailError(
+          { status: 500, title: "Internal Server Error", detail: errorMessage },
+          undefined,
+        ),
+        "top-right",
+      );
+    }
+
     Logger.error(`[ErrorBoundary: ${boundaryName}] caught a render error`, {
       errorMessage,
       errorStack,
