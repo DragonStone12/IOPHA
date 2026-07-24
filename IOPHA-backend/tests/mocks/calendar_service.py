@@ -12,7 +12,7 @@ class MockCalendarService:
     touching any external calendar backend.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         slots: list[TimeSlotRecord] | None = None,
         provider: ProviderRecord | None = None,
