@@ -229,6 +229,11 @@ cd IOPHA-frontend && npm run lint && npm run cy:check-steps && npm run test:e2e 
 4. Component tests
 5. `npm audit` (high severity only)
 
+Python hooks resolve Ruff, Mypy, Bandit, and pytest from the project
+virtualenv (`IOPHA-backend/venv/bin` or `venv/bin`) exclusively. Global or
+Anaconda installations are not used, because only the project virtualenv
+contains the pinned dependency versions required by the hooks.
+
 \*\*Never bypass hooks with `--no-verify` or any other mechanism. If a hook fails, resolve the underlying issue instead of bypassing it. The CI build and deployment pipeline will fail (or ship broken code) without these fixes, so bypassing the hook only hides the problem and breaks the pipeline.
 
 ## Kilo AI Code Reviews & Security Agent
@@ -334,7 +339,7 @@ All pull requests to `main` branch must pass the following quality gates:
 | pip-audit          | `pip-audit`           | Required - high severity block    |
 | ESLint             | Frontend lint         | Required                          |
 
-**Pre-Commit Enforcement**: The Husky pre-commit hook (`.husky/pre-commit`) runs `ruff check --fix` + `ruff format` on staged Python files, then a verifying `ruff check` / `ruff format --check` that rejects the commit if any issue remains. The Husky pre-push hook (`.husky/pre-push`) runs `mypy` and `bandit` against the entire `IOPHA-backend/` tree, mirroring CI. Never bypass with `--no-verify`.
+**Pre-Commit Enforcement**: The Husky pre-commit hook (`.husky/pre-commit`) runs `ruff check --fix` + `ruff format` on staged Python files, then a verifying `ruff check` / `ruff format --check` that rejects the commit if any issue remains. The Husky pre-push hook (`.husky/pre-push`) runs `mypy`, `bandit`, and `pytest` against the entire `IOPHA-backend/` tree, mirroring CI. All Python tools are resolved from the project virtualenv (`IOPHA-backend/venv/bin` or `venv/bin`); global or Anaconda installations are not used. Never bypass with `--no-verify`.
 
 ### HIPAA Alignment
 
@@ -449,7 +454,18 @@ re.sub(r"/patients/[^/]+", "/patients/:id", request.url.path)
 re.sub(r"/patients/\d+", "/patients/:id", request.url.path)
 ```
 
-**Why `[^/]+` instead of `\d+`:** URL path segments can be numeric IDs, UUIDs (`123e4567-e89b-12d3-a456-426614174000`), slugs (`dr-emily-chen`), or alphanumeric tokens. Using `\d+` silently skips non-numeric identifiers, exposing them in CloudWatch logs and Prometheus metrics. `[^/]+` matches any sequence of non-slash characters, ensuring all ID formats are redacted. Over-sanitizing a known subpath (e.g., `/patients/search` → `/patients/:id`) is acceptable because the priority is preventing PHI leakage, not preserving exact route taxonomy in logs.
+**Why `[^/]+` instead of `\d+`:** URL path segments can be numeric IDs, UUIDs (`123e4567-e89b-12d3-a456-426614174000`), slugs (`dr-emily-chen`), or alphanumeric tokens. Using `\d+` silently skips non-numeric identifiers, exposing them in CloudWatch logs and EMF metrics. `[^/]+` matches any sequence of non-slash characters, ensuring all ID formats are redacted. Over-sanitizing a known subpath (e.g., `/patients/search` → `/patients/:id`) is acceptable because the priority is preventing PHI leakage, not preserving exact route taxonomy in logs.
+
+### Metric Dimension Sanitization
+
+CloudWatch metric dimensions are treated as an indexed, queryable surface, so any
+PHI that reaches a dimension becomes a long-lived compliance violation.
+`MetricsMiddleware` prevents this by deriving the `route_template` dimension
+exclusively from the matched FastAPI route template. Every path parameter is
+normalized to a generic `{id}` placeholder and unmatched requests are reported as
+`unmatched`. Raw URL path segments, query strings, and request bodies are never
+used as dimension values. The same `[^/]+` sanitization rule therefore protects
+EMF metric dimensions as well as structured logs.
 
 ### Logging Framework Filter
 
@@ -495,6 +511,7 @@ External-facing Pydantic response models use `@field_serializer` to automaticall
 | Audit Controls (§164.312)        | PII/PHI sanitization in logging ensures no sensitive data reaches CloudWatch             |
 | Transmission Security (§164.312) | Query parameter redaction prevents sensitive data leakage in URLs                        |
 | Integrity Controls               | Path normalization prevents metric cardinality attacks and infrastructure fingerprinting |
+| Metric Dimensions                | Route templates normalized to `{id}` before EMF emission; raw paths never become CloudWatch dimensions |
 
 ## Structured JSON Logging Compliance
 
@@ -603,7 +620,7 @@ through `JsonTelemetryFormatter` / `JSONLogFormatter`.
 
 | Boundary | Implementation | Purpose |
 |---|---|---|
-| URL path | Raw path passed through to structured logs | `/api/providers/{provider_id}/slots` does not embed PHI; cardinality is protected by Prometheus path grouping. |
+| URL path | Route templates normalized to `{id}` before EMF emission | `/api/providers/{provider_id}/slots` becomes `/api/providers/{id}/slots`; raw identifiers never reach CloudWatch metric dimensions. |
 | Query parameters | Sanitized by `CentralizedLoggingMiddleware` before logging | No sensitive query keys are expected on availability routes, but the middleware passes them through the JSON formatter where PHI patterns are scrubbed. |
 | Slot identifiers | `TimeSlotSchema.id` embeds an ISO date; dates are not redacted by PHIScrubber | Calendar dates are not PHI under HIPAA; they are required for log correlation and debugging. |
 | Provider names | Never logged; only `providerId` (opaque directory key) is emitted | `ProviderNotFoundException` logs `providerId`, not provider name. |

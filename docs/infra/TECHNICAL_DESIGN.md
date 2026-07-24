@@ -35,7 +35,8 @@
 | Backend    | Uvicorn                           | 0.51    | In use      |
 | Backend    | Python                            | 3.11    | In use      |
 | Backend    | Pydantic (v2)                     | 2.13    | In use      |
-| Backend    | Prometheus FastAPI Instrumentator | 8.0     | In use      |
+| Backend    | AWS Lambda Powertools (EMF)       | 3.x     | In use      |
+| Backend    | Prometheus FastAPI Instrumentator | 6.x     | Local dev   |
 | Backend    | httpx                             | 0.28    | In use      |
 | Backend    | SQLAlchemy                        | Latest  | Pending     |
 | Backend    | pytest                            | 9.1     | In use      |
@@ -333,10 +334,38 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 - Attaches to `logging.StreamHandler` for stdout streaming
 - Logger namespace: `iopha.backend`
 
+### CloudWatch EMF Metrics
+
+Core infrastructure metrics are emitted via AWS Lambda Powertools as Embedded
+Metric Format (EMF) JSON written to stdout. The Lambda Runtime extracts the JSON
+blobs and publishes them to Amazon CloudWatch Metrics automatically — no pull
+scraper, sidecar, Pushgateway, or additional IAM permissions are required.
+
+`MetricsMiddleware` records the following per-request metrics:
+
+| Metric | Unit | Description |
+| --- | --- | --- |
+| `RequestCount` | Count | One per HTTP request handled |
+| `Latency` | Milliseconds | Wall-clock duration of the request |
+| `ErrorCount` | Count | One per HTTP 5xx response (or unhandled exception) |
+
+Dimensions for every metric are `[service, route_template, status_class]`:
+
+- `service` — configured by `POWERTOOLS_SERVICE_NAME` (e.g. `iopha-backend`).
+- `route_template` — the matched FastAPI route template with all path
+  parameters normalized to `{id}` (e.g. `/api/providers/{id}/slots`). Unmatched
+  requests collapse to `unmatched`; the raw URL path is never used as a
+  dimension value.
+- `status_class` — status-code class bucket (`2xx`, `4xx`, `5xx`, etc.).
+
+A `ColdStart` metric is emitted once per Lambda execution environment via
+Powertools' `single_metric` helper on the Mangum handler.
+
 **Middleware Execution Order**:
 1. `RequestTracingMiddleware` runs outermost. It reads the inbound `X-Request-ID` header, mints a UUID when absent, and binds the value to the `request_id_ctx` `contextvars.ContextVar` for the request lifetime. The resolved id is echoed on the response `X-Request-ID` header. All downstream logging, services, repositories, and background tasks read the same trace without parameter threading. The token is reset in a `finally` block so the context cannot leak across requests or async tasks.
-2. `CentralizedLoggingMiddleware` captures request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes. Each log line carries `requestId` sourced live from `request_id_ctx` by `JsonTelemetryFormatter`.
-3. `PIISanitizationMiddleware` (planned) — path normalization and sensitive query-parameter redaction are designed to run ahead of logging; it is **not yet enabled** in the current build.
+2. `MetricsMiddleware` records the CloudWatch EMF metrics above. It runs inside `RequestTracingMiddleware` so the correlation id is already bound when the metric is emitted.
+3. `CentralizedLoggingMiddleware` captures request metadata and logs `request.start`, then logs `request.complete` after all downstream processing completes. Each log line carries `requestId` sourced live from `request_id_ctx` by `JsonTelemetryFormatter`.
+4. `PIISanitizationMiddleware` (planned) — path normalization and sensitive query-parameter redaction are designed to run ahead of logging and metrics; it is **not yet enabled** in the current build.
 
 **Context-Threaded Tracing Flow** (`app/utils/context.py`, `app/middleware/request_tracing.py`):
 
@@ -344,6 +373,7 @@ The backend emits structured JSON logs for every HTTP transaction, enabling dire
 sequenceDiagram
     participant C as Client
     participant T as RequestTracingMiddleware
+    participant M as MetricsMiddleware
     participant L as CentralizedLoggingMiddleware
     participant Ctrl as ProviderController
     participant Svc as ProviderService
@@ -351,7 +381,8 @@ sequenceDiagram
 
     C->>T: GET /api/providers/{id} X-Request-ID optional
     T->>T: req_id = header or uuid4 and set request_id_ctx
-    T->>L: call_next request
+    T->>M: call_next request
+    M->>L: call_next request
     L->>L: log request.start with requestId from context
     L->>Ctrl: dispatch endpoint
     Ctrl->>Svc: get_physician id
@@ -360,7 +391,9 @@ sequenceDiagram
     Svc-->>Ctrl: PhysicianSchema or ProviderNotFoundException
     Ctrl-->>L: response
     L->>L: log request.complete with requestId from context
-    L-->>T: response
+    L-->>M: response
+    M->>M: flush EMF metrics
+    M-->>T: response
     T->>T: echo X-Request-ID response header
     T->>T: request_id_ctx reset token
     T-->>C: 200 or 404 with X-Request-ID echoed
@@ -1227,6 +1260,16 @@ npm run lint
 - Husky pre-commit hook runs ESLint with `--fix` on staged `.ts` and `.tsx` files
 - Pre-push hook runs: lint, duplicate step check, E2E tests, component tests, and security audit
 
+**Tooling Environment**:
+
+All Python hooks (Ruff, Mypy, Bandit, pytest) resolve their executables from the
+project virtualenv only — `IOPHA-backend/venv/bin` for backend tooling, or the
+shared `venv/bin` for monorepo-wide tooling. Global, system, or Anaconda Python
+installations are intentionally not used, because they may lack the exact
+dependency versions pinned for this repository. If a hook reports a missing
+tool, install it into the appropriate project virtualenv rather than relying on
+a global copy.
+
 \*\*IMPORTANT: Never bypass hooks with `--no-verify` or any other mechanism. All hooks must run to catch errors locally before they reach CI. The pre-push hook runs the same checks as GitHub Actions (lint, E2E tests, component tests, security audit). If a hook fails, fix the underlying issue instead of attempting to bypass it.
 
 ### 4.7 CI Integration
@@ -1262,38 +1305,56 @@ npm run lint
 
 ### 5.2 Observability & Metrics
 
-**Prometheus Instrumentation**:
+Core infrastructure metrics have moved from a Prometheus pull/scrape model to
+AWS CloudWatch Embedded Metric Format (EMF) via AWS Lambda Powertools. Because
+Lambda execution environments are ephemeral and have no persistent IP or port,
+the `/metrics` endpoint exposed by `prometheus-fastapi-instrumentator` cannot be
+scraped in production. Powertools writes metric JSON to stdout; the Lambda
+Runtime ingests it into CloudWatch Metrics automatically.
 
-- Library: `prometheus-fastapi-instrumentator`
-- Endpoint: `/metrics`
-- Configuration choices:
-  - `handle_unhandled_paths=False` — prevents cardinality explosion from undefined routes
-  - `should_group_status_codes=True` — groups similar status codes to reduce metric cardinality
-  - `should_ignore_untemplated=True` — ignores metrics for requests that don't match any route
-  - `excluded_handlers=["/metrics"]` — excludes the metrics endpoint from being instrumented to avoid self-reporting
-  - `should_gzip=True` — gzips the payload to reduce network overhead during scraping
+**AWS Lambda Powertools EMF Instrumentation**:
+
+- Library: `aws-lambda-powertools`
+- Delivery: push-model EMF JSON to stdout, extracted by the Lambda Runtime API
+- Namespace: `IOPHA/Backend` (configurable via `POWERTOOLS_METRICS_NAMESPACE`)
+- Service dimension: `iopha-backend` (configurable via `POWERTOOLS_SERVICE_NAME`)
+- Per-request metrics: `RequestCount`, `Latency` (ms), `ErrorCount`
+- Dimensions: `[service, route_template, status_class]`
+- Cold-start metric: `ColdStart` emitted via `single_metric` on the Mangum handler
+- Master switch: `METRICS_ENABLED`; set to `False` to stop all metric emission
 
 **Path Grouping Strategy**:
-Dynamic paths like `/api/providers/{provider_id}/slots` are automatically grouped by FastAPI's routing definitions. The instrumentator normalizes these paths before they reach the metrics exporter, preventing high-cardinality metric series.
+`MetricsMiddleware` resolves the matched FastAPI route template (e.g.
+`/api/providers/{provider_id}/slots`) and normalizes every path parameter to
+`{id}` before attaching it as the `route_template` dimension. Requests that
+match no route use the constant `unmatched`; raw URL paths are never used as
+dimension values. This prevents both cardinality explosion and PHI leakage into
+CloudWatch dimensions.
 
-**Endpoint Security**:
-The `/metrics` endpoint is strictly internal. It is blocked at the API Gateway / load balancer level from external/public access and accessible only by the internal Prometheus scraper.
+**Local Development Prometheus**:
+`prometheus-fastapi-instrumentator` is gated behind `PROMETHEUS_ENABLED` and is
+disabled by default. When enabled locally, it exposes `/metrics` for local
+scraping. It is never enabled in Lambda builds, so there is no production
+`/metrics` endpoint to secure.
 
 #### Prometheus Metrics Endpoint Security
 
-The `/metrics` endpoint exposes internal application state, endpoint names, request patterns, and infrastructure details. It must not be exposed to the public internet or the external API Gateway.
+When `PROMETHEUS_ENABLED` is true locally, the `/metrics` endpoint exposes
+internal application state, endpoint names, request patterns, and infrastructure
+details. It must not be exposed to the public internet or the external API
+Gateway. In production the endpoint is not registered.
 
 | Control                | Implementation                                                                                  |
 | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| Network isolation      | Block `/metrics` at the API Gateway / load balancer level                                       |
-| Internal access only   | Accessible only by the internal Prometheus scraper                                              |
-| Cardinality protection | `handle_unhandled_paths=False` prevents high-cardinality metric explosion                       |
-| Path grouping          | `should_group_status_codes=True` and `should_ignore_untemplated=True` reduce metric cardinality |
+| Local-only Prometheus  | `PROMETHEUS_ENABLED` defaults to `False`; instrumentator is never imported on Lambda            |
+| EMF delivery           | stdout only; no network listener, no scraper, no Pushgateway                                    |
+| Cardinality protection | Route templates normalized to `{id}`; unmatched requests use `unmatched`                        |
+| PHI isolation          | Raw URL path segments are never used as CloudWatch dimensions                                   |
 
 **Risks of exposure**:
-- Endpoint enumeration: Attackers can discover internal API routes and naming conventions
-- Infrastructure fingerprinting: Response size, latency, and status code patterns reveal server architecture
-- Cardinality DoS: If dynamic paths like `/api/providers/{provider_id}/slots` are not grouped, unique metric series can exhaust Prometheus memory
+- Endpoint enumeration: if enabled locally and exposed, `/metrics` can reveal internal API routes and naming conventions
+- Infrastructure fingerprinting: metric metadata can reveal response patterns
+- Cardinality/cost DoS: using raw URL paths as dimensions would create a unique CloudWatch custom metric per ID and can leak PHI into indexed dimensions
 
 ### 5.3 Versioning Strategy
 

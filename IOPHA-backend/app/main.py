@@ -1,7 +1,12 @@
+import logging
+from typing import Any
+
+from aws_lambda_powertools import Metrics, single_metric
+from aws_lambda_powertools.metrics import MetricUnit
+from aws_lambda_powertools.metrics.provider import cold_start
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
-from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.controllers.booking import router as booking_router
 from app.controllers.intake import router as intake_router
@@ -10,8 +15,10 @@ from app.controllers.providers import router as providers_router
 from app.controllers.providers_search import router as providers_search_router
 from app.controllers.timeslots import router as timeslots_router
 from app.controllers.tips import router as tips_router
+from app.core.config import settings
 from app.core.logging_config import configure_structured_logging
 from app.exceptions.error_handlers import register_timeslot_error_handlers
+from app.middleware.metrics import MetricsMiddleware
 from app.middleware.tracking import RequestTrackingMiddleware
 from app.utils.handlers import ProblemAPIRoute, register_exception_handlers
 from app.utils.logging import CentralizedLoggingMiddleware
@@ -21,8 +28,19 @@ app = FastAPI(title="IOPHA Backend API", route_class=ProblemAPIRoute)
 register_exception_handlers(app)
 register_timeslot_error_handlers(app)
 
-logger = configure_structured_logging()
+logger = configure_structured_logging(
+    level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+)
+# Shared Powertools metrics registry. EMF JSON is written to stdout on flush;
+# the Lambda Runtime API ships it to CloudWatch Metrics automatically.
+metrics = Metrics(
+    namespace=settings.POWERTOOLS_METRICS_NAMESPACE,
+    service=settings.POWERTOOLS_SERVICE_NAME,
+)
 app.add_middleware(CentralizedLoggingMiddleware, logger=logger)
+# MetricsMiddleware runs inside RequestTrackingMiddleware so the correlation
+# id is bound for the request lifetime when metrics are recorded.
+app.add_middleware(MetricsMiddleware, metrics=metrics)
 app.add_middleware(RequestTrackingMiddleware)
 app.include_router(providers_router)
 app.include_router(providers_search_router)
@@ -32,21 +50,27 @@ app.include_router(nutrition_router)
 app.include_router(intake_router)
 app.include_router(booking_router)
 
-instrumentator = Instrumentator(
-    should_group_status_codes=True,
-    should_ignore_untemplated=True,
-    should_group_untemplated=True,
-    should_respect_env_var=False,
-    excluded_handlers=["/metrics"],
-)
+# Prometheus pull/scrape instrumentation is local-dev only. Lambda containers
+# are ephemeral (no persistent IP/port), so the /metrics endpoint is
+# unscrapable in production and stays disabled unless explicitly opted in.
+if settings.PROMETHEUS_ENABLED:
+    from prometheus_fastapi_instrumentator import Instrumentator
 
-instrumentator.instrument(app).expose(
-    app,
-    endpoint="/metrics",
-    should_gzip=True,
-    include_in_schema=False,
-    tags=["iopha_monitoring"],
-)
+    instrumentator = Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        should_group_untemplated=True,
+        should_respect_env_var=False,
+        excluded_handlers=["/metrics"],
+    )
+
+    instrumentator.instrument(app).expose(
+        app,
+        endpoint="/metrics",
+        should_gzip=True,
+        include_in_schema=False,
+        tags=["iopha_monitoring"],
+    )
 
 
 def _build_openapi() -> dict[str, object]:
@@ -276,4 +300,36 @@ def health() -> dict[str, str]:
 
 # AWS Lambda entry point. lifespan="off" prevents connection-pool exhaustion
 # when Lambda execution contexts freeze and thaw between invocations.
-handler = Mangum(app, lifespan="off")
+_mangum_handler = Mangum(app, lifespan="off")
+
+
+def _emit_cold_start_metric() -> None:
+    """Emit a one-off ``ColdStart`` EMF metric via Powertools ``single_metric``.
+
+    ``single_metric`` is dimension- and namespace-isolated from the shared
+    request-metrics registry, so the cold-start blob never interferes with
+    per-request flushes.
+    """
+    if not settings.METRICS_ENABLED:
+        return
+    with single_metric(
+        name="ColdStart",
+        unit=MetricUnit.Count,
+        value=1,
+        namespace=settings.POWERTOOLS_METRICS_NAMESPACE,
+        default_dimensions={"service": settings.POWERTOOLS_SERVICE_NAME},
+    ):
+        pass
+
+
+def handler(event: dict[str, Any], context: Any) -> Any:
+    """Lambda entry point: Mangum wrapper plus cold-start metric emission.
+
+    Powertools tracks execution-environment initialization in
+    ``cold_start.is_cold_start``; the metric is emitted exactly once per
+    environment, on the first invocation.
+    """
+    if cold_start.is_cold_start:
+        cold_start.is_cold_start = False
+        _emit_cold_start_metric()
+    return _mangum_handler(event, context)

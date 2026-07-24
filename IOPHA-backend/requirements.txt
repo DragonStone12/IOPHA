@@ -5,13 +5,16 @@ fastapi>=0.104.0
 # Required for status.HTTP_422_UNPROCESSABLE_CONTENT (RFC 9110 rename added in starlette 0.48.0)
 starlette>=0.48.0
 uvicorn>=0.24.0
+# Gated behind PROMETHEUS_ENABLED (local dev only — Lambda cannot be scraped)
 prometheus-fastapi-instrumentator>=6.1.0
 pydantic>=2.0
+pydantic-settings>=2.0
+# Push-model metrics: EMF JSON to stdout, ingested by CloudWatch on Lambda
+aws-lambda-powertools>=3.0
 # ASGI-to-Lambda adapter for deploying the FastAPI app on AWS Lambda via API Gateway
 mangum==0.17.0
-python-json-logger>=2.0.0
 httpx>=0.25.0
-ruff>=0.4.0
+ruff>=0.16.0
 mypy>=1.9.0
 types-requests>=2.31.0
 types-setuptools>=69.0.0
