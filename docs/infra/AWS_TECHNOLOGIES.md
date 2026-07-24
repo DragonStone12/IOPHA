@@ -123,6 +123,7 @@ build pipeline and Lambda.
   `npm run build` → `dist/`) over HTTPS.
 - The frontend calls the backend through the API Gateway endpoint (§6); all
   API traffic is browser → API Gateway → Lambda, never direct to Lambda.
+- Deployed frontend URL: `https://main.d25f7ihio0gzb6.amplifyapp.com`
 
 ## 6. Amazon API Gateway
 
