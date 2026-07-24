@@ -1,7 +1,16 @@
+from dataclasses import dataclass
 from datetime import date
 
 from app.repositories.calendar_repository import TimeSlotRecord
 from app.schemas import ProviderRecord
+
+
+@dataclass
+class MockCalendarConfig:
+    reserve_succeeds: bool = True
+    raise_on_get_provider: type[Exception] | None = None
+    raise_on_get_slots: type[Exception] | None = None
+    raise_on_reserve: type[Exception] | None = None
 
 
 class MockCalendarService:
@@ -12,15 +21,13 @@ class MockCalendarService:
     touching any external calendar backend.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         slots: list[TimeSlotRecord] | None = None,
         provider: ProviderRecord | None = None,
-        reserve_succeeds: bool = True,
-        raise_on_get_provider: type[Exception] | None = None,
-        raise_on_get_slots: type[Exception] | None = None,
-        raise_on_reserve: type[Exception] | None = None,
+        config: MockCalendarConfig | None = None,
     ) -> None:
+        cfg = config or MockCalendarConfig()
         self._slots = slots or [
             TimeSlotRecord(
                 id=f"{date.today().isoformat()}-09:00 AM",
@@ -41,10 +48,10 @@ class MockCalendarService:
             facility=None,
             db_primary_key=1,
         )
-        self._reserve_succeeds = reserve_succeeds
-        self._raise_on_get_provider = raise_on_get_provider
-        self._raise_on_get_slots = raise_on_get_slots
-        self._raise_on_reserve = raise_on_reserve
+        self._reserve_succeeds = cfg.reserve_succeeds
+        self._raise_on_get_provider = cfg.raise_on_get_provider
+        self._raise_on_get_slots = cfg.raise_on_get_slots
+        self._raise_on_reserve = cfg.raise_on_reserve
         self._reserved: set[str] = set()
 
     @property

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_calendar_repository
 from app.main import app
-from tests.mocks.calendar_service import MockCalendarService
+from tests.mocks.calendar_service import MockCalendarConfig, MockCalendarService
 
 LEAK_MARKERS = (
     "Traceback",
@@ -148,7 +148,7 @@ class TestTimeSlotFullRequestFlow:
     ) -> None:
         cases = [
             (
-                MockCalendarService(reserve_succeeds=False),
+                MockCalendarService(config=MockCalendarConfig(reserve_succeeds=False)),
                 "post",
                 "/api/providers/prov-123/slots/2024-01-15-09:00 AM/reserve",
                 409,
@@ -231,7 +231,7 @@ class TestTimeSlotFullRequestFlow:
     def test_raise_server_exceptions_false_returns_rfc7807(
         self, log_records: list[logging.LogRecord]
     ) -> None:
-        mock = MockCalendarService(reserve_succeeds=False)
+        mock = MockCalendarService(config=MockCalendarConfig(reserve_succeeds=False))
         _apply_mock(mock)
         try:
             with TestClient(app, raise_server_exceptions=False) as client:

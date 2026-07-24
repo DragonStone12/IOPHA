@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_calendar_repository
 from app.main import app
-from tests.mocks.calendar_service import MockCalendarService
+from tests.mocks.calendar_service import MockCalendarConfig, MockCalendarService
 
 LEAK_MARKERS = (
     "Traceback",
@@ -43,7 +43,7 @@ def log_records() -> Generator[list[logging.LogRecord], None, None]:
 
 class TestTimeSlotUnavailableException:
     def test_returns_409_with_rfc7807_body(self) -> None:
-        mock = MockCalendarService(reserve_succeeds=False)
+        mock = MockCalendarService(config=MockCalendarConfig(reserve_succeeds=False))
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             request_id = "123e4567-e89b-12d3-a456-426614174000"
@@ -66,7 +66,7 @@ class TestTimeSlotUnavailableException:
             app.dependency_overrides.pop(get_calendar_repository, None)
 
     def test_response_contains_no_leaked_data(self) -> None:
-        mock = MockCalendarService(reserve_succeeds=False)
+        mock = MockCalendarService(config=MockCalendarConfig(reserve_succeeds=False))
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             with TestClient(app) as client:
@@ -81,7 +81,7 @@ class TestTimeSlotUnavailableException:
     def test_logs_structured_context(
         self, log_records: list[logging.LogRecord]
     ) -> None:
-        mock = MockCalendarService(reserve_succeeds=False)
+        mock = MockCalendarService(config=MockCalendarConfig(reserve_succeeds=False))
         app.dependency_overrides[get_calendar_repository] = lambda: mock
         try:
             with TestClient(app) as client:

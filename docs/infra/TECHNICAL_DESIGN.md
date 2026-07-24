@@ -122,6 +122,62 @@ Strategy:
 - DNS lookup, TCP connection, TTFB, DOM interactive, DOM loaded, load complete
 - First Paint, First Contentful Paint via Paint Timing API
 
+### 2.5 API Error Handling & Toast Infrastructure
+
+All HTTP calls go through a centralized fetch wrapper `apiFetch` in
+`src/utils/api.ts`. No component calls `fetch` directly.
+
+**RFC-7807 ProblemDetail Architecture**:
+
+- `ProblemDetailError` is the only error type the API layer exposes to callers.
+- `apiFetch` attaches a fresh UUID `X-Request-ID` header to every request.
+- On non-OK responses, `apiFetch` parses the body for a `ProblemDetail` payload.
+  If the body is malformed (HTML gateway error, empty response), it synthesizes
+  a fallback `ProblemDetailError` from the HTTP status code:
+  - Network/CORS/DNS → `status: 0`, `title: "Network Unreachable"`
+  - API Gateway 5xx (non-JSON) → `status` from response, `title: "Service Unavailable"`
+  - Malformed JSON → `status` from response, `title: "Unexpected Error"`
+- The error carries `title`, `status`, `detail`, `instance`, `help_url`, and
+  `requestId` fields.
+
+**Global React-Query Error Handlers**:
+
+- `QueryProvider.tsx` installs `onError` fallbacks on both queries and mutations
+  at the `QueryClient` default-options level. These handlers catch anything a
+  component forgot to handle and forward `ProblemDetailError` instances to the
+  toast dispatcher.
+
+**Toast Dispatch & Deduplication**:
+
+- `src/utils/toastDispatcher.ts` is the single dispatcher module for all UI
+  notifications. It wraps `react-toastify`'s imperative `toast()` API.
+- Deduplication uses `toastId = kebab(title) + instance`. Because
+  react-toastify ignores a second `toast()` call with an already-displayed ID,
+  identical failures within the toast's lifetime produce no duplicates.
+- Severity derives from the error's `status` class, with per-`title` overrides
+  (e.g. `Search Aggregator Timeout` → `warning`, `Notification Gateway Timeout`
+  → `info`).
+- Persistence maps status class to `autoClose`: warnings auto-dismiss after
+  5000ms; errors persist (`autoClose: false`) until dismissed or resolved.
+- Placement routes toasts by `containerId` — `chat` for chat-surface errors,
+  `top-right` for appointment and global screens.
+
+**Dual-Container React-Toastify Strategy**:
+
+- The app root mounts a `<ToastContainer containerId="top-right">` with
+  defaults (`newestOnTop`, `limit: 3`).
+- `ChatArea.tsx` renders an inline `<ToastContainer containerId="chat"
+  position="bottom-center">` under the chat input box. Warnings auto-dismiss;
+  errors use `autoClose: false`. The container never overlays the message thread
+  or blocks typing.
+- Both containers are fed by the same dispatcher; placement is a `containerId`
+  route, not a second notification system.
+
+**Error Boundary Integration**:
+
+- `AppErrorBoundary.tsx` dispatches a `ProblemDetailError` toast for non-API
+  render faults. API errors never reach the boundary.
+
 ## 3. Backend Implementation Details
 
 ### 3.1 Data Access & Persistence

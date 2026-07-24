@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../types/query-keys";
+import { apiFetch } from "../utils/api";
 
 export interface User {
   id: number;
@@ -9,11 +10,7 @@ export interface User {
 }
 
 async function fetchUser(): Promise<User> {
-  const response = await fetch("/api/user");
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-  return response.json();
+  return apiFetch<User>("/api/user");
 }
 
 export function useUser() {
