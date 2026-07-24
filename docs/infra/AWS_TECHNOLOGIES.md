@@ -15,13 +15,14 @@ substitute your own account ID where `<aws-account-id>` appears.
 | 4   | [AWS IAM](#4-aws-identity-and-access-management)  | Deploy credentials and access control                    |
 | 5   | [AWS Amplify](#5-aws-amplify)                     | Frontend hosting                                         |
 | 6   | [Amazon API Gateway](#6-amazon-api-gateway)       | Public API entry point                                   |
-| 7   | [Deployment Flows](#7-deployment-flows)           | Manual (`push-to-ecr.sh`) and CI (GitHub Actions)        |
-| 8   | [Planned Services](#8-planned-services)           | Confirmed/pending services not yet deployed              |
-| 9   | [Related Documentation](#9-related-documentation) | Cross-references                                         |
+| 7   | [Amazon CloudWatch](#7-amazon-cloudwatch)         | Metrics and logs ingestion                               |
+| 8   | [Deployment Flows](#8-deployment-flows)           | Manual (`push-to-ecr.sh`) and CI (GitHub Actions)        |
+| 9   | [Planned Services](#9-planned-services)           | Confirmed/pending services not yet deployed              |
+| 10  | [Related Documentation](#10-related-documentation) | Cross-references                                         |
 
 ## 1. Overview
 
-The deployed AWS footprint (visible in the account console) consists of five
+The deployed AWS footprint (visible in the account console) consists of six
 services:
 
 ```mermaid
@@ -32,6 +33,7 @@ graph TD
     ECR[ECR — iopha-backend] -->|Image pull| Lambda
     IAM[IAM — github-actions-deployer] -->|Push images| ECR
     IAM -->|update-function-code| Lambda
+    Lambda -->|EMF JSON stdout| CW[CloudWatch — Metrics & Logs]
 ```
 
 ## 2. AWS Lambda
@@ -136,11 +138,32 @@ build pipeline and Lambda.
 - Fronts the Lambda function with a stable public HTTPS URL and forwards
   client requests to it (proxy integration).
 - This is the layer responsible for blocking internal endpoints from public
-  access — notably `/metrics`, which must be reachable only by the internal
-  Prometheus scraper (see
+  access. The production Lambda function does not expose a `/metrics`
+  endpoint; Prometheus instrumentation is gated behind `PROMETHEUS_ENABLED` and
+  used for local development only (see
   [TECHNICAL_DESIGN.md §5.2](TECHNICAL_DESIGN.md)).
 
-## 7. Deployment Flows
+## 7. Amazon CloudWatch
+
+**Role:** metrics and logs ingestion for the backend.
+
+| Setting  | Value |
+| -------- | ---------------------------------------------------------------- |
+| Services | CloudWatch Logs, CloudWatch Metrics |
+| Source   | `IOPHA-backend` Lambda function stdout |
+
+**How it is used:**
+
+- The Lambda function emits structured JSON logs and Embedded Metric Format
+  (EMF) JSON blobs to stdout via `CentralizedLoggingMiddleware` and
+  `MetricsMiddleware`.
+- The Lambda Runtime automatically extracts EMF JSON and publishes the
+  corresponding metrics to CloudWatch Metrics under the
+  `IOPHA/Backend` namespace.
+- No Pushgateway, sidecar, or additional IAM permissions are required; metric
+  delivery is handled by the Lambda Runtime.
+
+## 8. Deployment Flows
 
 **Manual (local machine):**
 
@@ -160,7 +183,7 @@ triggered by pushes to `release/**` or manual dispatch.
    pushes `iopha-backend:<git-sha>`, then runs
    `aws lambda update-function-code --function-name IOPHA-backend --image-uri <uri>`.
 
-## 8. Planned Services
+## 9. Planned Services
 
 Confirmed or pending in [ARCHITECTURE.md §4](ARCHITECTURE.md) but not yet
 deployed:
@@ -173,7 +196,7 @@ deployed:
 | EventBridge → Lambda     | Confirmed        | Ingestion pipeline triggers on S3 uploads      |
 | RDS PostgreSQL + pgvector | Decision pending | Vector similarity search (alternatives: Neon, Supabase) |
 
-## 9. Related Documentation
+## 10. Related Documentation
 
 - [Architecture](ARCHITECTURE.md) — high-level design, trust boundaries, data flows
 - [Technical Design](TECHNICAL_DESIGN.md) — low-level design, CI/CD details (§5)

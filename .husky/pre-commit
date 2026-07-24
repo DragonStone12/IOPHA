@@ -19,8 +19,9 @@ if [ -n "$BACKEND_STAGED" ]; then
 
   if [ -n "$PYTHON_STAGED" ]; then
     if ! RUFF=$(resolve_ruff); then
-      echo "husky/pre-commit: 'ruff' not found on PATH or in ./venv."
-      echo "Install it (e.g. 'pip install ruff') and retry, or use 'git commit --no-verify' only if you know why."
+      echo "husky/pre-commit: 'ruff' not found in IOPHA-backend/venv/bin or venv/bin."
+      echo "Install it in the project virtualenv (e.g. 'pip install ruff') and retry."
+      echo "Never use 'git commit --no-verify' to bypass these checks."
       exit 1
     fi
 
