@@ -19,13 +19,27 @@ const queryClient = new QueryClient({
 
 queryClient.getQueryCache().config.onError = (error) => {
   if (error instanceof ProblemDetailError) {
-    dispatchError(error, "top-right");
+    dispatchError(error);
+  } else {
+    const message = error instanceof Error ? error.message : String(error);
+    dispatchError(
+      new ProblemDetailError(
+        { status: 500, title: "Internal Server Error", detail: message },
+      ),
+    );
   }
 };
 
 queryClient.getMutationCache().config.onError = (error) => {
   if (error instanceof ProblemDetailError) {
-    dispatchError(error, "top-right");
+    dispatchError(error);
+  } else {
+    const message = error instanceof Error ? error.message : String(error);
+    dispatchError(
+      new ProblemDetailError(
+        { status: 500, title: "Internal Server Error", detail: message },
+      ),
+    );
   }
 };
 

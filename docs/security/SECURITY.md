@@ -9,15 +9,15 @@
 | 3   | [Static Application Security Testing](#static-application-security-testing)      | ESLint security plugins, SARIF integration, CI enforcement |
 | 4   | [Dependency & Supply-Chain Security](#dependency--supply-chain-security)         | `npm audit`, pre-push hooks, CI audit                      |
 | 5   | [Kilo AI Code Reviews & Security Agent](#kilo-ai-code-reviews--security-agent)   | AI-powered PR reviews, Dependabot triage, auto-remediation |
-| 6   | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows)                | Booking form, logging, and transport security              |
+| 6   | [PII Handling in Frontend Flows](#pii-handling-in-frontend-flows)                | Booking form and transport security              |
 | 7   | [Compliance & Regulatory](#compliance--regulatory)                               | HIPAA, TLS, and audit requirements                         |
 | 8   | [Structured JSON Logging Compliance](#structured-json-logging-compliance)       | PHI prevention, aggregation security, audit trail         |
 | 9   | [Provider Discovery API Security](#provider-discovery-api-security)            | Search schema validation, mock-object isolation, timeout error hygiene |
 | 10  | [Sensitive Data Handling](SENSITIVE_DATA_HANDLING.md)                            | PHI/PII redaction architecture, credential scrubbing, and PHIScrubber idempotency fix |
-| 10  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
-| 11  | [Booking Orchestration API Security](#booking-orchestration-api-security)        | Composite booking payload validation and PII logging rules |
-| 12  | [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)            | Monorepo split deployment, IAM least-privilege, CORS, secret management |
-| 13  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
+| 11  | [Input Validation](INPUT_VALIDATION.md)                                          | API schema payload limits and DoS prevention               |
+| 12  | [Booking Orchestration API Security](#booking-orchestration-api-security)        | Composite booking payload validation and PII logging rules |
+| 13  | [CI/CD & Cloud Deployment Security](#cicd--cloud-deployment-security)            | Monorepo split deployment, IAM least-privilege, CORS, secret management |
+| 14  | [Quick Reference](#quick-reference)                                              | Commands and links                                         |
 
 ## Overview
 
@@ -318,22 +318,6 @@ The booking confirmation form collects Name, Email, and Phone. Security controls
 - User health data sent to the RAG engine is transmitted over encrypted channels.
 - LLM responses are sanitized before rendering to prevent injection.
 - Chat history is stored server-side with encryption at rest.
-
-### API Error Logging & Toast Privacy
-
-The centralized fetch wrapper and toast dispatcher enforce strict privacy rules
-for API error visibility and logging:
-
-- Toast messages render exclusively from the backend-provided `detail` field.
-  The frontend never interpolates request payloads, form values, or patient data
-  into toast text.
-- `logger.ts` API failure entries record only `title`, `status`, `instance`, and
-  `X-Request-ID`. The `detail` field is never logged in combination with request
-  payloads or response bodies.
-- `400` and `422` errors log at `warn` level (client fault); `5xx` errors log at
-  `error` level (system fault).
-- The request id shown in `5xx` toasts is the same UUID sent as `X-Request-ID`,
-  giving support a CloudWatch lookup key without exposing PHI.
 
 ## Compliance & Regulatory
 

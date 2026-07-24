@@ -42,9 +42,7 @@ export function AppErrorBoundary({
       dispatchError(
         new ProblemDetailError(
           { status: 500, title: "Internal Server Error", detail: errorMessage },
-          undefined,
         ),
-        "top-right",
       );
     }
 

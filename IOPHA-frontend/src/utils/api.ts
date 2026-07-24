@@ -1,3 +1,5 @@
+import Logger from "./logger";
+
 export interface ProblemDetail {
   title?: string;
   status?: number;
@@ -64,24 +66,6 @@ export function getAutoClose(error: ProblemDetailError): number | false {
   return 5000;
 }
 
-export function getPlacement(error: ProblemDetailError): "chat" | "top-right" {
-  const chatTitles = new Set([
-    "Nutrition Evaluation Error",
-    "Search Aggregator Timeout",
-    "WebSocket Connection Drop",
-    "Payload Too Large",
-    "Notification Gateway Timeout",
-    "Out of Order Message Delivery",
-    "Unread Notification Inconsistency",
-  ]);
-
-  if (chatTitles.has(error.title)) {
-    return "chat";
-  }
-
-  return "top-right";
-}
-
 export async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
   const requestId = crypto.randomUUID();
   const headers = new Headers(options.headers);
@@ -94,6 +78,9 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
     });
 
     if (response.ok) {
+      if (response.status === 204) {
+        return undefined as unknown as T;
+      }
       return response.json();
     }
 
@@ -134,8 +121,21 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
     );
   } catch (error) {
     if (error instanceof ProblemDetailError) {
+      Logger.apiFailure({
+        title: error.title,
+        status: error.status,
+        instance: error.instance,
+        requestId: error.requestId,
+      });
       throw error;
     }
+
+    Logger.apiFailure({
+      title: "Network Unreachable",
+      status: 0,
+      instance: "",
+      requestId,
+    });
 
     throw new ProblemDetailError({ status: 0, title: "Network Unreachable" }, requestId);
   }
